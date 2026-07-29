@@ -1,0 +1,4 @@
+#Tue Jul 28 17:38:46 GMT+03:30 2026
+base.0=E\:\\PersonalTimeTracker\\app\\build\\intermediates\\dex\\debugAndroidTest\\mergeProjectDexDebugAndroidTest\\0\\classes.dex
+path.0=0/classes.dex
+renamed.0=classes.dex

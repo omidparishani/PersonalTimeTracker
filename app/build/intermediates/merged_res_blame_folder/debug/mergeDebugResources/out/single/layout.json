@@ -1,0 +1,10 @@
+[
+    {
+        "merged": "com.personal.timetracker.app-mergeDebugResources-56:/layout/widget_work.xml",
+        "source": "com.personal.timetracker.app-main-59:/layout/widget_work.xml"
+    },
+    {
+        "merged": "com.personal.timetracker.app-mergeDebugResources-56:/layout/activity_main.xml",
+        "source": "com.personal.timetracker.app-main-59:/layout/activity_main.xml"
+    }
+]

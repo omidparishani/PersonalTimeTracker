@@ -1,0 +1,38 @@
+[
+    {
+        "merged": "com.personal.timetracker.app-debug-57:/drawable_ic_launcher_foreground.xml.flat",
+        "source": "com.personal.timetracker.app-main-59:/drawable/ic_launcher_foreground.xml"
+    },
+    {
+        "merged": "com.personal.timetracker.app-debug-57:/color_bottom_nav_color.xml.flat",
+        "source": "com.personal.timetracker.app-main-59:/color/bottom_nav_color.xml"
+    },
+    {
+        "merged": "com.personal.timetracker.app-debug-57:/xml_widget_work_info.xml.flat",
+        "source": "com.personal.timetracker.app-main-59:/xml/widget_work_info.xml"
+    },
+    {
+        "merged": "com.personal.timetracker.app-debug-57:/xml_file_paths.xml.flat",
+        "source": "com.personal.timetracker.app-main-59:/xml/file_paths.xml"
+    },
+    {
+        "merged": "com.personal.timetracker.app-debug-57:/layout_widget_work.xml.flat",
+        "source": "com.personal.timetracker.app-main-59:/layout/widget_work.xml"
+    },
+    {
+        "merged": "com.personal.timetracker.app-debug-57:/menu_bottom_nav.xml.flat",
+        "source": "com.personal.timetracker.app-main-59:/menu/bottom_nav.xml"
+    },
+    {
+        "merged": "com.personal.timetracker.app-debug-57:/layout_activity_main.xml.flat",
+        "source": "com.personal.timetracker.app-main-59:/layout/activity_main.xml"
+    },
+    {
+        "merged": "com.personal.timetracker.app-debug-57:/mipmap-anydpi-v26_ic_launcher.xml.flat",
+        "source": "com.personal.timetracker.app-main-59:/mipmap-anydpi-v26/ic_launcher.xml"
+    },
+    {
+        "merged": "com.personal.timetracker.app-debug-57:/drawable_ic_launcher.xml.flat",
+        "source": "com.personal.timetracker.app-main-59:/drawable/ic_launcher.xml"
+    }
+]
