@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">ردیاب زمان شخصی</string>
+    <string name="app_name">مدیریت زمان شخصی</string>
     <string name="nav_dashboard">داشبورد</string>
     <string name="nav_attendance">حضور</string>
     <string name="nav_tasks">تسک‌ها</string>

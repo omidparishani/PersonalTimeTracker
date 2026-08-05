@@ -94,27 +94,54 @@ object TimeUtils {
         return try {
             val d = parseDate(dateStr)
             val j = toJalali(d)
-            val cal = Calendar.getInstance().apply { time = d }
-            val wd = weekDays[cal.get(Calendar.DAY_OF_WEEK) - 1]
+
+            val wdIndex = weekdayJalali(
+                j[0],
+                j[1],
+                j[2]
+            )
+
+            val wd = when (wdIndex) {
+                0 -> "شنبه"
+                1 -> "یکشنبه"
+                2 -> "دوشنبه"
+                3 -> "سه‌شنبه"
+                4 -> "چهارشنبه"
+                5 -> "پنجشنبه"
+                6 -> "جمعه"
+                else -> ""
+            }
+
             "$wd، ${j[2]} ${months[j[1] - 1]} ${j[0]}"
+
         } catch (_: Exception) {
             dateStr
         }
     }
 
-    fun startOfWeek(): String {
-        val c = Calendar.getInstance()
-        val day = c.get(Calendar.DAY_OF_WEEK) // 1=Sun
-        // Saturday as first day of week in Iran: Sat=7 in Calendar
-        val diff = (day + 1) % 7 // days since Saturday
-        c.add(Calendar.DAY_OF_MONTH, -diff)
+    fun startOfWeek(date: Date = Date()): String {
+        val c = Calendar.getInstance().apply {
+            time = date
+        }
+
+        // شنبه=0 ، یکشنبه=1 ... جمعه=6
+        val weekday = (c.get(Calendar.DAY_OF_WEEK) + 1) % 7
+
+        c.add(Calendar.DAY_OF_MONTH, -weekday)
+
         return dateFmt.format(c.time)
     }
 
-    fun startOfMonth(): String {
-        val c = Calendar.getInstance()
-        c.set(Calendar.DAY_OF_MONTH, 1)
-        return dateFmt.format(c.time)
+    fun startOfMonth(date: Date = Date()): String {
+        val j = toJalali(date)
+
+        val firstDay = fromJalali(
+            j[0],
+            j[1],
+            1
+        )
+
+        return dateFmt.format(firstDay)
     }
 
 
@@ -197,9 +224,42 @@ object TimeUtils {
     ).getOrElse(jm) { "" }
 
     fun weekdayJalali(jy: Int, jm: Int, jd: Int): Int {
-        val d = fromJalali(jy, jm, jd)
-        val c = java.util.Calendar.getInstance().apply { time = d }
-        // Calendar.SUNDAY=1 ... convert to Sat=0
-        return (c.get(java.util.Calendar.DAY_OF_WEEK) % 7)
+
+        val date = fromJalali(jy, jm, jd)
+
+        val cal = Calendar.getInstance().apply {
+            time = date
+            add(Calendar.DAY_OF_MONTH, -1)
+        }
+
+        return when (cal.get(Calendar.DAY_OF_WEEK)) {
+            Calendar.SATURDAY -> 0
+            Calendar.SUNDAY -> 1
+            Calendar.MONDAY -> 2
+            Calendar.TUESDAY -> 3
+            Calendar.WEDNESDAY -> 4
+            Calendar.THURSDAY -> 5
+            Calendar.FRIDAY -> 6
+            else -> 0
+        }
+    }
+
+    fun isWeekend(dateStr: String): Boolean {
+        return try {
+            val d = parseDate(dateStr)
+            val j = toJalali(d)
+
+            val weekday = weekdayJalali(
+                j[0],
+                j[1],
+                j[2]
+            )
+
+            // 5 = پنجشنبه ، 6 = جمعه
+            weekday == 5 || weekday == 6
+
+        } catch (_: Exception) {
+            false
+        }
     }
 }

@@ -27,6 +27,10 @@ import java.util.Calendar
 
 class AttendanceFragment : Fragment() {
     private lateinit var listContainer: LinearLayout
+    private lateinit var titleText: TextView
+    private var selectedDate = TimeUtils.today()
+
+    private fun primary() = (activity as? MainActivity)?.primaryColor ?: 0xFF1565C0.toInt()
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -64,16 +68,64 @@ class AttendanceFragment : Fragment() {
         btnRow.addView(btnIn)
         btnRow.addView(btnOut)
         root.addView(btnRow)
+
         val primary = (activity as? MainActivity)?.primaryColor ?: 0xFF1565C0.toInt()
+
+        val btnDate = MaterialButton(
+            ctx,
+            null,
+            com.google.android.material.R.attr.materialButtonOutlinedStyle
+        ).apply {
+
+            text = "انتخاب تاریخ"
+
+            ThemeHelper.applyButton(
+                this,
+                primary,
+                false
+            )
+
+            setOnClickListener {
+
+                val cal = Calendar.getInstance()
+
+                DatePickerDialog(
+                    ctx,
+                    { _, y, m, d ->
+
+                        selectedDate =
+                            "%04d-%02d-%02d".format(
+                                y,
+                                m + 1,
+                                d
+                            )
+
+                        updateTitle()
+
+                        loadAttendance()
+
+                    },
+                    cal.get(Calendar.YEAR),
+                    cal.get(Calendar.MONTH),
+                    cal.get(Calendar.DAY_OF_MONTH)
+                ).show()
+
+            }
+
+        }
+
+        root.addView(btnDate)
+
         ThemeHelper.applyButton(btnIn, primary, true)
         ThemeHelper.applyButton(btnOut, primary, false)
         root.setBackgroundColor(ThemeHelper.surface((activity as? MainActivity)?.isDark == true))
 
-        root.addView(TextView(ctx).apply {
-            text = "ترددهای امروز (" + TimeUtils.toJalaliShort() + ")"
+        titleText = TextView(ctx).apply {
             textSize = 16f
             setPadding(0, 24, 0, 8)
-        })
+        }
+
+        root.addView(titleText)
 
         listContainer = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL }
         val scroll = android.widget.ScrollView(ctx).apply {
@@ -84,95 +136,204 @@ class AttendanceFragment : Fragment() {
         }
         root.addView(scroll)
 
-        root.addView(MaterialButton(ctx).apply {
-            text = "ثبت تردد (تاریخ دلخواه)"
-            setOnClickListener { showForm(null) }
-        })
+        val addBtn = MaterialButton(ctx).apply { text = "ثبت تردد (تاریخ دلخواه)" }
+        ThemeHelper.applyButton(addBtn, primary(), true)
+        addBtn.setOnClickListener { showForm(null) }
+        root.addView(addBtn)
+
+        updateTitle()
+
+        loadAttendance()
+
+        return root
+    }
+
+    private fun updateTitle() {
+
+        titleText.text =
+            "ترددهای ${TimeUtils.toJalaliDisplay(selectedDate)}"
+
+    }
+
+    private fun loadAttendance() {
+
+        val repo =
+            (requireActivity().application as App).repository
 
         viewLifecycleOwner.lifecycleScope.launch {
-            repo.observeToday().collectLatest { list ->
-                listContainer.removeAllViews()
-                if (list.isEmpty()) {
-                    listContainer.addView(TextView(ctx).apply { text = "ترددی ثبت نشده" })
-                } else {
-                    list.forEach { item ->
-                        val card = MaterialCardView(ctx).apply {
-                            radius = 18f
-                            cardElevation = 4f
-                            setContentPadding(20, 16, 20, 16)
-                        }
-                        val tv = TextView(ctx).apply {
-                            text = buildString {
-                                if (item.exitTime != null) {
-                                    append(item.entryTime)
-                                    append(" → ")
-                                    append(item.exitTime)
-                                } else {
-                                    append(item.entryTime)
-                                    append(" (فعال)")
-                                }
-                                append('\n')
-                                append("مدت: ")
-                                append(TimeUtils.formatDuration(item.duration))
-                                if (item.leaveDuration > 0) {
-                                    append(" | مرخصی: ")
-                                    append(TimeUtils.formatDuration(item.leaveDuration))
-                                }
-                            }
-                            setOnClickListener { showForm(item) }
-                            setOnLongClickListener {
-                                AlertDialog.Builder(ctx)
-                                    .setTitle("حذف تردد")
-                                    .setMessage("حذف شود؟")
-                                    .setPositiveButton("حذف") { _, _ ->
-                                        lifecycleScope.launch { repo.deleteAttendance(item) }
-                                    }
-                                    .setNegativeButton("انصراف", null)
-                                    .show()
-                                true
-                            }
-                        }
-                        val box = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL }
-                        box.addView(tv)
-                        val actions = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL }
-                        val primary = (activity as? MainActivity)?.primaryColor ?: 0xFF1565C0.toInt()
-                        val editBtn = MaterialButton(ctx, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
-                            text = "ویرایش"
-                            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { marginEnd = 8 }
-                            ThemeHelper.applyButton(this, primary, false)
-                            setOnClickListener { showForm(item) }
-                        }
-                        val delBtn = MaterialButton(ctx, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
-                            text = "حذف"
-                            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-                            ThemeHelper.applyButton(this, primary, false)
-                            setOnClickListener {
-                                AlertDialog.Builder(ctx)
-                                    .setTitle("حذف تردد")
-                                    .setMessage("این تردد حذف شود؟")
-                                    .setPositiveButton("حذف") { _, _ ->
-                                        lifecycleScope.launch { repo.deleteAttendance(item) }
-                                    }
-                                    .setNegativeButton("انصراف", null)
-                                    .show()
-                            }
-                        }
-                        actions.addView(editBtn)
-                        actions.addView(delBtn)
-                        box.addView(actions)
-                        card.addView(box)
-                        listContainer.addView(
-                            card,
-                            LinearLayout.LayoutParams(
-                                LinearLayout.LayoutParams.MATCH_PARENT,
-                                LinearLayout.LayoutParams.WRAP_CONTENT
-                            ).apply { bottomMargin = 12 }
-                        )
-                    }
-                }
+
+            repo.observeAttendance(selectedDate).collectLatest { list ->
+
+                renderAttendance(list)
+
             }
+
         }
-        return root
+
+    }
+
+    private fun renderAttendance(
+        list: List<AttendanceEntity>
+    ) {
+
+        val ctx = requireContext()
+
+        listContainer.removeAllViews()
+
+        if (list.isEmpty()) {
+
+            listContainer.addView(
+                TextView(ctx).apply {
+                    text = "ترددی ثبت نشده"
+                }
+            )
+
+            return
+        }
+
+        list.forEach { item ->
+
+            val card = MaterialCardView(ctx).apply {
+                radius = 18f
+                cardElevation = 4f
+                setContentPadding(20, 16, 20, 16)
+            }
+
+            val box = LinearLayout(ctx).apply {
+                orientation = LinearLayout.VERTICAL
+            }
+
+            val tv = TextView(ctx).apply {
+
+                text = buildString {
+
+                    if (item.exitTime != null) {
+
+                        append(item.entryTime)
+                        append(" → ")
+                        append(item.exitTime)
+
+                    } else {
+
+                        append(item.entryTime)
+                        append(" (فعال)")
+
+                    }
+
+                    append("\n")
+
+                    append("مدت: ")
+                    append(TimeUtils.formatDuration(item.duration))
+
+                    if (item.leaveDuration > 0) {
+
+                        append(" | مرخصی: ")
+                        append(TimeUtils.formatDuration(item.leaveDuration))
+
+                    }
+
+                }
+
+            }
+
+            box.addView(tv)
+
+            val actions = LinearLayout(ctx).apply {
+                orientation = LinearLayout.HORIZONTAL
+            }
+
+            val primary =
+                (activity as? MainActivity)?.primaryColor
+                    ?: 0xFF1565C0.toInt()
+
+            val edit =
+                MaterialButton(
+                    ctx,
+                    null,
+                    com.google.android.material.R.attr.materialButtonOutlinedStyle
+                ).apply {
+
+                    text = "ویرایش"
+
+                    layoutParams =
+                        LinearLayout.LayoutParams(
+                            0,
+                            LinearLayout.LayoutParams.WRAP_CONTENT,
+                            1f
+                        ).apply {
+                            marginEnd = 8
+                        }
+
+                    ThemeHelper.applyButton(
+                        this,
+                        primary,
+                        false
+                    )
+
+                    setOnClickListener {
+
+                        showForm(item)
+
+                    }
+
+                }
+
+            val delete =
+                MaterialButton(
+                    ctx,
+                    null,
+                    com.google.android.material.R.attr.materialButtonOutlinedStyle
+                ).apply {
+
+                    text = "حذف"
+
+                    layoutParams =
+                        LinearLayout.LayoutParams(
+                            0,
+                            LinearLayout.LayoutParams.WRAP_CONTENT,
+                            1f
+                        )
+
+                    ThemeHelper.applyButton(
+                        this,
+                        primary,
+                        false
+                    )
+
+                    setOnClickListener {
+
+                        AlertDialog.Builder(ctx)
+                            .setTitle("حذف تردد")
+                            .setMessage("این تردد حذف شود؟")
+                            .setPositiveButton("حذف") { _, _ ->
+
+                                lifecycleScope.launch {
+
+                                    (requireActivity().application as App)
+                                        .repository
+                                        .deleteAttendance(item)
+
+                                }
+
+                            }
+                            .setNegativeButton("انصراف", null)
+                            .show()
+
+                    }
+
+                }
+
+            actions.addView(edit)
+            actions.addView(delete)
+
+            box.addView(actions)
+
+            card.addView(box)
+
+            listContainer.addView(card)
+
+        }
+
     }
 
     private fun showForm(existing: AttendanceEntity?) {

@@ -194,8 +194,13 @@ public final class AttendanceDao_Impl implements AttendanceDao {
   }
 
   @Override
-  public Flow<List<AttendanceEntity>> getByDate(final String date) {
-    final String _sql = "SELECT * FROM attendance WHERE date = ? ORDER BY entryTime ASC";
+  public Flow<List<AttendanceEntity>> observeByDate(final String date) {
+    final String _sql = "\n"
+            + "        SELECT *\n"
+            + "        FROM attendance\n"
+            + "        WHERE date = ?\n"
+            + "        ORDER BY entryTime ASC\n"
+            + "    ";
     final RoomSQLiteQuery _statement = RoomSQLiteQuery.acquire(_sql, 1);
     int _argIndex = 1;
     _statement.bindString(_argIndex, date);
@@ -252,7 +257,12 @@ public final class AttendanceDao_Impl implements AttendanceDao {
   @Override
   public Object getByDateOnce(final String date,
       final Continuation<? super List<AttendanceEntity>> $completion) {
-    final String _sql = "SELECT * FROM attendance WHERE date = ? ORDER BY entryTime ASC";
+    final String _sql = "\n"
+            + "        SELECT *\n"
+            + "        FROM attendance\n"
+            + "        WHERE date = ?\n"
+            + "        ORDER BY entryTime ASC\n"
+            + "    ";
     final RoomSQLiteQuery _statement = RoomSQLiteQuery.acquire(_sql, 1);
     int _argIndex = 1;
     _statement.bindString(_argIndex, date);

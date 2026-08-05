@@ -1,4 +1,4 @@
-com.personal.timetracker.test.app-androidTest-0 E:\PersonalTimeTracker\app\build\generated\res\resValues\androidTest\debug
-com.personal.timetracker.test.app-mergeDebugAndroidTestResources-1 E:\PersonalTimeTracker\app\build\intermediates\incremental\debugAndroidTest\mergeDebugAndroidTestResources\merged.dir
-com.personal.timetracker.test.app-mergeDebugAndroidTestResources-2 E:\PersonalTimeTracker\app\build\intermediates\incremental\debugAndroidTest\mergeDebugAndroidTestResources\stripped.dir
-com.personal.timetracker.test.app-debugAndroidTest-3 E:\PersonalTimeTracker\app\build\intermediates\merged_res\debugAndroidTest\mergeDebugAndroidTestResources
+com.personal.timetracker.test.app-androidTest-0 E:\Kotlin\PersonalTimeTracker\app\build\generated\res\resValues\androidTest\debug
+com.personal.timetracker.test.app-mergeDebugAndroidTestResources-1 E:\Kotlin\PersonalTimeTracker\app\build\intermediates\incremental\debugAndroidTest\mergeDebugAndroidTestResources\merged.dir
+com.personal.timetracker.test.app-mergeDebugAndroidTestResources-2 E:\Kotlin\PersonalTimeTracker\app\build\intermediates\incremental\debugAndroidTest\mergeDebugAndroidTestResources\stripped.dir
+com.personal.timetracker.test.app-debugAndroidTest-3 E:\Kotlin\PersonalTimeTracker\app\build\intermediates\merged_res\debugAndroidTest\mergeDebugAndroidTestResources

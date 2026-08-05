@@ -35,7 +35,11 @@ class CalendarFragment : Fragment() {
     private fun primary() = (activity as? MainActivity)?.primaryColor ?: 0xFF1565C0.toInt()
     private fun dark() = (activity as? MainActivity)?.isDark == true
 
-    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View {
         val todayJ = TimeUtils.toJalali(Calendar.getInstance().time)
         jy = todayJ[0]; jm = todayJ[1]; selectedJd = todayJ[2]
 
@@ -51,10 +55,16 @@ class CalendarFragment : Fragment() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
-        val prev = MaterialButton(ctx, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
+        val prev = MaterialButton(
+            ctx,
+            null,
+            com.google.android.material.R.attr.materialButtonOutlinedStyle
+        ).apply {
             text = "‹"
             setOnClickListener {
-                jm--; if (jm < 1) { jm = 12; jy-- }
+                jm--; if (jm < 1) {
+                jm = 12; jy--
+            }
                 renderMonth(); loadDay()
             }
         }
@@ -65,10 +75,16 @@ class CalendarFragment : Fragment() {
             setTextColor(ThemeHelper.textPrimary(dark()))
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
-        val next = MaterialButton(ctx, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
+        val next = MaterialButton(
+            ctx,
+            null,
+            com.google.android.material.R.attr.materialButtonOutlinedStyle
+        ).apply {
             text = "›"
             setOnClickListener {
-                jm++; if (jm > 12) { jm = 1; jy++ }
+                jm++; if (jm > 12) {
+                jm = 1; jy++
+            }
                 renderMonth(); loadDay()
             }
         }
@@ -85,18 +101,24 @@ class CalendarFragment : Fragment() {
                 gravity = Gravity.CENTER
                 textSize = 12f
                 setTextColor(ThemeHelper.textSecondary(dark()))
-                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                layoutParams =
+                    LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
             })
         }
         root.addView(headers)
 
         grid = GridLayout(ctx).apply {
             columnCount = 7
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+            layoutDirection = View.LAYOUT_DIRECTION_LTR
         }
         root.addView(grid)
 
-        detailBox = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL; setPadding(0, 12, 0, 0) }
+        detailBox =
+            LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL; setPadding(0, 12, 0, 0) }
         root.addView(android.widget.ScrollView(ctx).apply {
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
             addView(detailBox)
@@ -166,7 +188,24 @@ class CalendarFragment : Fragment() {
         val ctx = requireContext()
         detailBox.removeAllViews()
         detailBox.addView(TextView(ctx).apply {
-            text = TimeUtils.toJalaliDisplay(d)
+            val wd = when (
+                TimeUtils.weekdayJalali(
+                    jy,
+                    jm,
+                    selectedJd
+                )
+            ) {
+                0 -> "شنبه"
+                1 -> "یکشنبه"
+                2 -> "دوشنبه"
+                3 -> "سه‌شنبه"
+                4 -> "چهارشنبه"
+                5 -> "پنجشنبه"
+                6 -> "جمعه"
+                else -> ""
+            }
+
+            text = "$wd، $selectedJd ${TimeUtils.jalaliMonthName(jm)} $jy"
             textSize = 15f
             setTypeface(null, Typeface.BOLD)
             setTextColor(primary())
@@ -180,7 +219,10 @@ class CalendarFragment : Fragment() {
             // Summary card
             val worked = att.sumOf {
                 if (it.exitTime != null) it.duration
-                else if (it.status == "active") TimeUtils.minutesBetween(it.entryTime, TimeUtils.nowTime())
+                else if (it.status == "active") TimeUtils.minutesBetween(
+                    it.entryTime,
+                    TimeUtils.nowTime()
+                )
                 else 0
             }
             val leave = att.sumOf { it.leaveDuration }

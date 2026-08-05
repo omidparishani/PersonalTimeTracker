@@ -6,7 +6,7 @@
     <color name="seed">#1565C0</color>
     <color name="seed_container">#D6E3FF</color>
     <color name="white">#FFFFFF</color>
-    <string name="app_name">ردیاب زمان شخصی</string>
+    <string name="app_name">مدیریت زمان شخصی</string>
     <string name="nav_attendance">حضور</string>
     <string name="nav_calendar">تقویم</string>
     <string name="nav_dashboard">داشبورد</string>

@@ -10,6 +10,7 @@ import com.personal.timetracker.util.NotifHelper
 import com.personal.timetracker.util.TimeCalc
 import com.personal.timetracker.util.TimeUtils
 import kotlinx.coroutines.flow.Flow
+import java.time.DayOfWeek
 
 class AppRepository(context: Context) {
     private val appContext = context.applicationContext
@@ -25,8 +26,11 @@ class AppRepository(context: Context) {
     suspend fun saveSettings(s: SettingsEntity) = settingsDao.upsert(s)
 
     fun observeActive(): Flow<AttendanceEntity?> = attendanceDao.observeActive()
-    fun observeToday(): Flow<List<AttendanceEntity>> = attendanceDao.getByDate(TimeUtils.today())
-    fun observeByDate(date: String) = attendanceDao.getByDate(date)
+    fun observeToday(): Flow<List<AttendanceEntity>> =
+        attendanceDao.observeByDate(TimeUtils.today())
+
+    fun observeAttendance(date: String): Flow<List<AttendanceEntity>> =
+        attendanceDao.observeByDate(date)
     suspend fun getByDateOnce(date: String) = attendanceDao.getByDateOnce(date)
 
     suspend fun checkIn(date: String = TimeUtils.today(), entryTime: String = TimeUtils.nowTime()) {
@@ -175,6 +179,35 @@ class AppRepository(context: Context) {
     }
 
     suspend fun getLogsByTask(taskId: Long) = taskLogDao.getByTaskOnce(taskId)
+
+    suspend fun updateLog(log: TaskLogEntity) {
+        taskLogDao.update(log)
+    }
+
+    suspend fun deleteLog(log: TaskLogEntity) {
+        taskLogDao.delete(log)
+    }
+
+    suspend fun recalculateTask(taskId: Long) {
+
+        val task = taskDao.getById(taskId) ?: return
+
+        val totalLogged = taskLogDao
+            .getByTaskOnce(taskId)
+            .sumOf { it.duration }
+
+        taskDao.update(
+            task.copy(
+                remainingMinutes =
+                    (task.requiredMinutes - totalLogged)
+                        .coerceAtLeast(0),
+                status = if (totalLogged >= task.requiredMinutes)
+                    "done"
+                else
+                    task.status
+            )
+        )
+    }
     suspend fun getLogsByDate(date: String) = taskLogDao.getByDateOnce(date)
     fun observeLogsByDate(date: String) = taskLogDao.getByDate(date)
     suspend fun getTasksByDateOnce(date: String): List<TaskEntity> {
@@ -190,29 +223,61 @@ class AppRepository(context: Context) {
         val settings = getSettings()
         val days = attendanceDao.getByRange(start, end)
         val byDate = days.groupBy { it.date }
+
         var worked = 0
         var leave = 0
         var overtime = 0
         var undertime = 0
-        byDate.forEach { (_, recs) ->
+
+        byDate.forEach { (date, recs) ->
+
             var dayWork = 0
             var dayLeave = 0
+
             recs.forEach { r ->
                 if (r.exitTime != null) {
                     dayWork += r.duration
                     dayLeave += r.leaveDuration
                 } else if (r.status == "active") {
-                    // live session until now
-                    dayWork += TimeUtils.minutesBetween(r.entryTime, TimeUtils.nowTime()).coerceAtLeast(0)
+                    dayWork += TimeUtils.minutesBetween(
+                        r.entryTime,
+                        TimeUtils.nowTime()
+                    ).coerceAtLeast(0)
                 }
             }
+
             worked += dayWork
             leave += dayLeave
-            val diff = dayWork - settings.minimumWorkMinutes
-            if (diff > 0) overtime += diff else undertime += -diff
+
+            if (TimeUtils.isWeekend(date)) {
+                if (dayWork > 0) {
+                    overtime += dayWork
+                }
+
+            } else {
+
+                val diff = dayWork - settings.minimumWorkMinutes
+
+                if (diff > 0) {
+                    overtime += diff
+                } else {
+                    undertime += -diff
+                }
+            }
+
         }
-        val logMinutes = taskLogDao.getByRange(start, end).sumOf { it.duration }
-        return ReportData(worked, leave, days.size, overtime, undertime, logMinutes)
+
+        val logMinutes = taskLogDao.getByRange(start, end)
+            .sumOf { it.duration }
+
+        return ReportData(
+            worked,
+            leave,
+            days.size,
+            overtime,
+            undertime,
+            logMinutes
+        )
     }
 
     suspend fun dayBreakdown(start: String, end: String): List<DayBreakdown> {

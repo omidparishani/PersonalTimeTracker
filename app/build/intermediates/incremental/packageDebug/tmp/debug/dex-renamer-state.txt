@@ -1,15 +1,15 @@
-#Tue Jul 28 17:38:48 GMT+03:30 2026
-base.0=E\:\\PersonalTimeTracker\\app\\build\\intermediates\\dex\\debug\\mergeExtDexDebug\\classes.dex
-base.1=E\:\\PersonalTimeTracker\\app\\build\\intermediates\\dex\\debug\\mergeProjectDexDebug\\0\\classes.dex
-base.10=E\:\\PersonalTimeTracker\\app\\build\\intermediates\\dex\\debug\\mergeExtDexDebug\\classes2.dex
-base.2=E\:\\PersonalTimeTracker\\app\\build\\intermediates\\dex\\debug\\mergeProjectDexDebug\\10\\classes.dex
-base.3=E\:\\PersonalTimeTracker\\app\\build\\intermediates\\dex\\debug\\mergeProjectDexDebug\\14\\classes.dex
-base.4=E\:\\PersonalTimeTracker\\app\\build\\intermediates\\dex\\debug\\mergeProjectDexDebug\\1\\classes.dex
-base.5=E\:\\PersonalTimeTracker\\app\\build\\intermediates\\dex\\debug\\mergeProjectDexDebug\\3\\classes.dex
-base.6=E\:\\PersonalTimeTracker\\app\\build\\intermediates\\dex\\debug\\mergeProjectDexDebug\\4\\classes.dex
-base.7=E\:\\PersonalTimeTracker\\app\\build\\intermediates\\dex\\debug\\mergeProjectDexDebug\\6\\classes.dex
-base.8=E\:\\PersonalTimeTracker\\app\\build\\intermediates\\dex\\debug\\mergeProjectDexDebug\\8\\classes.dex
-base.9=E\:\\PersonalTimeTracker\\app\\build\\intermediates\\dex\\debug\\mergeProjectDexDebug\\9\\classes.dex
+#Sun Aug 02 11:19:44 GMT+03:30 2026
+base.0=E\:\\Kotlin\\PersonalTimeTracker\\app\\build\\intermediates\\dex\\debug\\mergeExtDexDebug\\classes.dex
+base.1=E\:\\Kotlin\\PersonalTimeTracker\\app\\build\\intermediates\\dex\\debug\\mergeProjectDexDebug\\0\\classes.dex
+base.10=E\:\\Kotlin\\PersonalTimeTracker\\app\\build\\intermediates\\dex\\debug\\mergeExtDexDebug\\classes2.dex
+base.2=E\:\\Kotlin\\PersonalTimeTracker\\app\\build\\intermediates\\dex\\debug\\mergeProjectDexDebug\\10\\classes.dex
+base.3=E\:\\Kotlin\\PersonalTimeTracker\\app\\build\\intermediates\\dex\\debug\\mergeProjectDexDebug\\14\\classes.dex
+base.4=E\:\\Kotlin\\PersonalTimeTracker\\app\\build\\intermediates\\dex\\debug\\mergeProjectDexDebug\\1\\classes.dex
+base.5=E\:\\Kotlin\\PersonalTimeTracker\\app\\build\\intermediates\\dex\\debug\\mergeProjectDexDebug\\3\\classes.dex
+base.6=E\:\\Kotlin\\PersonalTimeTracker\\app\\build\\intermediates\\dex\\debug\\mergeProjectDexDebug\\4\\classes.dex
+base.7=E\:\\Kotlin\\PersonalTimeTracker\\app\\build\\intermediates\\dex\\debug\\mergeProjectDexDebug\\6\\classes.dex
+base.8=E\:\\Kotlin\\PersonalTimeTracker\\app\\build\\intermediates\\dex\\debug\\mergeProjectDexDebug\\8\\classes.dex
+base.9=E\:\\Kotlin\\PersonalTimeTracker\\app\\build\\intermediates\\dex\\debug\\mergeProjectDexDebug\\9\\classes.dex
 path.0=classes.dex
 path.1=0/classes.dex
 path.10=classes2.dex

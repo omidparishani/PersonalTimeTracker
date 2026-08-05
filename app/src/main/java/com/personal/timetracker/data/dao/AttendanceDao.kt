@@ -6,10 +6,27 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface AttendanceDao {
-    @Query("SELECT * FROM attendance WHERE date = :date ORDER BY entryTime ASC")
-    fun getByDate(date: String): Flow<List<AttendanceEntity>>
 
-    @Query("SELECT * FROM attendance WHERE date = :date ORDER BY entryTime ASC")
+    // مشاهده ترددهای یک روز (Realtime)
+    @Query(
+        """
+        SELECT *
+        FROM attendance
+        WHERE date = :date
+        ORDER BY entryTime ASC
+    """
+    )
+    fun observeByDate(date: String): Flow<List<AttendanceEntity>>
+
+    // دریافت ترددهای یک روز
+    @Query(
+        """
+        SELECT *
+        FROM attendance
+        WHERE date = :date
+        ORDER BY entryTime ASC
+    """
+    )
     suspend fun getByDateOnce(date: String): List<AttendanceEntity>
 
     @Query("SELECT * FROM attendance WHERE date BETWEEN :start AND :end ORDER BY date, entryTime")

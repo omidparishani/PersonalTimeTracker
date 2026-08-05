@@ -3,7 +3,7 @@ package com.personal.timetracker.ui.tasks
 import android.app.DatePickerDialog
 import android.graphics.Typeface
 import android.os.Bundle
-import android.view.Gravity
+import com.personal.timetracker.data.entity.TaskLogEntity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -42,7 +42,11 @@ class TasksFragment : Fragment() {
     private fun primary() = (activity as? MainActivity)?.primaryColor ?: 0xFF1565C0.toInt()
     private fun dark() = (activity as? MainActivity)?.isDark == true
 
-    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View {
         val ctx = requireContext()
         val repo = (requireActivity().application as App).repository
         val rootBg = LinearLayout(ctx).apply {
@@ -172,7 +176,14 @@ class TasksFragment : Fragment() {
             val done = (req - task.remainingMinutes).coerceIn(0, req)
             val pct = (done * 100 / req)
             box.addView(TextView(ctx).apply {
-                text = "پیشرفت $pct٪  |  باقیمانده: ${TimeUtils.formatDuration(task.remainingMinutes)} از ${TimeUtils.formatDuration(task.requiredMinutes)}"
+                text = buildString {
+                    append("پیشرفت ")
+                    append(pct)
+                    append("٪  |  باقیمانده: ")
+                    append(TimeUtils.formatDuration(task.remainingMinutes))
+                    append(" از ")
+                    append(TimeUtils.formatDuration(task.requiredMinutes))
+                }
                 textSize = 11f
                 setTextColor(primary)
                 setPadding(0, 0, 0, 6)
@@ -181,13 +192,14 @@ class TasksFragment : Fragment() {
                 max = 100
                 progress = pct
                 progressTintList = android.content.res.ColorStateList.valueOf(primary)
-                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 16)
+                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 20)
             })
 
             val actions = LinearLayout(ctx).apply {
                 orientation = LinearLayout.HORIZONTAL
                 setPadding(0, 14, 0, 0)
             }
+
             fun smallBtn(label: String, filled: Boolean, onClick: () -> Unit): MaterialButton {
                 return MaterialButton(
                     ctx, null,
@@ -196,7 +208,9 @@ class TasksFragment : Fragment() {
                 ).apply {
                     text = label
                     textSize = 11f
-                    layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { marginEnd = 6 }
+                    layoutParams =
+                        LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                            .apply { marginEnd = 6 }
                     ThemeHelper.applyButton(this, primary, filled)
                     setOnClickListener { onClick() }
                 }
@@ -210,7 +224,7 @@ class TasksFragment : Fragment() {
                     lifecycleScope.launch { repo.startTimer(task) }
                 })
             }
-            actions.addView(smallBtn("لاگ", false) { showLogForm(task) })
+            actions.addView(smallBtn("لاگ", false) { showLogs(task) })
             actions.addView(smallBtn("ویرایش", false) { showTaskForm(task) })
             actions.addView(smallBtn("حذف", false) {
                 AlertDialog.Builder(ctx).setTitle("حذف تسک").setMessage(task.taskTitle)
@@ -219,8 +233,159 @@ class TasksFragment : Fragment() {
             })
             box.addView(actions)
             card.addView(box)
-            listContainer.addView(card, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = 12 })
+            listContainer.addView(
+                card,
+                LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply { bottomMargin = 12 })
         }
+    }
+
+    private fun showLogs(task: TaskEntity) {
+        val ctx = requireContext()
+        val repo = (requireActivity().application as App).repository
+
+        lifecycleScope.launch {
+
+            val logs = repo.getLogsByTask(task.id)
+
+            val items = logs.map {
+                "${TimeUtils.toJalaliDisplay(it.date)}  |  ${TimeUtils.formatDuration(it.duration)}"
+            }.toTypedArray()
+
+            AlertDialog.Builder(ctx)
+                .setTitle("لاگ‌های ${task.taskTitle}")
+                .setItems(items) { _, index ->
+
+                    val selected = logs[index]
+
+                    AlertDialog.Builder(ctx)
+                        .setTitle("عملیات لاگ")
+                        .setItems(
+                            arrayOf("ویرایش", "حذف")
+                        ) { _, action ->
+
+                            when (action) {
+
+                                0 -> {
+                                    showEditLogForm(
+                                        task,
+                                        selected
+                                    )
+                                }
+
+                                1 -> {
+
+                                    AlertDialog.Builder(ctx)
+                                        .setTitle("حذف لاگ")
+                                        .setMessage(
+                                            "${selected.date} - ${TimeUtils.formatDuration(selected.duration)}"
+                                        )
+                                        .setPositiveButton("حذف") { _, _ ->
+
+                                            lifecycleScope.launch {
+
+                                                repo.deleteLog(selected)
+
+                                                repo.recalculateTask(task.id)
+
+                                                Toast.makeText(
+                                                    ctx,
+                                                    "لاگ حذف شد",
+                                                    Toast.LENGTH_SHORT
+                                                ).show()
+                                            }
+
+                                        }
+                                        .setNegativeButton(
+                                            "انصراف",
+                                            null
+                                        )
+                                        .show()
+                                }
+                            }
+
+                        }
+                        .show()
+
+                }
+                .setPositiveButton("لاگ جدید") { _, _ ->
+                    showLogForm(task)
+                }
+                .setNegativeButton("بستن", null)
+                .show()
+        }
+    }
+
+    private fun showEditLogForm(
+        task: TaskEntity,
+        log: TaskLogEntity
+    ) {
+        val ctx = requireContext()
+        val repo = (requireActivity().application as App).repository
+
+        val layout = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(40, 16, 40, 8)
+        }
+
+
+        val minutes = TextInputEditText(ctx).apply {
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER
+            setText(log.duration.toString())
+        }
+
+        val date = TextInputEditText(ctx).apply {
+            setText(log.date)
+//            isFocusable = false
+        }
+
+
+        layout.addView(
+            TextInputLayout(ctx).apply {
+                hint = "تاریخ"
+                addView(date)
+            }
+        )
+
+
+        layout.addView(
+            TextInputLayout(ctx).apply {
+                hint = "دقیقه"
+                addView(minutes)
+            }
+        )
+
+
+        AlertDialog.Builder(ctx)
+            .setTitle("ویرایش لاگ")
+            .setView(layout)
+            .setPositiveButton("ذخیره") { _, _ ->
+
+
+                val newMinutes =
+                    minutes.text.toString()
+                        .toIntOrNull() ?: 0
+
+
+                lifecycleScope.launch {
+
+                    repo.updateLog(
+                        log.copy(
+                            date = date.text.toString(),
+                            duration = newMinutes
+                        )
+                    )
+
+
+                    repo.recalculateTask(task.id)
+
+                }
+
+            }
+            .setNegativeButton("انصراف", null)
+            .show()
     }
 
     private fun showTaskForm(existing: TaskEntity?) {
@@ -230,7 +395,12 @@ class TasksFragment : Fragment() {
             orientation = LinearLayout.VERTICAL
             setPadding(40, 16, 40, 8)
         }
-        fun field(hint: String, value: String, number: Boolean = false): Pair<TextInputLayout, TextInputEditText> {
+
+        fun field(
+            hint: String,
+            value: String,
+            number: Boolean = false
+        ): Pair<TextInputLayout, TextInputEditText> {
             val e = TextInputEditText(ctx).apply {
                 setText(value)
                 if (number) inputType = android.text.InputType.TYPE_CLASS_NUMBER
@@ -240,13 +410,26 @@ class TasksFragment : Fragment() {
         val (jiraL, jira) = field("شماره Jira", existing?.jiraNumber ?: "")
         val (titleL, title) = field("عنوان *", existing?.taskTitle ?: "")
         val (descL, desc) = field("توضیحات", existing?.description ?: "")
-        val (reqHL, reqH) = field("ساعت مورد نیاز", ((existing?.requiredMinutes ?: 0) / 60).toString(), true)
-        val (reqML, reqM) = field("دقیقه مورد نیاز", ((existing?.requiredMinutes ?: 0) % 60).toString(), true)
+        val (reqHL, reqH) = field(
+            "ساعت مورد نیاز",
+            ((existing?.requiredMinutes ?: 0) / 60).toString(),
+            true
+        )
+        val (reqML, reqM) = field(
+            "دقیقه مورد نیاز",
+            ((existing?.requiredMinutes ?: 0) % 60).toString(),
+            true
+        )
 
         val statusSpinner = Spinner(ctx)
-        val statuses = listOf("new" to "جدید", "in_progress" to "در حال انجام", "done" to "انجام‌شده")
-        statusSpinner.adapter = ArrayAdapter(ctx, android.R.layout.simple_spinner_dropdown_item, statuses.map { it.second })
-        statusSpinner.setSelection(statuses.indexOfFirst { it.first == (existing?.status ?: "new") }.coerceAtLeast(0))
+        val statuses =
+            listOf("new" to "جدید", "in_progress" to "در حال انجام", "done" to "انجام‌شده")
+        statusSpinner.adapter = ArrayAdapter(
+            ctx,
+            android.R.layout.simple_spinner_dropdown_item,
+            statuses.map { it.second })
+        statusSpinner.setSelection(statuses.indexOfFirst { it.first == (existing?.status ?: "new") }
+            .coerceAtLeast(0))
 
         val projectSpinner = Spinner(ctx)
         val (projL, projE) = field("نام پروژه *", existing?.projectName ?: "")
@@ -255,7 +438,13 @@ class TasksFragment : Fragment() {
             val settings = repo.getSettings()
             val projects = settings.projects.split(",").map { it.trim() }.filter { it.isNotEmpty() }
             if (projects.isNotEmpty()) {
-                projectSpinner.adapter = ArrayAdapter(ctx, android.R.layout.simple_spinner_dropdown_item, projects + "سایر...")
+                projectSpinner.adapter = ArrayAdapter(
+                    ctx,
+                    android.R.layout.simple_spinner_dropdown_item,
+                    projects + buildString {
+                        append("سایر...")
+                    }
+                )
                 val idx = projects.indexOf(existing?.projectName)
                 if (idx >= 0) projectSpinner.setSelection(idx)
                 layout.addView(TextView(ctx).apply { text = "پروژه"; setPadding(0, 8, 0, 4) })
@@ -277,6 +466,7 @@ class TasksFragment : Fragment() {
                     val proj = when {
                         projects.isNotEmpty() && projectSpinner.selectedItem?.toString() != "سایر..." ->
                             projectSpinner.selectedItem.toString()
+
                         else -> (projE.text?.toString() ?: "").trim()
                     }
                     val titleStr = (title.text?.toString() ?: "").trim()
@@ -285,11 +475,12 @@ class TasksFragment : Fragment() {
                         return@setPositiveButton
                     }
                     val req = ((reqH.text?.toString() ?: "0").toIntOrNull() ?: 0) * 60 +
-                        ((reqM.text?.toString() ?: "0").toIntOrNull() ?: 0)
+                            ((reqM.text?.toString() ?: "0").toIntOrNull() ?: 0)
                     val st = statuses.getOrNull(statusSpinner.selectedItemPosition)?.first ?: "new"
                     val remaining = if (existing == null) req else {
                         // keep remaining unless required changed upward
-                        val logged = (existing.requiredMinutes - existing.remainingMinutes).coerceAtLeast(0)
+                        val logged =
+                            (existing.requiredMinutes - existing.remainingMinutes).coerceAtLeast(0)
                         (req - logged).coerceAtLeast(0)
                     }
                     val task = (existing ?: TaskEntity(
@@ -347,7 +538,11 @@ class TasksFragment : Fragment() {
             setText("0")
         }
         val note = TextInputEditText(ctx)
-        layout.addView(TextInputLayout(ctx).apply { hint = "تاریخ لاگ (yyyy-MM-dd)"; addView(dateField) })
+        layout.addView(TextInputLayout(ctx).apply {
+            hint = "تاریخ لاگ (yyyy-MM-dd)"; addView(
+            dateField
+        )
+        })
         layout.addView(jalaliHint)
         layout.addView(TextInputLayout(ctx).apply { hint = "ساعت کار"; addView(hours) })
         layout.addView(TextInputLayout(ctx).apply { hint = "دقیقه"; addView(mins) })
@@ -359,7 +554,7 @@ class TasksFragment : Fragment() {
             .setPositiveButton("ثبت") { _, _ ->
                 val date = dateField.text?.toString() ?: TimeUtils.today()
                 val dur = ((hours.text?.toString() ?: "0").toIntOrNull() ?: 0) * 60 +
-                    ((mins.text?.toString() ?: "0").toIntOrNull() ?: 0)
+                        ((mins.text?.toString() ?: "0").toIntOrNull() ?: 0)
                 if (dur <= 0) {
                     Toast.makeText(ctx, "مدت باید بیشتر از صفر باشد", Toast.LENGTH_SHORT).show()
                     return@setPositiveButton

@@ -2,7 +2,6 @@ package com.personal.timetracker.ui.settings
 
 import android.Manifest
 import android.app.TimePickerDialog
-import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
@@ -11,14 +10,12 @@ import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
-import androidx.core.content.ContextCompat
 import androidx.core.view.setPadding
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
@@ -34,7 +31,6 @@ import com.personal.timetracker.util.BackupHelper
 import com.personal.timetracker.util.BiometricHelper
 import com.personal.timetracker.util.GeoHelper
 import com.personal.timetracker.util.NotifHelper
-import com.personal.timetracker.util.TimeCalc
 import com.personal.timetracker.util.ThemeHelper
 import kotlinx.coroutines.launch
 
@@ -65,35 +61,47 @@ class SettingsFragment : Fragment() {
         0xFF4527A0.toInt(), 0xFF37474F.toInt(), 0xFFAD1457.toInt()
     )
 
-    private val pickBackup = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
-        if (uri == null) return@registerForActivityResult
-        lifecycleScope.launch {
-            try {
-                val json = requireContext().contentResolver.openInputStream(uri)?.bufferedReader()?.readText()
-                    ?: throw Exception("خواندن ممکن نیست")
-                BackupHelper.restoreJson(requireContext(), json)
-                Toast.makeText(requireContext(), "بازیابی شد", Toast.LENGTH_LONG).show()
-                load()
-            } catch (e: Exception) {
-                Toast.makeText(requireContext(), "خطا: ${e.message}", Toast.LENGTH_LONG).show()
+    private fun primary() = (activity as? MainActivity)?.primaryColor ?: 0xFF1565C0.toInt()
+
+    private val pickBackup =
+        registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+            if (uri == null) return@registerForActivityResult
+            lifecycleScope.launch {
+                try {
+                    val json =
+                        requireContext().contentResolver.openInputStream(uri)?.bufferedReader()
+                            ?.readText()
+                            ?: throw Exception("خواندن ممکن نیست")
+                    BackupHelper.restoreJson(requireContext(), json)
+                    Toast.makeText(requireContext(), "بازیابی شد", Toast.LENGTH_LONG).show()
+                    load()
+                } catch (e: Exception) {
+                    Toast.makeText(requireContext(), "خطا: ${e.message}", Toast.LENGTH_LONG).show()
+                }
             }
         }
-    }
 
-    private val locPermission = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { m ->
-        if (m.values.any { it }) saveCurrentLocation()
-        else Toast.makeText(requireContext(), "مجوز موقعیت لازم است", Toast.LENGTH_SHORT).show()
-    }
+    private val locPermission =
+        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { m ->
+            if (m.values.any { it }) saveCurrentLocation()
+            else Toast.makeText(requireContext(), "مجوز موقعیت لازم است", Toast.LENGTH_SHORT).show()
+        }
 
-    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View {
         val ctx = requireContext()
-        val content = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL; setPadding(20) }
+        val content =
+            LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL; setPadding(20) }
         val scroll = android.widget.ScrollView(ctx).apply { addView(content) }
 
         fun title(t: String) = TextView(ctx).apply {
             text = t; textSize = 18f; setPadding(0, 28, 0, 10)
             setTypeface(typeface, android.graphics.Typeface.BOLD)
         }
+
         fun til(hint: String, single: Boolean = true): Pair<TextInputLayout, TextInputEditText> {
             val edit = TextInputEditText(ctx)
             val layout = TextInputLayout(ctx).apply {
@@ -135,14 +143,23 @@ class SettingsFragment : Fragment() {
 
         // Work hours
         content.addView(title("ساعات کاری"))
-        startBtn = MaterialButton(ctx, null, com.google.android.material.R.attr.materialButtonOutlinedStyle)
-        endBtn = MaterialButton(ctx, null, com.google.android.material.R.attr.materialButtonOutlinedStyle)
+        startBtn = MaterialButton(
+            ctx,
+            null,
+            com.google.android.material.R.attr.materialButtonOutlinedStyle
+        )
+        endBtn = MaterialButton(
+            ctx,
+            null,
+            com.google.android.material.R.attr.materialButtonOutlinedStyle
+        )
         content.addView(startBtn); content.addView(endBtn)
         val (flexL, flexE) = til("شناوری (دقیقه)"); flexEdit = flexE; content.addView(flexL)
         val minRow = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL }
         val (mhL, mhE) = til("حداقل کار — ساعت"); minHoursEdit = mhE
         val (mmL, mmE) = til("حداقل کار — دقیقه"); minMinsEdit = mmE
-        mhL.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { marginEnd = 8 }
+        mhL.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            .apply { marginEnd = 8 }
         mmL.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         minRow.addView(mhL); minRow.addView(mmL); content.addView(minRow)
 
@@ -151,6 +168,7 @@ class SettingsFragment : Fragment() {
         val (pL, pE) = til("نام پروژه"); projectEdit = pE; content.addView(pL)
         content.addView(MaterialButton(ctx).apply {
             text = "افزودن پروژه"
+            ThemeHelper.applyButton(this, primary(), true)
             setOnClickListener {
                 val n = projectEdit.text?.toString()?.trim().orEmpty()
                 if (n.isNotEmpty() && n !in projects) {
@@ -166,21 +184,32 @@ class SettingsFragment : Fragment() {
         content.addView(notifSwitch)
         val (nbL, nbE) = til("دقایق قبل از پایان"); notifBeforeEdit = nbE; content.addView(nbL)
         val (ntL, ntE) = til("عنوان اعلان"); notifTitleEdit = ntE; content.addView(ntL)
-        val (nbodyL, nbodyE) = til("متن اعلان", single = false); notifBodyEdit = nbodyE; content.addView(nbodyL)
-        content.addView(MaterialButton(ctx, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
-            text = "تست اعلان پایان کار (الان)"
-            setOnClickListener {
-                NotifHelper.show(
-                    ctx,
-                    notifTitleEdit.text?.toString() ?: "یادآوری",
-                    notifBodyEdit.text?.toString() ?: "تست"
-                )
-            }
-        })
-        content.addView(MaterialButton(ctx, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
-            text = "بررسی موقعیت محل کار (الان)"
-            setOnClickListener { GeoHelper.requestAndCheck(ctx) }
-        })
+        val (nobodyL, nobodyE) = til("متن اعلان", single = false); notifBodyEdit =
+            nobodyE; content.addView(nobodyL)
+        content.addView(
+            MaterialButton(
+                ctx,
+                null,
+                com.google.android.material.R.attr.materialButtonOutlinedStyle
+            ).apply {
+                text = "تست اعلان پایان کار (الان)"
+                setOnClickListener {
+                    NotifHelper.show(
+                        ctx,
+                        notifTitleEdit.text?.toString() ?: "یادآوری",
+                        notifBodyEdit.text?.toString() ?: "تست"
+                    )
+                }
+            })
+        content.addView(
+            MaterialButton(
+                ctx,
+                null,
+                com.google.android.material.R.attr.materialButtonOutlinedStyle
+            ).apply {
+                text = "بررسی موقعیت محل کار (الان)"
+                setOnClickListener { GeoHelper.requestAndCheck(ctx) }
+            })
 
         // Biometric
         content.addView(title("امنیت"))
@@ -188,7 +217,9 @@ class SettingsFragment : Fragment() {
         content.addView(bioSwitch)
         if (!BiometricHelper.canAuthenticate(requireActivity())) {
             bioSwitch.isEnabled = false
-            content.addView(TextView(ctx).apply { text = "بیومتریک روی این دستگاه در دسترس نیست"; textSize = 12f })
+            content.addView(TextView(ctx).apply {
+                text = "بیومتریک روی این دستگاه در دسترس نیست"; textSize = 12f
+            })
         }
 
         // Location
@@ -197,6 +228,7 @@ class SettingsFragment : Fragment() {
         content.addView(locationInfo)
         content.addView(MaterialButton(ctx).apply {
             text = "ذخیره موقعیت فعلی به‌عنوان محل کار"
+            ThemeHelper.applyButton(this, primary(), true)
             setOnClickListener { requestAndSaveLocation() }
         })
         geoAlertSwitch = Switch(ctx).apply { text = "هشدار ورود/خروج ثبت‌نشده" }
@@ -205,13 +237,17 @@ class SettingsFragment : Fragment() {
 
         content.addView(MaterialButton(ctx).apply {
             text = "ذخیره تنظیمات"
+            ThemeHelper.applyButton(this, primary(), true)
             setOnClickListener { save() }
         })
 
         // Backup
         content.addView(title("پشتیبان و داده"))
         content.addView(MaterialButton(ctx).apply {
-            text = "تهیه پشتیبان JSON"
+            text = buildString {
+                append("تهیه پشتیبان JSON")
+            }
+            ThemeHelper.applyButton(this, primary(), true)
             setOnClickListener {
                 lifecycleScope.launch {
                     val f = BackupHelper.exportJson(requireContext())
@@ -219,34 +255,46 @@ class SettingsFragment : Fragment() {
                 }
             }
         })
-        content.addView(MaterialButton(ctx, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
-            text = "بازیابی از پشتیبان"
-            setOnClickListener {
-                AlertDialog.Builder(ctx).setTitle("بازیابی")
-                    .setMessage("داده‌های فعلی جایگزین می‌شوند")
-                    .setPositiveButton("ادامه") { _, _ -> pickBackup.launch("application/json") }
-                    .setNegativeButton("انصراف", null).show()
-            }
-        })
-        content.addView(MaterialButton(ctx, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
-            text = "خالی کردن داده‌ها"
-            setOnClickListener {
-                AlertDialog.Builder(ctx).setTitle("حذف")
-                    .setPositiveButton("فقط داده‌ها") { _, _ ->
-                        lifecycleScope.launch {
-                            BackupHelper.clearAll(requireContext(), false)
-                            Toast.makeText(ctx, "پاک شد", Toast.LENGTH_SHORT).show()
+        content.addView(
+            MaterialButton(
+                ctx,
+                null,
+                com.google.android.material.R.attr.materialButtonOutlinedStyle
+            ).apply {
+                text = "بازیابی از پشتیبان"
+                ThemeHelper.applyButton(this, primary(), false)
+                setOnClickListener {
+                    AlertDialog.Builder(ctx).setTitle("بازیابی")
+                        .setMessage("داده‌های فعلی جایگزین می‌شوند")
+                        .setPositiveButton("ادامه") { _, _ -> pickBackup.launch("application/json") }
+                        .setNegativeButton("انصراف", null).show()
+                }
+            })
+        content.addView(
+            MaterialButton(
+                ctx,
+                null,
+                com.google.android.material.R.attr.materialButtonOutlinedStyle
+            ).apply {
+                text = "خالی کردن داده‌ها"
+                ThemeHelper.applyButton(this, primary(), false)
+                setOnClickListener {
+                    AlertDialog.Builder(ctx).setTitle("حذف")
+                        .setPositiveButton("فقط داده‌ها") { _, _ ->
+                            lifecycleScope.launch {
+                                BackupHelper.clearAll(requireContext(), false)
+                                Toast.makeText(ctx, "پاک شد", Toast.LENGTH_SHORT).show()
+                            }
                         }
-                    }
-                    .setNeutralButton("همه + تنظیمات") { _, _ ->
-                        lifecycleScope.launch {
-                            BackupHelper.clearAll(requireContext(), true)
-                            load()
+                        .setNeutralButton("همه + تنظیمات") { _, _ ->
+                            lifecycleScope.launch {
+                                BackupHelper.clearAll(requireContext(), true)
+                                load()
+                            }
                         }
-                    }
-                    .setNegativeButton("انصراف", null).show()
-            }
-        })
+                        .setNegativeButton("انصراف", null).show()
+                }
+            })
 
         startBtn.setOnClickListener { pickTime(true) }
         endBtn.setOnClickListener { pickTime(false) }
@@ -273,9 +321,15 @@ class SettingsFragment : Fragment() {
         TimePickerDialog(requireContext(), { _, h, m ->
             val t = "%02d:%02d".format(h, m)
             if (isStart) {
-                settings = settings.copy(startWorkTime = t); startBtn.text = "شروع کار: $t"
+                settings = settings.copy(startWorkTime = t); startBtn.text = buildString {
+                    append("شروع کار: ")
+                    append(t)
+                }
             } else {
-                settings = settings.copy(endWorkTime = t); endBtn.text = "پایان کار: $t"
+                settings = settings.copy(endWorkTime = t); endBtn.text = buildString {
+                    append("پایان کار: ")
+                    append(t)
+                }
             }
         }, p.getOrElse(0) { 9 }, p.getOrElse(1) { 0 }, true).show()
     }
@@ -283,30 +337,56 @@ class SettingsFragment : Fragment() {
     private fun requestAndSaveLocation() {
         val ctx = requireContext()
         if (GeoHelper.hasLocationPermission(ctx)) saveCurrentLocation()
-        else locPermission.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
+        else locPermission.launch(
+            arrayOf(
+                Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            )
+        )
     }
 
     private fun saveCurrentLocation() {
         val loc = GeoHelper.lastLocation(requireContext())
         if (loc == null) {
-            Toast.makeText(requireContext(), "موقعیت در دسترس نیست. GPS را روشن کنید", Toast.LENGTH_LONG).show()
+            Toast.makeText(
+                requireContext(),
+                "موقعیت در دسترس نیست. GPS را روشن کنید",
+                Toast.LENGTH_LONG
+            ).show()
             return
         }
         settings = settings.copy(workLat = loc.latitude, workLng = loc.longitude)
-        locationInfo.text = "محل کار: ${"%.5f".format(loc.latitude)}, ${"%.5f".format(loc.longitude)}"
-        Toast.makeText(requireContext(), "موقعیت ذخیره شد — دکمه ذخیره تنظیمات را بزنید", Toast.LENGTH_SHORT).show()
+        locationInfo.text =
+            buildString {
+                append("محل کار: ")
+                append("%.5f".format(loc.latitude))
+                append(", ")
+                append("%.5f".format(loc.longitude))
+            }
+        Toast.makeText(
+            requireContext(),
+            "موقعیت ذخیره شد — دکمه ذخیره تنظیمات را بزنید",
+            Toast.LENGTH_SHORT
+        ).show()
     }
 
     private fun load() {
         lifecycleScope.launch {
             settings = (requireActivity().application as App).repository.getSettings()
-            startBtn.text = "شروع کار: ${settings.startWorkTime}"
-            endBtn.text = "پایان کار: ${settings.endWorkTime}"
+            startBtn.text = buildString {
+                append("شروع کار: ")
+                append(settings.startWorkTime)
+            }
+            endBtn.text = buildString {
+                append("پایان کار: ")
+                append(settings.endWorkTime)
+            }
             flexEdit.setText(settings.flexibleMinutes.toString())
             minHoursEdit.setText((settings.minimumWorkMinutes / 60).toString())
             minMinsEdit.setText((settings.minimumWorkMinutes % 60).toString())
             projects.clear()
-            projects.addAll(settings.projects.split(",").map { it.trim() }.filter { it.isNotEmpty() })
+            projects.addAll(settings.projects.split(",").map { it.trim() }
+                .filter { it.isNotEmpty() })
             refreshChips()
             darkSwitch.isChecked = settings.isDarkMode
             themeColor = settings.themeColor
@@ -335,8 +415,10 @@ class SettingsFragment : Fragment() {
                 projects = projects.joinToString(","),
                 notifEnabled = notifSwitch.isChecked,
                 notifMinutesBefore = notifBeforeEdit.text?.toString()?.toIntOrNull() ?: 30,
-                notifTitle = notifTitleEdit.text?.toString()?.ifBlank { "یادآوری پایان کار" } ?: "یادآوری پایان کار",
-                notifBody = notifBodyEdit.text?.toString()?.ifBlank { "زمان پایان کار نزدیک است" } ?: "زمان پایان کار نزدیک است",
+                notifTitle = notifTitleEdit.text?.toString()?.ifBlank { "یادآوری پایان کار" }
+                    ?: "یادآوری پایان کار",
+                notifBody = notifBodyEdit.text?.toString()?.ifBlank { "زمان پایان کار نزدیک است" }
+                    ?: "زمان پایان کار نزدیک است",
                 biometricEnabled = bioSwitch.isChecked,
                 geoAutoCheckIn = geoAutoSwitch.isChecked,
                 geoAlertOnly = geoAlertSwitch.isChecked
