@@ -177,45 +177,95 @@ object TimeUtils {
     }
 
     /** Convert Jalali y,m,d to Gregorian Date */
-    fun fromJalali(jy: Int, jm: Int, jd: Int): java.util.Date {
-        // Algorithm inverse of toJalali
-        val jy0 = jy - 979
-        val days = 365 * jy0 + jy0 / 33 * 8 + (jy0 % 33 + 3) / 4 +
-                jd + if (jm < 7) (jm - 1) * 31 else (jm - 7) * 30 + 186
-        val gy0 = 1600
+    fun fromJalali(jy: Int, jm: Int, jd: Int): Date {
+        require(jm in 1..12) { "Invalid Jalali month: $jm" }
+        require(jd >= 1 && jd <= jalaliMonthDays(jy, jm)) {
+            "Invalid Jalali day: $jd"
+        }
+
+        val jy2 = jy - 979
+
+        var days = 365 * jy2
+        days += (jy2 / 33) * 8
+        days += ((jy2 % 33) + 3) / 4
+
+        days += jd - 1
+
+        days += if (jm <= 6) {
+            (jm - 1) * 31
+        } else {
+            186 + (jm - 7) * 30
+        }
+
         var gDayNo = days + 79
-        var gy = gy0 + 400 * (gDayNo / 146097)
+
+        var gy = 1600 + 400 * (gDayNo / 146097)
         gDayNo %= 146097
+
         var leap = true
+
         if (gDayNo >= 36525) {
             gDayNo--
+
             gy += 100 * (gDayNo / 36524)
             gDayNo %= 36524
-            if (gDayNo >= 365) gDayNo++ else leap = false
+
+            if (gDayNo >= 365) {
+                gDayNo++
+            } else {
+                leap = false
+            }
         }
+
         gy += 4 * (gDayNo / 1461)
         gDayNo %= 1461
+
         if (gDayNo >= 366) {
             leap = false
             gDayNo--
+
             gy += gDayNo / 365
             gDayNo %= 365
         }
-        val salA = intArrayOf(
-            0, 31, if (leap) 29 else 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31
+
+        val gregorianMonthDays = intArrayOf(
+            31,
+            if (leap) 29 else 28,
+            31,
+            30,
+            31,
+            30,
+            31,
+            31,
+            30,
+            31,
+            30,
+            31
         )
-        var gm = 0
+
+        var gm = 1
         var gd = gDayNo + 1
-        for (i in 1..12) {
-            if (gd <= salA[i]) {
-                gm = i; break
+
+        for (daysInMonth in gregorianMonthDays) {
+            if (gd <= daysInMonth) {
+                break
             }
-            gd -= salA[i]
+
+            gd -= daysInMonth
+            gm++
         }
-        val cal = java.util.Calendar.getInstance()
-        cal.set(gy, gm - 1, gd, 0, 0, 0)
-        cal.set(java.util.Calendar.MILLISECOND, 0)
-        return cal.time
+
+        return Calendar.getInstance().apply {
+            clear()
+            set(
+                gy,
+                gm - 1,
+                gd,
+                12,
+                0,
+                0
+            )
+        }.time
     }
 
     fun jalaliMonthName(jm: Int): String = listOf(
@@ -224,12 +274,10 @@ object TimeUtils {
     ).getOrElse(jm) { "" }
 
     fun weekdayJalali(jy: Int, jm: Int, jd: Int): Int {
-
         val date = fromJalali(jy, jm, jd)
 
         val cal = Calendar.getInstance().apply {
             time = date
-            add(Calendar.DAY_OF_MONTH, -1)
         }
 
         return when (cal.get(Calendar.DAY_OF_WEEK)) {
