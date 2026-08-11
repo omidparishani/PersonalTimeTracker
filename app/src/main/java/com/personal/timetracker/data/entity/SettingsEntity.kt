@@ -25,5 +25,6 @@ data class SettingsEntity(
     val workLng: Double = 0.0,
     val workRadiusMeters: Float = 150f,
     val geoAutoCheckIn: Boolean = false,
-    val geoAlertOnly: Boolean = true
+    val geoAlertOnly: Boolean = true,
+    val geoAutoCheckOut: Boolean = false
 )

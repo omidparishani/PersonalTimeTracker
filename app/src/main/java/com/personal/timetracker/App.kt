@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.os.Build
 import android.util.Log
 import com.personal.timetracker.data.repository.AppRepository
+import com.personal.timetracker.util.NotifHelper
 
 class App : Application() {
     lateinit var repository: AppRepository
@@ -32,6 +33,13 @@ class App : Application() {
             }
         } catch (e: Exception) {
             Log.e("PTT", "Notification channel failed", e)
+        }
+        try {
+            // Keeps geofence auto check-in/out and reminders running in the background,
+            // not just while the app is open in the foreground.
+            NotifHelper.scheduleGeoBackgroundCheck(this)
+        } catch (e: Exception) {
+            Log.e("PTT", "Background geo scheduling failed", e)
         }
     }
 }

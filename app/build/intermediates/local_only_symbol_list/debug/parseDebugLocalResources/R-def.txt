@@ -9,6 +9,8 @@ color seed_container
 color white
 drawable ic_launcher
 drawable ic_launcher_foreground
+drawable widget_bg
+drawable widget_btn_bg
 id bottomNav
 id fragmentContainer
 id nav_attendance
@@ -17,10 +19,13 @@ id nav_reports
 id nav_settings
 id nav_tasks
 id rootLayout
+id widgetCheckIn
+id widgetCheckOut
 id widgetDetail
 id widgetRoot
 id widgetStatus
 id widgetTitle
+id widgetWorkedToday
 layout activity_main
 layout widget_work
 menu bottom_nav

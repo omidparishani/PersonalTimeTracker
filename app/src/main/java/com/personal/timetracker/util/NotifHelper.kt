@@ -11,8 +11,11 @@ import android.os.Build
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.work.CoroutineWorker
+import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.Worker
 import androidx.work.WorkerParameters
@@ -149,6 +152,24 @@ object NotifHelper {
         )
         (context.getSystemService(Context.ALARM_SERVICE) as AlarmManager).cancel(pi)
     }
+
+    private const val GEO_WORK_NAME = "geo_background_check"
+
+    /**
+     * Schedules a periodic background check (every 15 minutes — the minimum interval
+     * WorkManager allows) so geofence-based auto check-in and location reminders keep
+     * working while the app is closed, not just while it's open in the foreground.
+     * WorkManager re-registers this itself after device reboot, so it only needs to be
+     * scheduled once (KEEP policy makes repeated calls cheap no-ops).
+     * The worker itself is a no-op if the workplace location or the geo features aren't
+     * configured, so this is safe to always schedule.
+     */
+    fun scheduleGeoBackgroundCheck(context: Context) {
+        val req = PeriodicWorkRequestBuilder<GeoCheckWorker>(15, TimeUnit.MINUTES).build()
+        WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+            GEO_WORK_NAME, ExistingPeriodicWorkPolicy.KEEP, req
+        )
+    }
 }
 
 class WorkEndReceiver : BroadcastReceiver() {
@@ -165,5 +186,21 @@ class WorkEndWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params
         val body = inputData.getString("body") ?: "زمان پایان کار نزدیک است"
         NotifHelper.show(applicationContext, title, body)
         return Result.success()
+    }
+}
+
+/** Runs every ~15 minutes in the background to keep geofence auto check-in/out and
+ *  location reminders working while the app isn't open. */
+class GeoCheckWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, params) {
+    override suspend fun doWork(): Result {
+        return try {
+            if (GeoHelper.hasLocationPermission(applicationContext)) {
+                GeoHelper.checkWorkplaceSuspend(applicationContext)
+            }
+            Result.success()
+        } catch (e: Exception) {
+            Log.e("PTT", "geo background worker", e)
+            Result.success()
+        }
     }
 }

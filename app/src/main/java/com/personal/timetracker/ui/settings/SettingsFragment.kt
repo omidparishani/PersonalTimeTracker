@@ -50,7 +50,9 @@ class SettingsFragment : Fragment() {
     private lateinit var notifSwitch: Switch
     private lateinit var bioSwitch: Switch
     private lateinit var geoAutoSwitch: Switch
+    private lateinit var geoAutoOutSwitch: Switch
     private lateinit var geoAlertSwitch: Switch
+    private lateinit var radiusEdit: TextInputEditText
     private lateinit var locationInfo: TextView
     private val projects = mutableListOf<String>()
     private var themeColor = -10983104
@@ -233,7 +235,11 @@ class SettingsFragment : Fragment() {
         })
         geoAlertSwitch = Switch(ctx).apply { text = "هشدار ورود/خروج ثبت‌نشده" }
         geoAutoSwitch = Switch(ctx).apply { text = "ورود خودکار هنگام رسیدن به محل کار" }
-        content.addView(geoAlertSwitch); content.addView(geoAutoSwitch)
+        geoAutoOutSwitch = Switch(ctx).apply { text = "خروج خودکار هنگام ترک محل کار" }
+        content.addView(geoAlertSwitch); content.addView(geoAutoSwitch); content.addView(geoAutoOutSwitch)
+        val (radiusL, radiusE) = til("شعاع تشخیص محل کار (متر)"); radiusEdit = radiusE
+        radiusEdit.inputType = android.text.InputType.TYPE_CLASS_NUMBER
+        content.addView(radiusL)
 
         content.addView(MaterialButton(ctx).apply {
             text = "ذخیره تنظیمات"
@@ -396,7 +402,9 @@ class SettingsFragment : Fragment() {
             notifBodyEdit.setText(settings.notifBody)
             bioSwitch.isChecked = settings.biometricEnabled
             geoAutoSwitch.isChecked = settings.geoAutoCheckIn
+            geoAutoOutSwitch.isChecked = settings.geoAutoCheckOut
             geoAlertSwitch.isChecked = settings.geoAlertOnly
+            radiusEdit.setText(settings.workRadiusMeters.toInt().toString())
             locationInfo.text = if (settings.workLat != 0.0 || settings.workLng != 0.0)
                 "محل کار: ${"%.5f".format(settings.workLat)}, ${"%.5f".format(settings.workLng)} (شعاع ${settings.workRadiusMeters.toInt()} متر)"
             else "محل کار تنظیم نشده"
@@ -421,7 +429,9 @@ class SettingsFragment : Fragment() {
                     ?: "زمان پایان کار نزدیک است",
                 biometricEnabled = bioSwitch.isChecked,
                 geoAutoCheckIn = geoAutoSwitch.isChecked,
-                geoAlertOnly = geoAlertSwitch.isChecked
+                geoAutoCheckOut = geoAutoOutSwitch.isChecked,
+                geoAlertOnly = geoAlertSwitch.isChecked,
+                workRadiusMeters = (radiusEdit.text?.toString()?.toFloatOrNull() ?: settings.workRadiusMeters).coerceAtLeast(20f)
             )
             (requireActivity().application as App).repository.saveSettings(updated)
             settings = updated

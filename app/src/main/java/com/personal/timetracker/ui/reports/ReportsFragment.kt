@@ -15,6 +15,14 @@ import com.google.android.material.button.MaterialButtonToggleGroup
 import com.google.android.material.card.MaterialCardView
 import com.personal.timetracker.App
 import com.personal.timetracker.ui.MainActivity
+import com.personal.timetracker.util.AttendanceEditor
+import com.personal.timetracker.util.BarChartView
+import com.personal.timetracker.util.BarItem
+import com.personal.timetracker.util.ChartHelper
+import com.personal.timetracker.util.DialogHelper
+import com.personal.timetracker.util.DonutChartView
+import com.personal.timetracker.util.DonutItem
+import com.personal.timetracker.util.TaskLogEditor
 import com.personal.timetracker.util.ThemeHelper
 import com.personal.timetracker.util.TimeUtils
 import kotlinx.coroutines.launch
@@ -67,13 +75,18 @@ class ReportsFragment : Fragment() {
         return root
     }
 
-    private fun metricCard(title: String, value: String, subtitle: String = ""): MaterialCardView {
+    private fun metricCard(title: String, value: String, subtitle: String = "", accent: Int? = null): MaterialCardView {
         val ctx = requireContext()
         val card = MaterialCardView(ctx)
         ThemeHelper.applyCard(card, dark())
+        val outer = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL }
+        val bar = View(ctx).apply {
+            setBackgroundColor(accent ?: primary())
+            layoutParams = LinearLayout.LayoutParams((4 * resources.displayMetrics.density).toInt(), LinearLayout.LayoutParams.MATCH_PARENT)
+        }
         val box = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(24, 20, 24, 20)
+            setPadding(22, 20, 24, 20)
         }
         box.addView(TextView(ctx).apply {
             text = title; textSize = 12f
@@ -82,7 +95,7 @@ class ReportsFragment : Fragment() {
         box.addView(TextView(ctx).apply {
             text = value; textSize = 20f
             setTypeface(null, Typeface.BOLD)
-            setTextColor(primary())
+            setTextColor(accent ?: primary())
             setPadding(0, 6, 0, 0)
         })
         if (subtitle.isNotEmpty()) {
@@ -91,7 +104,9 @@ class ReportsFragment : Fragment() {
                 setTextColor(ThemeHelper.textSecondary(dark()))
             })
         }
-        card.addView(box)
+        outer.addView(bar)
+        outer.addView(box, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        card.addView(outer)
         card.layoutParams = LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.WRAP_CONTENT
@@ -99,10 +114,12 @@ class ReportsFragment : Fragment() {
         return card
     }
 
-    private fun dayCard(day: com.personal.timetracker.data.repository.DayBreakdown): MaterialCardView {
+    private fun dayCard(day: com.personal.timetracker.data.repository.DayBreakdown, repo: com.personal.timetracker.data.repository.AppRepository): MaterialCardView {
         val ctx = requireContext()
+        val primary = primary()
+        val dark = dark()
         val card = MaterialCardView(ctx)
-        ThemeHelper.applyCard(card, dark())
+        ThemeHelper.applyCard(card, dark)
         val box = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(24, 18, 24, 18)
@@ -111,46 +128,95 @@ class ReportsFragment : Fragment() {
             text = TimeUtils.toJalaliDisplay(day.date)
             textSize = 14f
             setTypeface(null, Typeface.BOLD)
-            setTextColor(primary())
+            setTextColor(primary)
         })
         box.addView(TextView(ctx).apply {
-            textSize = 13f
-            setTextColor(ThemeHelper.textPrimary(dark()))
-            setPadding(0, 8, 0, 0)
-            text = buildString {
-                append("کار: "); append(TimeUtils.formatDuration(day.worked))
-                append(" | مرخصی: "); append(TimeUtils.formatDuration(day.leave))
-                append(" | اضافه‌کار: "); append(TimeUtils.formatDuration(day.overtime))
-                append('\n')
-                if (day.attendance.isEmpty()) append("تردد: —")
-                else day.attendance.forEach { r ->
-                    append("تردد: ")
-                    append(r.entryTime)
-                    if (r.exitTime != null) {
-                        append(" → "); append(r.exitTime)
-                    } else append(" (فعال)")
-                    append('\n')
-                }
-                if (day.taskLogs.isEmpty()) {
-                    append("تسک: —")
-                } else {
-                    append("تسک‌ها:")
-                    append('\n')
-                    day.taskLogs.forEach { t ->
-                        append("  • ")
-                        append(t.taskTitle)
-                        if (!t.jira.isNullOrBlank()) {
-                            append(" ["); append(t.jira); append("]")
-                        }
-                        append(" — "); append(TimeUtils.formatDuration(t.duration))
-                        if (!t.note.isNullOrBlank()) {
-                            append(" ("); append(t.note); append(")")
-                        }
-                        append('\n')
-                    }
-                }
-            }
+            textSize = 12.5f
+            setTextColor(ThemeHelper.textSecondary(dark))
+            setPadding(0, 6, 0, 10)
+            text = "کار: ${TimeUtils.formatDuration(day.worked)}   ·   مرخصی: ${TimeUtils.formatDuration(day.leave)}   ·   اضافه‌کار: ${TimeUtils.formatDuration(day.overtime)}"
         })
+
+        if (day.attendance.isNotEmpty()) {
+            day.attendance.forEach { r ->
+                val row = LinearLayout(ctx).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = android.view.Gravity.CENTER_VERTICAL
+                    setPadding(0, 4, 0, 4)
+                }
+                row.addView(TextView(ctx).apply {
+                    text = if (r.exitTime != null) "تردد: ${r.entryTime} → ${r.exitTime}" else "تردد: ${r.entryTime} (فعال)"
+                    textSize = 12.5f
+                    setTextColor(ThemeHelper.textPrimary(dark))
+                    layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                })
+                row.addView(ThemeHelper.iconButton(ctx, "✎", primary, dark, "ویرایش تردد") {
+                    AttendanceEditor.open(ctx, r, repo, lifecycleScope, primary, dark) { load() }
+                })
+                row.addView(ThemeHelper.iconButton(ctx, "🗑", ThemeHelper.deleteColor, dark, "حذف تردد") {
+                    AttendanceEditor.confirmDelete(ctx, r, repo, lifecycleScope, primary, dark) { load() }
+                })
+                box.addView(row)
+            }
+        } else {
+            box.addView(TextView(ctx).apply {
+                text = "تردد: —"; textSize = 12.5f; setTextColor(ThemeHelper.textSecondary(dark))
+            })
+        }
+
+        if (day.taskLogs.isNotEmpty()) {
+            box.addView(DialogHelper.sectionLabel(ctx, "تسک‌ها", dark))
+            day.taskLogs.forEach { t ->
+                val row = LinearLayout(ctx).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = android.view.Gravity.CENTER_VERTICAL
+                    setPadding(0, 4, 0, 4)
+                }
+                val info = LinearLayout(ctx).apply {
+                    orientation = LinearLayout.VERTICAL
+                    layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                }
+                info.addView(TextView(ctx).apply {
+                    text = buildString {
+                        append(t.taskTitle)
+                        if (!t.jira.isNullOrBlank()) { append(" ["); append(t.jira); append("]") }
+                        append("  ·  "); append(TimeUtils.formatDuration(t.duration))
+                    }
+                    textSize = 12.5f
+                    setTextColor(ThemeHelper.textPrimary(dark))
+                })
+                if (!t.note.isNullOrBlank()) {
+                    info.addView(TextView(ctx).apply {
+                        text = t.note; textSize = 11f; setTextColor(ThemeHelper.textSecondary(dark))
+                    })
+                }
+                row.addView(info)
+                row.addView(ThemeHelper.iconButton(ctx, "✎", primary, dark, "ویرایش لاگ") {
+                    lifecycleScope.launch {
+                        val task = repo.getTask(t.taskId) ?: return@launch
+                        val log = com.personal.timetracker.data.entity.TaskLogEntity(
+                            id = t.logId, taskId = t.taskId, date = day.date,
+                            startTime = null, endTime = null, duration = t.duration,
+                            note = t.note, createdAt = TimeUtils.nowDateTime()
+                        )
+                        TaskLogEditor.openEdit(ctx, task, log, repo, lifecycleScope, primary, dark) { load() }
+                    }
+                })
+                row.addView(ThemeHelper.iconButton(ctx, "🗑", ThemeHelper.deleteColor, dark, "حذف لاگ") {
+                    lifecycleScope.launch {
+                        val task = repo.getTask(t.taskId) ?: return@launch
+                        val log = com.personal.timetracker.data.entity.TaskLogEntity(
+                            id = t.logId, taskId = t.taskId, date = day.date,
+                            startTime = null, endTime = null, duration = t.duration,
+                            note = t.note, createdAt = TimeUtils.nowDateTime()
+                        )
+                        TaskLogEditor.confirmDelete(ctx, task, log, repo, lifecycleScope, primary, dark) { load() }
+                    }
+                })
+                box.addView(row)
+            }
+        }
+
         card.addView(box)
         card.layoutParams = LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
@@ -158,6 +224,12 @@ class ReportsFragment : Fragment() {
         ).apply { bottomMargin = 10 }
         return card
     }
+
+    private val palette = intArrayOf(
+        0xFF1565C0.toInt(), 0xFF00897B.toInt(), 0xFFF9A825.toInt(),
+        0xFF8E24AA.toInt(), 0xFFE53935.toInt(), 0xFF3949AB.toInt(),
+        0xFF43A047.toInt(), 0xFFFB8C00.toInt()
+    )
 
     private fun load() {
         val repo = (requireActivity().application as App).repository
@@ -170,57 +242,126 @@ class ReportsFragment : Fragment() {
         content.removeAllViews()
         lifecycleScope.launch {
             val r = repo.report(start, end)
-            val projects = repo.projectSummary()
-            val jiras = repo.jiraSummary()
+            val projects = repo.projectSummaryRange(start, end)
+            val jiras = repo.jiraSummaryRange(start, end)
             val days = repo.dayBreakdown(start, end)
+            val ctx = requireContext()
 
-            content.addView(TextView(requireContext()).apply {
+            content.addView(TextView(ctx).apply {
                 text = "بازه: ${TimeUtils.toJalaliDisplay(start)} تا ${TimeUtils.toJalaliDisplay(end)}"
                 setTextColor(ThemeHelper.textSecondary(dark()))
                 setPadding(4, 0, 4, 12)
             })
 
-            content.addView(metricCard("ساعت کار", TimeUtils.formatDuration(r.worked)))
-            content.addView(metricCard("مرخصی", TimeUtils.formatDuration(r.leave)))
+            // Summary bar chart: worked vs leave vs overtime vs undertime
+            val summaryItems = listOf(
+                BarItem("ساعت کار — ${TimeUtils.formatDuration(r.worked)}", r.worked, primary()),
+                BarItem("مرخصی — ${TimeUtils.formatDuration(r.leave)}", r.leave, 0xFFF9A825.toInt()),
+                BarItem("اضافه‌کاری — ${TimeUtils.formatDuration(r.overtime)}", r.overtime, 0xFF43A047.toInt()),
+                BarItem("کسری کار — ${TimeUtils.formatDuration(r.undertime)}", r.undertime, 0xFFE53935.toInt())
+            )
+            if (summaryItems.any { it.value > 0 }) {
+                val chartCard = MaterialCardView(ctx)
+                ThemeHelper.applyCard(chartCard, dark())
+                chartCard.setContentPadding(24, 20, 24, 20)
+                chartCard.addView(BarChartView(ctx).apply {
+                    items = summaryItems
+                    trackColor = ThemeHelper.outline(dark())
+                    labelColor = ThemeHelper.textPrimary(dark())
+                })
+                content.addView(chartCard, LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply { bottomMargin = 14 })
+            }
+
+            content.addView(metricCard("ساعت کار", TimeUtils.formatDuration(r.worked), accent = primary()))
+            content.addView(metricCard("مرخصی", TimeUtils.formatDuration(r.leave), accent = 0xFFF9A825.toInt()))
             content.addView(metricCard(
                 "اضافه‌کاری",
                 TimeUtils.formatDuration(r.overtime),
-                "جمع دقایق بیش از حداقل روزانه"
+                "جمع دقایق بیش از حداقل روزانه",
+                accent = 0xFF43A047.toInt()
             ))
             content.addView(metricCard(
                 "کسری کار",
                 TimeUtils.formatDuration(r.undertime),
-                "جمع دقایق کمتر از حداقل روزانه"
+                "جمع دقایق کمتر از حداقل روزانه",
+                accent = 0xFFE53935.toInt()
             ))
             content.addView(metricCard("لاگ روی تسک‌ها", TimeUtils.formatDuration(r.taskLogMinutes)))
             content.addView(metricCard("تعداد ورود/خروج", "${r.entryCount}"))
 
-            content.addView(ThemeHelper.sectionTitle(requireContext(), "جزئیات روزبه‌روز", dark(), primary()))
+            content.addView(ThemeHelper.sectionTitle(ctx, "جزئیات روزبه‌روز", dark(), primary()))
             if (days.isEmpty()) {
-                content.addView(TextView(requireContext()).apply {
+                content.addView(TextView(ctx).apply {
                     text = "در این بازه داده‌ای نیست"
                     setTextColor(ThemeHelper.textSecondary(dark()))
                 })
             } else {
-                days.asReversed().forEach { content.addView(dayCard(it)) }
+                days.asReversed().forEach { content.addView(dayCard(it, repo)) }
             }
 
-            content.addView(ThemeHelper.sectionTitle(requireContext(), "پروژه‌ها", dark(), primary()))
+            content.addView(ThemeHelper.sectionTitle(ctx, "پروژه‌ها", dark(), primary()))
             if (projects.isEmpty()) {
-                content.addView(TextView(requireContext()).apply {
+                content.addView(TextView(ctx).apply {
                     text = "داده‌ای نیست"; setTextColor(ThemeHelper.textSecondary(dark()))
                 })
-            } else projects.forEach {
-                content.addView(metricCard(it.projectName, TimeUtils.formatDuration(it.total)))
+            } else {
+                val total = projects.sumOf { it.total }
+                val donutItems = projects.mapIndexed { i, p ->
+                    DonutItem(p.projectName, p.total, palette[i % palette.size])
+                }
+                val donutCard = MaterialCardView(ctx)
+                ThemeHelper.applyCard(donutCard, dark())
+                val row = LinearLayout(ctx).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = android.view.Gravity.CENTER_VERTICAL
+                    setPadding(20, 20, 20, 20)
+                }
+                val donut = DonutChartView(ctx).apply {
+                    items = donutItems
+                    trackColor = ThemeHelper.outline(dark())
+                    centerTitle = TimeUtils.formatDuration(total)
+                    centerSubtitle = "کل"
+                    titleColor = ThemeHelper.textPrimary(dark())
+                    subtitleColor = ThemeHelper.textSecondary(dark())
+                    layoutParams = LinearLayout.LayoutParams(DialogHelper.dp(ctx, 110), DialogHelper.dp(ctx, 110)).apply {
+                        marginEnd = DialogHelper.dp(ctx, 14)
+                    }
+                }
+                val legend = ChartHelper.legend(
+                    ctx,
+                    donutItems.map { Triple(it.label, TimeUtils.formatDuration(it.value), it.color) },
+                    dark()
+                ).apply {
+                    layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                }
+                row.addView(donut)
+                row.addView(legend)
+                donutCard.addView(row)
+                content.addView(donutCard, LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply { bottomMargin = 12 })
             }
 
-            content.addView(ThemeHelper.sectionTitle(requireContext(), "Jira", dark(), primary()))
+            content.addView(ThemeHelper.sectionTitle(ctx, "Jira", dark(), primary()))
             if (jiras.isEmpty()) {
-                content.addView(TextView(requireContext()).apply {
+                content.addView(TextView(ctx).apply {
                     text = "داده‌ای نیست"; setTextColor(ThemeHelper.textSecondary(dark()))
                 })
-            } else jiras.forEach {
-                content.addView(metricCard(it.jiraNumber, TimeUtils.formatDuration(it.total)))
+            } else {
+                val jiraItems = jiras.mapIndexed { i, j ->
+                    BarItem("${j.jiraNumber} — ${TimeUtils.formatDuration(j.total)}", j.total, palette[i % palette.size])
+                }
+                val jiraCard = MaterialCardView(ctx)
+                ThemeHelper.applyCard(jiraCard, dark())
+                jiraCard.setContentPadding(24, 20, 24, 20)
+                jiraCard.addView(BarChartView(ctx).apply {
+                    items = jiraItems
+                    trackColor = ThemeHelper.outline(dark())
+                    labelColor = ThemeHelper.textPrimary(dark())
+                })
+                content.addView(jiraCard)
             }
         }
     }

@@ -42,7 +42,7 @@ public final class SettingsDao_Impl implements SettingsDao {
       @Override
       @NonNull
       protected String createQuery() {
-        return "INSERT OR REPLACE INTO `settings` (`id`,`startWorkTime`,`endWorkTime`,`flexibleMinutes`,`minimumWorkMinutes`,`isDarkMode`,`themeColor`,`projects`,`notifEnabled`,`notifMinutesBefore`,`notifTitle`,`notifBody`,`biometricEnabled`,`workLat`,`workLng`,`workRadiusMeters`,`geoAutoCheckIn`,`geoAlertOnly`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+        return "INSERT OR REPLACE INTO `settings` (`id`,`startWorkTime`,`endWorkTime`,`flexibleMinutes`,`minimumWorkMinutes`,`isDarkMode`,`themeColor`,`projects`,`notifEnabled`,`notifMinutesBefore`,`notifTitle`,`notifBody`,`biometricEnabled`,`workLat`,`workLng`,`workRadiusMeters`,`geoAutoCheckIn`,`geoAlertOnly`,`geoAutoCheckOut`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
       }
 
       @Override
@@ -71,6 +71,8 @@ public final class SettingsDao_Impl implements SettingsDao {
         statement.bindLong(17, _tmp_3);
         final int _tmp_4 = entity.getGeoAlertOnly() ? 1 : 0;
         statement.bindLong(18, _tmp_4);
+        final int _tmp_5 = entity.getGeoAutoCheckOut() ? 1 : 0;
+        statement.bindLong(19, _tmp_5);
       }
     };
     this.__preparedStmtOfDeleteAll = new SharedSQLiteStatement(__db) {
@@ -153,6 +155,7 @@ public final class SettingsDao_Impl implements SettingsDao {
           final int _cursorIndexOfWorkRadiusMeters = CursorUtil.getColumnIndexOrThrow(_cursor, "workRadiusMeters");
           final int _cursorIndexOfGeoAutoCheckIn = CursorUtil.getColumnIndexOrThrow(_cursor, "geoAutoCheckIn");
           final int _cursorIndexOfGeoAlertOnly = CursorUtil.getColumnIndexOrThrow(_cursor, "geoAlertOnly");
+          final int _cursorIndexOfGeoAutoCheckOut = CursorUtil.getColumnIndexOrThrow(_cursor, "geoAutoCheckOut");
           final SettingsEntity _result;
           if (_cursor.moveToFirst()) {
             final int _tmpId;
@@ -201,7 +204,11 @@ public final class SettingsDao_Impl implements SettingsDao {
             final int _tmp_4;
             _tmp_4 = _cursor.getInt(_cursorIndexOfGeoAlertOnly);
             _tmpGeoAlertOnly = _tmp_4 != 0;
-            _result = new SettingsEntity(_tmpId,_tmpStartWorkTime,_tmpEndWorkTime,_tmpFlexibleMinutes,_tmpMinimumWorkMinutes,_tmpIsDarkMode,_tmpThemeColor,_tmpProjects,_tmpNotifEnabled,_tmpNotifMinutesBefore,_tmpNotifTitle,_tmpNotifBody,_tmpBiometricEnabled,_tmpWorkLat,_tmpWorkLng,_tmpWorkRadiusMeters,_tmpGeoAutoCheckIn,_tmpGeoAlertOnly);
+            final boolean _tmpGeoAutoCheckOut;
+            final int _tmp_5;
+            _tmp_5 = _cursor.getInt(_cursorIndexOfGeoAutoCheckOut);
+            _tmpGeoAutoCheckOut = _tmp_5 != 0;
+            _result = new SettingsEntity(_tmpId,_tmpStartWorkTime,_tmpEndWorkTime,_tmpFlexibleMinutes,_tmpMinimumWorkMinutes,_tmpIsDarkMode,_tmpThemeColor,_tmpProjects,_tmpNotifEnabled,_tmpNotifMinutesBefore,_tmpNotifTitle,_tmpNotifBody,_tmpBiometricEnabled,_tmpWorkLat,_tmpWorkLng,_tmpWorkRadiusMeters,_tmpGeoAutoCheckIn,_tmpGeoAlertOnly,_tmpGeoAutoCheckOut);
           } else {
             _result = null;
           }
@@ -247,6 +254,7 @@ public final class SettingsDao_Impl implements SettingsDao {
           final int _cursorIndexOfWorkRadiusMeters = CursorUtil.getColumnIndexOrThrow(_cursor, "workRadiusMeters");
           final int _cursorIndexOfGeoAutoCheckIn = CursorUtil.getColumnIndexOrThrow(_cursor, "geoAutoCheckIn");
           final int _cursorIndexOfGeoAlertOnly = CursorUtil.getColumnIndexOrThrow(_cursor, "geoAlertOnly");
+          final int _cursorIndexOfGeoAutoCheckOut = CursorUtil.getColumnIndexOrThrow(_cursor, "geoAutoCheckOut");
           final SettingsEntity _result;
           if (_cursor.moveToFirst()) {
             final int _tmpId;
@@ -295,7 +303,11 @@ public final class SettingsDao_Impl implements SettingsDao {
             final int _tmp_4;
             _tmp_4 = _cursor.getInt(_cursorIndexOfGeoAlertOnly);
             _tmpGeoAlertOnly = _tmp_4 != 0;
-            _result = new SettingsEntity(_tmpId,_tmpStartWorkTime,_tmpEndWorkTime,_tmpFlexibleMinutes,_tmpMinimumWorkMinutes,_tmpIsDarkMode,_tmpThemeColor,_tmpProjects,_tmpNotifEnabled,_tmpNotifMinutesBefore,_tmpNotifTitle,_tmpNotifBody,_tmpBiometricEnabled,_tmpWorkLat,_tmpWorkLng,_tmpWorkRadiusMeters,_tmpGeoAutoCheckIn,_tmpGeoAlertOnly);
+            final boolean _tmpGeoAutoCheckOut;
+            final int _tmp_5;
+            _tmp_5 = _cursor.getInt(_cursorIndexOfGeoAutoCheckOut);
+            _tmpGeoAutoCheckOut = _tmp_5 != 0;
+            _result = new SettingsEntity(_tmpId,_tmpStartWorkTime,_tmpEndWorkTime,_tmpFlexibleMinutes,_tmpMinimumWorkMinutes,_tmpIsDarkMode,_tmpThemeColor,_tmpProjects,_tmpNotifEnabled,_tmpNotifMinutesBefore,_tmpNotifTitle,_tmpNotifBody,_tmpBiometricEnabled,_tmpWorkLat,_tmpWorkLng,_tmpWorkRadiusMeters,_tmpGeoAutoCheckIn,_tmpGeoAlertOnly,_tmpGeoAutoCheckOut);
           } else {
             _result = null;
           }

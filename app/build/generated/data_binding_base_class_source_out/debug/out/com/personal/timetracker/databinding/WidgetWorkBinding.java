@@ -20,6 +20,12 @@ public final class WidgetWorkBinding implements ViewBinding {
   private final LinearLayout rootView;
 
   @NonNull
+  public final TextView widgetCheckIn;
+
+  @NonNull
+  public final TextView widgetCheckOut;
+
+  @NonNull
   public final TextView widgetDetail;
 
   @NonNull
@@ -31,14 +37,21 @@ public final class WidgetWorkBinding implements ViewBinding {
   @NonNull
   public final TextView widgetTitle;
 
-  private WidgetWorkBinding(@NonNull LinearLayout rootView, @NonNull TextView widgetDetail,
+  @NonNull
+  public final TextView widgetWorkedToday;
+
+  private WidgetWorkBinding(@NonNull LinearLayout rootView, @NonNull TextView widgetCheckIn,
+      @NonNull TextView widgetCheckOut, @NonNull TextView widgetDetail,
       @NonNull LinearLayout widgetRoot, @NonNull TextView widgetStatus,
-      @NonNull TextView widgetTitle) {
+      @NonNull TextView widgetTitle, @NonNull TextView widgetWorkedToday) {
     this.rootView = rootView;
+    this.widgetCheckIn = widgetCheckIn;
+    this.widgetCheckOut = widgetCheckOut;
     this.widgetDetail = widgetDetail;
     this.widgetRoot = widgetRoot;
     this.widgetStatus = widgetStatus;
     this.widgetTitle = widgetTitle;
+    this.widgetWorkedToday = widgetWorkedToday;
   }
 
   @Override
@@ -68,6 +81,18 @@ public final class WidgetWorkBinding implements ViewBinding {
     // This is done to optimize the compiled bytecode for size and performance.
     int id;
     missingId: {
+      id = R.id.widgetCheckIn;
+      TextView widgetCheckIn = ViewBindings.findChildViewById(rootView, id);
+      if (widgetCheckIn == null) {
+        break missingId;
+      }
+
+      id = R.id.widgetCheckOut;
+      TextView widgetCheckOut = ViewBindings.findChildViewById(rootView, id);
+      if (widgetCheckOut == null) {
+        break missingId;
+      }
+
       id = R.id.widgetDetail;
       TextView widgetDetail = ViewBindings.findChildViewById(rootView, id);
       if (widgetDetail == null) {
@@ -88,8 +113,14 @@ public final class WidgetWorkBinding implements ViewBinding {
         break missingId;
       }
 
-      return new WidgetWorkBinding((LinearLayout) rootView, widgetDetail, widgetRoot, widgetStatus,
-          widgetTitle);
+      id = R.id.widgetWorkedToday;
+      TextView widgetWorkedToday = ViewBindings.findChildViewById(rootView, id);
+      if (widgetWorkedToday == null) {
+        break missingId;
+      }
+
+      return new WidgetWorkBinding((LinearLayout) rootView, widgetCheckIn, widgetCheckOut,
+          widgetDetail, widgetRoot, widgetStatus, widgetTitle, widgetWorkedToday);
     }
     String missingId = rootView.getResources().getResourceName(id);
     throw new NullPointerException("Missing required view with ID: ".concat(missingId));

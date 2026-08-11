@@ -31,17 +31,29 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+/** Implemented by fragments that paint their own colors, so MainActivity can refresh them
+ *  in place instead of requiring the user to navigate away and back. */
+interface Themable {
+    fun refreshTheme(primary: Int, dark: Boolean)
+}
+
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private var unlocked = false
+    private var firstFragmentOpened = false
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { result ->
         if (result.values.any { it }) {
             try { GeoHelper.requestAndCheck(this) } catch (_: Exception) {}
+            requestBackgroundLocationIfNeeded()
         }
     }
+
+    private val backgroundLocationLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { /* no-op: periodic background worker checks permission itself before use */ }
 
     var primaryColor: Int = 0xFF1565C0.toInt()
         private set
@@ -83,6 +95,16 @@ class MainActivity : AppCompatActivity() {
 
                     applyChrome(settings.themeColor, settings.isDarkMode)
 
+                    // Only now that isDark/primaryColor are the real values do we open the
+                    // first fragment — this is what fixes dark mode not applying until the
+                    // user manually switches tabs once.
+                    if (savedInstanceState == null && !firstFragmentOpened) {
+                        firstFragmentOpened = true
+                        open(DashboardFragment())
+                    }
+
+                    try { NotifHelper.scheduleGeoBackgroundCheck(this@MainActivity) } catch (_: Exception) {}
+
                     if (settings.biometricEnabled && !unlocked) {
                         binding.root.visibility = View.INVISIBLE
                         if (BiometricHelper.canAuthenticate(this@MainActivity)) {
@@ -107,11 +129,12 @@ class MainActivity : AppCompatActivity() {
                 } catch (e: Exception) {
                     Log.e("PTT", "init", e)
                     unlocked = true
+                    if (savedInstanceState == null && !firstFragmentOpened) {
+                        firstFragmentOpened = true
+                        applyChrome(primaryColor, isDark)
+                        open(DashboardFragment())
+                    }
                 }
-            }
-
-            if (savedInstanceState == null) {
-                open(DashboardFragment())
             }
 
             binding.bottomNav.setOnItemSelectedListener { item ->
@@ -140,6 +163,10 @@ class MainActivity : AppCompatActivity() {
         window.navigationBarColor = ThemeHelper.surfaceCard(dark)
         binding.root.setBackgroundColor(ThemeHelper.surface(dark))
         ThemeHelper.applyBottomNav(binding.bottomNav, primary, dark)
+        // Refresh the currently visible fragment in place if it supports it, so theme/color
+        // changes made from Settings apply immediately without needing to switch tabs.
+        val current = supportFragmentManager.findFragmentById(R.id.fragmentContainer)
+        (current as? Themable)?.refreshTheme(primary, dark)
     }
 
     /** Call after saving theme settings */
@@ -173,7 +200,30 @@ class MainActivity : AppCompatActivity() {
             needed.add(Manifest.permission.ACCESS_FINE_LOCATION)
             needed.add(Manifest.permission.ACCESS_COARSE_LOCATION)
         }
-        if (needed.isNotEmpty()) permissionLauncher.launch(needed.toTypedArray())
+        if (needed.isNotEmpty()) {
+            permissionLauncher.launch(needed.toTypedArray())
+        } else {
+            requestBackgroundLocationIfNeeded()
+        }
+    }
+
+    /**
+     * On Android 10+ foreground and background location are separate permissions.
+     * Requesting background location is only meaningful once foreground access is granted,
+     * and is what allows the geofence-based auto check-in / notifications to keep working
+     * while the app is closed instead of only while it's open in the foreground.
+     */
+    private fun requestBackgroundLocationIfNeeded() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return
+        val fineGranted = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        val coarseGranted = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        if (!fineGranted && !coarseGranted) return
+        val bgGranted = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_BACKGROUND_LOCATION) == PackageManager.PERMISSION_GRANTED
+        if (!bgGranted) {
+            try {
+                backgroundLocationLauncher.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+            } catch (_: Exception) { }
+        }
     }
 
     fun openCalendar() {

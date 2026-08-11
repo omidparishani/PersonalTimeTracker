@@ -2,6 +2,8 @@ package com.personal.timetracker.data.repository
 
 import android.content.Context
 import com.personal.timetracker.data.db.AppDatabase
+import com.personal.timetracker.data.dao.JiraSum
+import com.personal.timetracker.data.dao.ProjectSum
 import com.personal.timetracker.data.entity.AttendanceEntity
 import com.personal.timetracker.data.entity.SettingsEntity
 import com.personal.timetracker.data.entity.TaskEntity
@@ -9,6 +11,7 @@ import com.personal.timetracker.data.entity.TaskLogEntity
 import com.personal.timetracker.util.NotifHelper
 import com.personal.timetracker.util.TimeCalc
 import com.personal.timetracker.util.TimeUtils
+import com.personal.timetracker.widget.WorkWidgetProvider
 import kotlinx.coroutines.flow.Flow
 import java.time.DayOfWeek
 
@@ -45,6 +48,7 @@ class AppRepository(context: Context) {
                 settings.notifTitle, settings.notifBody
             )
         }
+        try { WorkWidgetProvider.requestUpdate(appContext) } catch (_: Exception) {}
     }
 
     suspend fun checkOut(exitTime: String = TimeUtils.nowTime()) {
@@ -67,6 +71,7 @@ class AppRepository(context: Context) {
             )
         )
         NotifHelper.cancel(appContext)
+        try { WorkWidgetProvider.requestUpdate(appContext) } catch (_: Exception) {}
     }
 
     suspend fun addAttendance(date: String, entry: String, exit: String?) {
@@ -83,6 +88,7 @@ class AppRepository(context: Context) {
                 )
             )
         }
+        try { WorkWidgetProvider.requestUpdate(appContext) } catch (_: Exception) {}
     }
 
     suspend fun updateAttendance(item: AttendanceEntity) {
@@ -93,9 +99,13 @@ class AppRepository(context: Context) {
             item.copy(duration = dur, leaveDuration = leave, status = "completed")
         } else item.copy(status = "active")
         attendanceDao.update(updated)
+        try { WorkWidgetProvider.requestUpdate(appContext) } catch (_: Exception) {}
     }
 
-    suspend fun deleteAttendance(item: AttendanceEntity) = attendanceDao.delete(item)
+    suspend fun deleteAttendance(item: AttendanceEntity) {
+        attendanceDao.delete(item)
+        try { WorkWidgetProvider.requestUpdate(appContext) } catch (_: Exception) {}
+    }
 
     // ---- Tasks ----
     fun observeTasks() = taskDao.getAll()
@@ -219,6 +229,29 @@ class AppRepository(context: Context) {
     suspend fun projectSummary() = taskDao.projectSummary()
     suspend fun jiraSummary() = taskDao.jiraSummary()
 
+    /** Same as [projectSummary]/[jiraSummary] but scoped to a date range, based on actual
+     *  logged time in that range rather than lifetime task totals — used by Reports so the
+     *  bottom charts respect the daily/weekly/monthly filter above them. */
+    suspend fun projectSummaryRange(start: String, end: String): List<ProjectSum> {
+        val logs = taskLogDao.getByRange(start, end)
+        val tasks = taskDao.getAllOnce().associateBy { it.id }
+        return logs.groupBy { tasks[it.taskId]?.projectName ?: "بدون پروژه" }
+            .map { (proj, list) -> ProjectSum(proj, list.sumOf { it.duration }) }
+            .filter { it.total > 0 }
+            .sortedByDescending { it.total }
+    }
+
+    suspend fun jiraSummaryRange(start: String, end: String): List<JiraSum> {
+        val logs = taskLogDao.getByRange(start, end)
+        val tasks = taskDao.getAllOnce().associateBy { it.id }
+        return logs.mapNotNull { log ->
+            val jira = tasks[log.taskId]?.jiraNumber
+            if (jira.isNullOrBlank()) null else jira to log.duration
+        }.groupBy({ it.first }, { it.second })
+            .map { (jira, durations) -> JiraSum(jira, durations.sum()) }
+            .sortedByDescending { it.total }
+    }
+
     suspend fun report(start: String, end: String): ReportData {
         val settings = getSettings()
         val days = attendanceDao.getByRange(start, end)
@@ -302,6 +335,8 @@ class AppRepository(context: Context) {
             val taskLines = dayLogs.map { log ->
                 val t = tasks[log.taskId]
                 TaskLogLine(
+                    logId = log.id,
+                    taskId = log.taskId,
                     taskTitle = t?.taskTitle ?: "تسک #${log.taskId}",
                     jira = t?.jiraNumber,
                     project = t?.projectName,
@@ -323,6 +358,8 @@ class AppRepository(context: Context) {
 }
 
 data class TaskLogLine(
+    val logId: Long,
+    val taskId: Long,
     val taskTitle: String,
     val jira: String?,
     val project: String?,

@@ -16,6 +16,9 @@ import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
 import com.personal.timetracker.App
 import com.personal.timetracker.ui.MainActivity
+import com.personal.timetracker.util.AttendanceEditor
+import com.personal.timetracker.util.DialogHelper
+import com.personal.timetracker.util.TaskLogEditor
 import com.personal.timetracker.util.ThemeHelper
 import com.personal.timetracker.util.TimeUtils
 import kotlinx.coroutines.launch
@@ -186,6 +189,8 @@ class CalendarFragment : Fragment() {
         val d = selectedIso()
         val repo = (requireActivity().application as App).repository
         val ctx = requireContext()
+        val primary = primary()
+        val dark = dark()
         detailBox.removeAllViews()
         detailBox.addView(TextView(ctx).apply {
             val wd = when (
@@ -208,7 +213,7 @@ class CalendarFragment : Fragment() {
             text = "$wd، $selectedJd ${TimeUtils.jalaliMonthName(jm)} $jy"
             textSize = 15f
             setTypeface(null, Typeface.BOLD)
-            setTextColor(primary())
+            setTextColor(primary)
             setPadding(4, 4, 4, 12)
         })
         lifecycleScope.launch {
@@ -231,59 +236,116 @@ class CalendarFragment : Fragment() {
 
             detailBox.addView(card(ctx, "جمع روز", buildString {
                 append("کار: "); append(TimeUtils.formatDuration(worked))
-                append(" | مرخصی: "); append(TimeUtils.formatDuration(leave))
-                append(" | اضافه‌کار: "); append(TimeUtils.formatDuration(ot))
-                append('\n')
-                append("لاگ تسک: "); append(TimeUtils.formatDuration(logs.sumOf { it.duration }))
+                append("   ·   مرخصی: "); append(TimeUtils.formatDuration(leave))
+                append("   ·   اضافه‌کار: "); append(TimeUtils.formatDuration(ot))
+                append("   ·   لاگ تسک: "); append(TimeUtils.formatDuration(logs.sumOf { it.duration }))
             }))
 
-            detailBox.addView(card(ctx, "ترددها", buildString {
-                if (att.isEmpty()) append("ترددی نیست")
-                else att.forEach { r ->
-                    append("• ")
-                    if (r.exitTime != null) {
-                        append(r.entryTime); append(" → "); append(r.exitTime)
-                        append(" ("); append(TimeUtils.formatDuration(r.duration)); append(")")
-                    } else {
-                        append(r.entryTime); append(" (فعال)")
-                    }
-                    append('\n')
+            // Attendance card with inline edit/delete
+            val attCard = MaterialCardView(ctx)
+            ThemeHelper.applyCard(attCard, dark)
+            val attBox = LinearLayout(ctx).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(24, 18, 24, 18)
+            }
+            attBox.addView(TextView(ctx).apply {
+                text = "ترددها"; textSize = 13f; setTypeface(null, Typeface.BOLD); setTextColor(primary)
+            })
+            if (att.isEmpty()) {
+                attBox.addView(TextView(ctx).apply {
+                    text = "ترددی نیست"; textSize = 12.5f; setTextColor(ThemeHelper.textSecondary(dark))
+                    setPadding(0, 8, 0, 0)
+                })
+            } else {
+                att.forEach { r ->
+                    attBox.addView(rowWithActions(
+                        ctx,
+                        if (r.exitTime != null) "${r.entryTime}  →  ${r.exitTime}" else "${r.entryTime} (فعال)",
+                        primary, dark,
+                        onEdit = { AttendanceEditor.open(ctx, r, repo, lifecycleScope, primary, dark) { loadDay() } },
+                        onDelete = { AttendanceEditor.confirmDelete(ctx, r, repo, lifecycleScope, primary, dark) { loadDay() } }
+                    ))
                 }
-            }))
+            }
+            val addAttBtn = MaterialButton(ctx, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
+                text = "＋ ثبت تردد این روز"
+                textSize = 11f
+                ThemeHelper.applyButton(this, primary, false)
+                setOnClickListener {
+                    AttendanceEditor.open(
+                        ctx, null, repo, lifecycleScope, primary, dark, defaultDate = d
+                    ) { loadDay() }
+                }
+            }
+            attBox.addView(addAttBtn, LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { topMargin = 10 })
+            attCard.addView(attBox)
+            attCard.layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = 12 }
+            detailBox.addView(attCard)
 
-            detailBox.addView(card(ctx, "تسک‌ها و لاگ‌ها", buildString {
-                if (logs.isEmpty() && tasks.isEmpty()) append("موردی نیست")
-                else {
-                    val byTask = logs.groupBy { it.taskId }
-                    if (byTask.isNotEmpty()) {
-                        byTask.forEach { (tid, list) ->
-                            val t = tasks.find { it.id == tid }
-                            append("• ")
-                            append(t?.taskTitle ?: "تسک #$tid")
-                            if (!t?.jiraNumber.isNullOrBlank()) {
-                                append(" ["); append(t?.jiraNumber); append("]")
-                            }
-                            append('\n')
-                            list.forEach { log ->
-                                append("   - "); append(TimeUtils.formatDuration(log.duration))
-                                if (!log.note.isNullOrBlank()) {
-                                    append(" — "); append(log.note)
-                                }
-                                append('\n')
-                            }
-                        }
-                    } else {
-                        tasks.forEach { t ->
-                            append("• "); append(t.taskTitle)
-                            if (!t.jiraNumber.isNullOrBlank()) {
-                                append(" ["); append(t.jiraNumber); append("]")
-                            }
-                            append('\n')
-                        }
+            // Task logs card with inline edit/delete
+            val logCard = MaterialCardView(ctx)
+            ThemeHelper.applyCard(logCard, dark)
+            val logBox = LinearLayout(ctx).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(24, 18, 24, 18)
+            }
+            logBox.addView(TextView(ctx).apply {
+                text = "تسک‌ها و لاگ‌ها"; textSize = 13f; setTypeface(null, Typeface.BOLD); setTextColor(primary)
+            })
+            if (logs.isEmpty()) {
+                logBox.addView(TextView(ctx).apply {
+                    text = "موردی نیست"; textSize = 12.5f; setTextColor(ThemeHelper.textSecondary(dark))
+                    setPadding(0, 8, 0, 0)
+                })
+            } else {
+                logs.forEach { log ->
+                    val t = tasks.find { it.id == log.taskId }
+                    val label = buildString {
+                        append(t?.taskTitle ?: "تسک #${log.taskId}")
+                        if (!t?.jiraNumber.isNullOrBlank()) { append(" ["); append(t?.jiraNumber); append("]") }
+                        append("  ·  "); append(TimeUtils.formatDuration(log.duration))
                     }
+                    logBox.addView(rowWithActions(
+                        ctx, label, primary, dark,
+                        onEdit = {
+                            if (t != null) TaskLogEditor.openEdit(ctx, t, log, repo, lifecycleScope, primary, dark) { loadDay() }
+                        },
+                        onDelete = {
+                            if (t != null) TaskLogEditor.confirmDelete(ctx, t, log, repo, lifecycleScope, primary, dark) { loadDay() }
+                        }
+                    ))
                 }
-            }))
+            }
+            logCard.addView(logBox)
+            logCard.layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = 12 }
+            detailBox.addView(logCard)
         }
+    }
+
+    private fun rowWithActions(
+        ctx: android.content.Context, label: String, primary: Int, dark: Boolean,
+        onEdit: () -> Unit, onDelete: () -> Unit
+    ): LinearLayout {
+        val row = LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, 8, 0, 8)
+        }
+        row.addView(TextView(ctx).apply {
+            text = label
+            textSize = 12.5f
+            setTextColor(ThemeHelper.textPrimary(dark))
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        })
+        row.addView(ThemeHelper.iconButton(ctx, "✎", primary, dark, "ویرایش", onEdit))
+        row.addView(ThemeHelper.iconButton(ctx, "🗑", ThemeHelper.deleteColor, dark, "حذف", onDelete))
+        return row
     }
 
     private fun card(ctx: android.content.Context, title: String, body: String): MaterialCardView {

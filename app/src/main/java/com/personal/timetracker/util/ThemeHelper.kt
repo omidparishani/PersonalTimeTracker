@@ -3,6 +3,7 @@ package com.personal.timetracker.util
 import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.Color
+import android.view.Gravity
 import android.view.View
 import android.widget.TextView
 import androidx.core.graphics.ColorUtils
@@ -101,5 +102,80 @@ object ThemeHelper {
             setTypeface(typeface, android.graphics.Typeface.BOLD)
             setPadding(4, 8, 4, 16)
         }
+    }
+
+    /** Diagonal gradient drawable, e.g. for hero/status cards. */
+    fun gradient(primary: Int, dark: Boolean, radiusPx: Float): android.graphics.drawable.GradientDrawable {
+        val c1 = ColorUtils.blendARGB(primary, Color.WHITE, if (dark) 0f else 0.06f)
+        val c2 = ColorUtils.blendARGB(primary, Color.BLACK, if (dark) 0.4f else 0.22f)
+        return android.graphics.drawable.GradientDrawable(
+            android.graphics.drawable.GradientDrawable.Orientation.TL_BR,
+            intArrayOf(c1, c2)
+        ).apply { cornerRadius = radiusPx }
+    }
+
+    /** Small rounded status pill, e.g. task status / running indicator. */
+    fun pill(ctx: Context, text: String, bg: Int, fg: Int): TextView {
+        val density = ctx.resources.displayMetrics.density
+        return TextView(ctx).apply {
+            this.text = text
+            textSize = 11f
+            setTextColor(fg)
+            setPadding((12 * density).toInt(), (4 * density).toInt(), (12 * density).toInt(), (4 * density).toInt())
+            background = android.graphics.drawable.GradientDrawable().apply {
+                cornerRadius = 40f
+                setColor(bg)
+            }
+        }
+    }
+
+    fun divider(ctx: Context, dark: Boolean): View {
+        val density = ctx.resources.displayMetrics.density
+        return View(ctx).apply {
+            setBackgroundColor(outline(dark))
+            layoutParams = android.widget.LinearLayout.LayoutParams(
+                android.widget.LinearLayout.LayoutParams.MATCH_PARENT, (1 * density).toInt()
+            )
+        }
+    }
+
+    /** Compact round icon button (edit/delete etc.) instead of a full text button, to save
+     *  space on rows like task-log / attendance entries. */
+    fun iconButton(ctx: Context, icon: String, tint: Int, dark: Boolean, contentDesc: String, onClick: () -> Unit): TextView {
+        val density = ctx.resources.displayMetrics.density
+        return TextView(ctx).apply {
+            text = icon
+            textSize = 14f
+            gravity = Gravity.CENTER
+            setTextColor(tint)
+            contentDescription = contentDesc
+            background = android.graphics.drawable.GradientDrawable().apply {
+                shape = android.graphics.drawable.GradientDrawable.OVAL
+                setColor(ColorUtils.setAlphaComponent(tint, if (dark) 55 else 35))
+            }
+            isClickable = true
+            isFocusable = true
+            layoutParams = android.widget.LinearLayout.LayoutParams((30 * density).toInt(), (30 * density).toInt()).apply {
+                marginStart = (8 * density).toInt()
+            }
+            setOnClickListener { onClick() }
+        }
+    }
+
+    val deleteColor = 0xFFE53935.toInt()
+
+    /** A thin proportional fill bar meant to sit as a card's own background (behind its
+     *  content) showing progress toward a target — e.g. task completion or hours worked
+     *  vs. the minimum required. Fills from the reading-direction start (right, in RTL). */
+    fun progressBackdrop(ctx: Context, color: Int, dark: Boolean, fraction: Float): View {
+        val f = fraction.coerceIn(0f, 1f)
+        val row = android.widget.LinearLayout(ctx).apply { orientation = android.widget.LinearLayout.HORIZONTAL }
+        val filled = View(ctx).apply {
+            setBackgroundColor(ColorUtils.setAlphaComponent(color, if (dark) 60 else 38))
+        }
+        val empty = View(ctx)
+        row.addView(filled, android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.MATCH_PARENT, f.coerceAtLeast(0.0001f)))
+        row.addView(empty, android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.MATCH_PARENT, (1f - f).coerceAtLeast(0.0001f)))
+        return row
     }
 }

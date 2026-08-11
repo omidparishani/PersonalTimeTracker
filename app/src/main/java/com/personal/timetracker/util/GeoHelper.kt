@@ -14,6 +14,7 @@ import android.util.Log
 import androidx.core.content.ContextCompat
 import com.personal.timetracker.data.db.AppDatabase
 import com.personal.timetracker.data.entity.AttendanceEntity
+import com.personal.timetracker.App
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -99,53 +100,68 @@ object GeoHelper {
     }
 
     fun checkWorkplace(ctx: Context, location: Location? = null) {
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                val s = AppDatabase.get(ctx).settingsDao().get() ?: return@launch
-                if (s.workLat == 0.0 && s.workLng == 0.0) {
-                    Log.i("PTT", "Workplace not set")
-                    return@launch
-                }
-                val loc = location ?: lastLocation(ctx) ?: return@launch
-                val dist = distanceMeters(loc.latitude, loc.longitude, s.workLat, s.workLng)
-                val inside = dist <= s.workRadiusMeters
-                val active = AppDatabase.get(ctx).attendanceDao().getActive()
-                val now = System.currentTimeMillis()
-                Log.i("PTT", "Geo dist=${dist.toInt()}m inside=$inside active=${active != null}")
+        CoroutineScope(Dispatchers.IO).launch { checkWorkplaceSuspend(ctx, location) }
+    }
 
-                if (inside && (active == null || active.exitTime != null)) {
-                    if (s.geoAutoCheckIn) {
-                        AppDatabase.get(ctx).attendanceDao().insert(
-                            AttendanceEntity(
-                                date = TimeUtils.today(),
-                                entryTime = TimeUtils.nowTime(),
-                                status = "active"
-                            )
-                        )
-                        NotifHelper.show(ctx, "ورود خودکار", "به محل کار رسیدید و ورود ثبت شد", NotifHelper.GEO_NOTIF_ID)
-                    } else if (s.geoAlertOnly && now - lastAlertAt > ALERT_COOLDOWN_MS) {
-                        lastAlertAt = now
-                        NotifHelper.show(
-                            ctx,
-                            "یادآوری ورود",
-                            "در محدوده محل کار هستید (${dist.toInt()} متر) اما ورود ثبت نشده",
-                            NotifHelper.GEO_NOTIF_ID
-                        )
-                    }
-                } else if (!inside && active != null && active.exitTime == null) {
-                    if ((s.geoAlertOnly || s.geoAutoCheckIn) && now - lastAlertAt > ALERT_COOLDOWN_MS) {
-                        lastAlertAt = now
-                        NotifHelper.show(
-                            ctx,
-                            "یادآوری خروج",
-                            "محل کار را ترک کرده‌اید (${dist.toInt()} متر) اما خروج ثبت نشده",
-                            NotifHelper.GEO_NOTIF_ID
-                        )
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e("PTT", "geo check", e)
+    /**
+     * Suspend twin of [checkWorkplace] that completes before returning, so callers that need
+     * to guarantee the check finished (e.g. a background WorkManager job) can await it instead
+     * of firing-and-forgetting a detached coroutine that the OS might kill mid-flight.
+     */
+    suspend fun checkWorkplaceSuspend(ctx: Context, location: Location? = null) {
+        try {
+            val s = AppDatabase.get(ctx).settingsDao().get() ?: return
+            if (s.workLat == 0.0 && s.workLng == 0.0) {
+                Log.i("PTT", "Workplace not set")
+                return
             }
+            if (!s.geoAutoCheckIn && !s.geoAlertOnly && !s.geoAutoCheckOut) return
+            val loc = location ?: lastLocation(ctx) ?: return
+            val dist = distanceMeters(loc.latitude, loc.longitude, s.workLat, s.workLng)
+            val inside = dist <= s.workRadiusMeters
+            val active = AppDatabase.get(ctx).attendanceDao().getActive()
+            val now = System.currentTimeMillis()
+            Log.i("PTT", "Geo dist=${dist.toInt()}m inside=$inside active=${active != null}")
+
+            if (inside && (active == null || active.exitTime != null)) {
+                if (s.geoAutoCheckIn) {
+                    AppDatabase.get(ctx).attendanceDao().insert(
+                        AttendanceEntity(
+                            date = TimeUtils.today(),
+                            entryTime = TimeUtils.nowTime(),
+                            status = "active"
+                        )
+                    )
+                    NotifHelper.show(ctx, "ورود خودکار", "به محل کار رسیدید و ورود ثبت شد", NotifHelper.GEO_NOTIF_ID)
+                } else if (s.geoAlertOnly && now - lastAlertAt > ALERT_COOLDOWN_MS) {
+                    lastAlertAt = now
+                    NotifHelper.show(
+                        ctx,
+                        "یادآوری ورود",
+                        "در محدوده محل کار هستید (${dist.toInt()} متر) اما ورود ثبت نشده",
+                        NotifHelper.GEO_NOTIF_ID
+                    )
+                }
+            } else if (!inside && active != null && active.exitTime == null) {
+                if (s.geoAutoCheckOut) {
+                    try {
+                        (ctx.applicationContext as App).repository.checkOut()
+                        NotifHelper.show(ctx, "خروج خودکار", "از محل کار خارج شدید و خروج ثبت شد", NotifHelper.GEO_NOTIF_ID)
+                    } catch (e: Exception) {
+                        Log.e("PTT", "auto checkout", e)
+                    }
+                } else if ((s.geoAlertOnly || s.geoAutoCheckIn) && now - lastAlertAt > ALERT_COOLDOWN_MS) {
+                    lastAlertAt = now
+                    NotifHelper.show(
+                        ctx,
+                        "یادآوری خروج",
+                        "محل کار را ترک کرده‌اید (${dist.toInt()} متر) اما خروج ثبت نشده",
+                        NotifHelper.GEO_NOTIF_ID
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("PTT", "geo check", e)
         }
     }
 }

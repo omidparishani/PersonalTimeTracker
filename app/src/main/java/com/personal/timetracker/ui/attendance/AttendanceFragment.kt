@@ -18,6 +18,8 @@ import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
 import com.personal.timetracker.App
 import com.personal.timetracker.data.entity.AttendanceEntity
+import com.personal.timetracker.util.AttendanceEditor
+import com.personal.timetracker.util.DialogHelper
 import com.personal.timetracker.util.ThemeHelper
 import com.personal.timetracker.util.TimeUtils
 import com.personal.timetracker.ui.MainActivity
@@ -164,7 +166,8 @@ class AttendanceFragment : Fragment() {
 
             repo.observeAttendance(selectedDate).collectLatest { list ->
 
-                renderAttendance(list)
+                val minWork = try { repo.getSettings().minimumWorkMinutes.coerceAtLeast(1) } catch (_: Exception) { 480 }
+                renderAttendance(list, minWork)
 
             }
 
@@ -173,7 +176,8 @@ class AttendanceFragment : Fragment() {
     }
 
     private fun renderAttendance(
-        list: List<AttendanceEntity>
+        list: List<AttendanceEntity>,
+        minWorkMinutes: Int
     ) {
 
         val ctx = requireContext()
@@ -191,146 +195,88 @@ class AttendanceFragment : Fragment() {
             return
         }
 
+        val dark = (activity as? MainActivity)?.isDark == true
         list.forEach { item ->
-
-            val card = MaterialCardView(ctx).apply {
-                radius = 18f
-                cardElevation = 4f
-                setContentPadding(20, 16, 20, 16)
-            }
-
-            val box = LinearLayout(ctx).apply {
-                orientation = LinearLayout.VERTICAL
-            }
-
-            val tv = TextView(ctx).apply {
-
-                text = buildString {
-
-                    if (item.exitTime != null) {
-
-                        append(item.entryTime)
-                        append(" → ")
-                        append(item.exitTime)
-
-                    } else {
-
-                        append(item.entryTime)
-                        append(" (فعال)")
-
-                    }
-
-                    append("\n")
-
-                    append("مدت: ")
-                    append(TimeUtils.formatDuration(item.duration))
-
-                    if (item.leaveDuration > 0) {
-
-                        append(" | مرخصی: ")
-                        append(TimeUtils.formatDuration(item.leaveDuration))
-
-                    }
-
-                }
-
-            }
-
-            box.addView(tv)
-
-            val actions = LinearLayout(ctx).apply {
-                orientation = LinearLayout.HORIZONTAL
-            }
 
             val primary =
                 (activity as? MainActivity)?.primaryColor
                     ?: 0xFF1565C0.toInt()
 
-            val edit =
-                MaterialButton(
-                    ctx,
-                    null,
-                    com.google.android.material.R.attr.materialButtonOutlinedStyle
-                ).apply {
+            val card = MaterialCardView(ctx)
+            ThemeHelper.applyCard(card, dark)
 
-                    text = "ویرایش"
+            val box = LinearLayout(ctx).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(24, 18, 24, 18)
+            }
 
-                    layoutParams =
-                        LinearLayout.LayoutParams(
-                            0,
-                            LinearLayout.LayoutParams.WRAP_CONTENT,
-                            1f
-                        ).apply {
-                            marginEnd = 8
-                        }
+            val headRow = LinearLayout(ctx).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = android.view.Gravity.CENTER_VERTICAL
+            }
+            headRow.addView(TextView(ctx).apply {
+                text = if (item.exitTime != null) "${item.entryTime}  →  ${item.exitTime}" else item.entryTime
+                textSize = 15f
+                setTypeface(null, android.graphics.Typeface.BOLD)
+                setTextColor(ThemeHelper.textPrimary(dark))
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            })
+            if (item.exitTime == null) {
+                headRow.addView(ThemeHelper.pill(ctx, "فعال", primary, ThemeHelper.onColor(primary)))
+            }
+            headRow.addView(ThemeHelper.iconButton(ctx, "✎", primary, dark, "ویرایش تردد") {
+                showForm(item)
+            })
+            headRow.addView(ThemeHelper.iconButton(ctx, "🗑", ThemeHelper.deleteColor, dark, "حذف تردد") {
+                AttendanceEditor.confirmDelete(
+                    ctx, item,
+                    (requireActivity().application as App).repository,
+                    lifecycleScope, primary, dark
+                )
+            })
+            box.addView(headRow)
 
-                    ThemeHelper.applyButton(
-                        this,
-                        primary,
-                        false
-                    )
-
-                    setOnClickListener {
-
-                        showForm(item)
-
+            val tv = TextView(ctx).apply {
+                text = buildString {
+                    append("مدت: ")
+                    append(TimeUtils.formatDuration(item.duration))
+                    if (item.leaveDuration > 0) {
+                        append("   ·   مرخصی: ")
+                        append(TimeUtils.formatDuration(item.leaveDuration))
                     }
-
                 }
+                textSize = 12.5f
+                setTextColor(ThemeHelper.textSecondary(dark))
+                setPadding(0, 6, 0, 0)
+            }
+            box.addView(tv)
 
-            val delete =
-                MaterialButton(
-                    ctx,
-                    null,
-                    com.google.android.material.R.attr.materialButtonOutlinedStyle
-                ).apply {
+            // Progress relative to the minimum work hours set in Settings, shown as the
+            // card's own background fill.
+            val effectiveMinutes = if (item.exitTime != null) item.duration
+            else TimeUtils.minutesBetween(item.entryTime, TimeUtils.nowTime()).coerceAtLeast(0)
+            val fraction = (effectiveMinutes.toFloat() / minWorkMinutes).coerceIn(0f, 1f)
 
-                    text = "حذف"
+            val wrapper = android.widget.FrameLayout(ctx)
+            wrapper.addView(
+                ThemeHelper.progressBackdrop(ctx, primary, dark, fraction),
+                android.widget.FrameLayout.LayoutParams(
+                    android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
+                    android.widget.FrameLayout.LayoutParams.MATCH_PARENT
+                )
+            )
+            wrapper.addView(
+                box,
+                android.widget.FrameLayout.LayoutParams(
+                    android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
+                    android.widget.FrameLayout.LayoutParams.WRAP_CONTENT
+                )
+            )
+            card.addView(wrapper)
 
-                    layoutParams =
-                        LinearLayout.LayoutParams(
-                            0,
-                            LinearLayout.LayoutParams.WRAP_CONTENT,
-                            1f
-                        )
-
-                    ThemeHelper.applyButton(
-                        this,
-                        primary,
-                        false
-                    )
-
-                    setOnClickListener {
-
-                        AlertDialog.Builder(ctx)
-                            .setTitle("حذف تردد")
-                            .setMessage("این تردد حذف شود؟")
-                            .setPositiveButton("حذف") { _, _ ->
-
-                                lifecycleScope.launch {
-
-                                    (requireActivity().application as App)
-                                        .repository
-                                        .deleteAttendance(item)
-
-                                }
-
-                            }
-                            .setNegativeButton("انصراف", null)
-                            .show()
-
-                    }
-
-                }
-
-            actions.addView(edit)
-            actions.addView(delete)
-
-            box.addView(actions)
-
-            card.addView(box)
-
-            listContainer.addView(card)
+            listContainer.addView(card, LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = 12 })
 
         }
 
@@ -339,79 +285,9 @@ class AttendanceFragment : Fragment() {
     private fun showForm(existing: AttendanceEntity?) {
         val ctx = requireContext()
         val repo = (requireActivity().application as App).repository
-        val layout = LinearLayout(ctx).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(48, 24, 48, 8)
-        }
-        val dateField = EditText(ctx).apply {
-            hint = "تاریخ (yyyy-MM-dd)"
-            setText(existing?.date ?: TimeUtils.today())
-            isFocusable = false
-            setOnClickListener {
-                val c = Calendar.getInstance()
-                DatePickerDialog(
-                    ctx,
-                    { _, y, m, d -> setText("%04d-%02d-%02d".format(y, m + 1, d)) },
-                    c.get(Calendar.YEAR),
-                    c.get(Calendar.MONTH),
-                    c.get(Calendar.DAY_OF_MONTH)
-                ).show()
-            }
-        }
-        val entryField = EditText(ctx).apply {
-            hint = "ساعت ورود HH:mm"
-            setText(existing?.entryTime ?: TimeUtils.nowTime())
-            isFocusable = false
-            setOnClickListener {
-                val parts = text.toString().split(":")
-                TimePickerDialog(
-                    ctx,
-                    { _, h, m -> setText("%02d:%02d".format(h, m)) },
-                    parts.getOrNull(0)?.toIntOrNull() ?: 9,
-                    parts.getOrNull(1)?.toIntOrNull() ?: 0,
-                    true
-                ).show()
-            }
-        }
-        val exitField = EditText(ctx).apply {
-            hint = "ساعت خروج (خالی = بدون خروج)"
-            setText(existing?.exitTime ?: "")
-            isFocusable = false
-            setOnClickListener {
-                val raw = text.ifEmpty { "17:00" }.toString()
-                val parts = raw.split(":")
-                TimePickerDialog(
-                    ctx,
-                    { _, h, m -> setText("%02d:%02d".format(h, m)) },
-                    parts.getOrNull(0)?.toIntOrNull() ?: 17,
-                    parts.getOrNull(1)?.toIntOrNull() ?: 0,
-                    true
-                ).show()
-            }
-        }
-        layout.addView(dateField)
-        layout.addView(entryField)
-        layout.addView(exitField)
-
-        AlertDialog.Builder(ctx)
-            .setTitle(if (existing == null) "ثبت تردد" else "ویرایش تردد")
-            .setView(layout)
-            .setPositiveButton("ذخیره") { _, _ ->
-                val date = dateField.text.toString()
-                val entry = entryField.text.toString()
-                val exit = exitField.text.toString().ifBlank { null }
-                lifecycleScope.launch {
-                    if (existing == null) {
-                        repo.addAttendance(date, entry, exit)
-                    } else {
-                        repo.updateAttendance(
-                            existing.copy(date = date, entryTime = entry, exitTime = exit)
-                        )
-                    }
-                    Toast.makeText(ctx, "ذخیره شد", Toast.LENGTH_SHORT).show()
-                }
-            }
-            .setNegativeButton("انصراف", null)
-            .show()
+        AttendanceEditor.open(
+            ctx, existing, repo, lifecycleScope,
+            primary(), (activity as? MainActivity)?.isDark == true
+        )
     }
 }

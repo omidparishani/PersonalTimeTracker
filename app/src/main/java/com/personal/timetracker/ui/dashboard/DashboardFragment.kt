@@ -15,15 +15,23 @@ import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
 import com.personal.timetracker.App
 import com.personal.timetracker.ui.MainActivity
+import com.personal.timetracker.util.AttendanceEditor
+import com.personal.timetracker.util.BarChartView
+import com.personal.timetracker.util.BarItem
+import com.personal.timetracker.util.DialogHelper
 import com.personal.timetracker.util.ThemeHelper
 import com.personal.timetracker.util.TimeCalc
 import com.personal.timetracker.util.TimeUtils
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 class DashboardFragment : Fragment() {
     private lateinit var statusTitle: TextView
     private lateinit var statusSub: TextView
+    private lateinit var statusIcon: TextView
+    private lateinit var pulseDot: View
     private lateinit var suggestedText: TextView
     private lateinit var summaryRow: LinearLayout
     private lateinit var listBox: LinearLayout
@@ -34,6 +42,8 @@ class DashboardFragment : Fragment() {
     private lateinit var btnOut: MaterialButton
     private lateinit var btnCal: MaterialButton
     private lateinit var rootBg: LinearLayout
+    private var pulseAnimator: android.animation.ObjectAnimator? = null
+    private var tickerJob: Job? = null
 
     private fun primary() = (activity as? MainActivity)?.primaryColor ?: 0xFF1565C0.toInt()
     private fun dark() = (activity as? MainActivity)?.isDark ?: false
@@ -60,31 +70,71 @@ class DashboardFragment : Fragment() {
 
         // Status hero card
         val statusCard = MaterialCardView(ctx).apply {
-            radius = 24f
-            cardElevation = 0f
-            setCardBackgroundColor(primary)
+            radius = 28f
+            cardElevation = if (dark) 2f else 6f
+            strokeWidth = 0
+            setCardBackgroundColor(android.graphics.Color.TRANSPARENT)
+        }
+        val heroBg = LinearLayout(ctx).apply {
+            background = ThemeHelper.gradient(primary, dark, 28f)
         }
         val statusInner = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(32, 36, 32, 36)
+            setPadding(32, 34, 32, 34)
             gravity = Gravity.CENTER
+        }
+        val topRow = LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        statusIcon = TextView(ctx).apply {
+            text = "■"
+            textSize = 20f
+            gravity = Gravity.CENTER
+            setTextColor(ThemeHelper.onColor(primary))
+            background = android.graphics.drawable.GradientDrawable().apply {
+                shape = android.graphics.drawable.GradientDrawable.OVAL
+                setColor(androidx.core.graphics.ColorUtils.blendARGB(primary, android.graphics.Color.WHITE, 0.22f))
+            }
+            layoutParams = LinearLayout.LayoutParams(DialogHelper.dp(ctx, 52), DialogHelper.dp(ctx, 52)).apply {
+                marginEnd = DialogHelper.dp(ctx, 14)
+            }
+        }
+        val titleCol = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL }
+        val titleRow = LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
         }
         statusTitle = TextView(ctx).apply {
-            textSize = 22f
+            textSize = 20f
             setTextColor(ThemeHelper.onColor(primary))
             setTypeface(null, Typeface.BOLD)
-            gravity = Gravity.CENTER
         }
+        pulseDot = View(ctx).apply {
+            background = android.graphics.drawable.GradientDrawable().apply {
+                shape = android.graphics.drawable.GradientDrawable.OVAL
+                setColor(android.graphics.Color.WHITE)
+            }
+            layoutParams = LinearLayout.LayoutParams(DialogHelper.dp(ctx, 9), DialogHelper.dp(ctx, 9)).apply {
+                marginStart = DialogHelper.dp(ctx, 8)
+            }
+            visibility = View.GONE
+        }
+        titleRow.addView(statusTitle)
+        titleRow.addView(pulseDot)
         statusSub = TextView(ctx).apply {
-            textSize = 14f
+            textSize = 13f
             setTextColor(ThemeHelper.onColor(primary))
-            gravity = Gravity.CENTER
             alpha = 0.9f
-            setPadding(0, 8, 0, 0)
+            setPadding(0, 6, 0, 0)
         }
-        statusInner.addView(statusTitle)
-        statusInner.addView(statusSub)
-        statusCard.addView(statusInner)
+        titleCol.addView(titleRow)
+        titleCol.addView(statusSub)
+        topRow.addView(statusIcon)
+        topRow.addView(titleCol)
+        statusInner.addView(topRow)
+        heroBg.addView(statusInner)
+        statusCard.addView(heroBg)
         root.addView(statusCard, lp(bottom = 16))
 
         suggestedText = TextView(ctx).apply {
@@ -177,17 +227,33 @@ class DashboardFragment : Fragment() {
                     val settings = repo.getSettings()
                     val isWorking = list.any { it.status == "active" && it.exitTime == null }
                     statusTitle.text = if (isWorking) "در حال کار" else "خارج از کار"
-                    statusSub.text = TimeUtils.toJalaliShort()
+                    statusIcon.text = if (isWorking) "▶" else "■"
                     btnIn.isEnabled = !isWorking
                     btnOut.isEnabled = isWorking
                     btnIn.alpha = if (isWorking) 0.45f else 1f
                     btnOut.alpha = if (!isWorking) 0.45f else 1f
 
                     val activeRec = list.find { it.status == "active" && it.exitTime == null }
-                    suggestedText.text = if (activeRec != null) {
+                    if (isWorking && activeRec != null) {
+                        pulseDot.visibility = View.VISIBLE
+                        if (pulseAnimator == null) {
+                            pulseAnimator = android.animation.ObjectAnimator.ofFloat(pulseDot, "alpha", 1f, 0.2f).apply {
+                                duration = 750
+                                repeatMode = android.animation.ValueAnimator.REVERSE
+                                repeatCount = android.animation.ValueAnimator.INFINITE
+                                start()
+                            }
+                        }
+                        startTicker(activeRec.entryTime)
                         val end = TimeCalc.suggestedEnd(activeRec.entryTime, settings.minimumWorkMinutes)
-                        "پایان پیشنهادی کار: $end   |   ورود: ${activeRec.entryTime}"
-                    } else ""
+                        suggestedText.text = "پایان پیشنهادی کار: $end"
+                    } else {
+                        pulseDot.visibility = View.GONE
+                        pulseAnimator?.cancel(); pulseAnimator = null
+                        stopTicker()
+                        statusSub.text = TimeUtils.toJalaliShort()
+                        suggestedText.text = ""
+                    }
 
                     val worked = list.sumOf { it.duration }
                     val leave = list.sumOf { it.leaveDuration }
@@ -196,46 +262,35 @@ class DashboardFragment : Fragment() {
                     summaryRow.addView(statCard("مرخصی", TimeUtils.formatDuration(leave), primary()))
                     summaryRow.addView(statCard("تردد", "${list.size}", primary()))
 
-                    
-                    // chart bars
+                    // chart
                     chartBox.removeAllViews()
                     val settingsMin = settings.minimumWorkMinutes.coerceAtLeast(1)
                     val jiraLogs = try {
                         (requireActivity().application as App).repository.getLogsByDate(TimeUtils.today())
                     } catch (_: Exception) { emptyList() }
-                    fun bar(label: String, value: Int, maxV: Int, color: Int) {
-                        val row = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL; setPadding(0, 0, 0, 10) }
-                        row.addView(TextView(ctx).apply {
-                            text = "$label — ${TimeUtils.formatDuration(value)}"
-                            textSize = 12f
-                            setTextColor(ThemeHelper.textPrimary(dark()))
-                        })
-                        val track = android.widget.FrameLayout(ctx).apply {
-                            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 22)
-                            setBackgroundColor(ThemeHelper.outline(dark()))
-                        }
-                        val fill = View(ctx).apply {
-                            setBackgroundColor(color)
-                            layoutParams = android.widget.FrameLayout.LayoutParams(
-                                ((value.toFloat() / maxV) * 1000).toInt().coerceIn(8, 1000),
-                                android.widget.FrameLayout.LayoutParams.MATCH_PARENT
-                            )
-                        }
-                        track.addView(fill)
-                        row.addView(track)
-                        chartBox.addView(row)
-                    }
-                    val maxBar = maxOf(settingsMin, worked, leave, 1)
-                    bar("حداقل کار", settingsMin, maxBar, primary())
-                    bar("کار انجام‌شده", worked, maxBar, primary())
-                    bar("مرخصی", leave, maxBar, 0xFFF9A825.toInt())
+
+                    val barItems = mutableListOf(
+                        BarItem("حداقل کار — ${TimeUtils.formatDuration(settingsMin)}", settingsMin, primary()),
+                        BarItem("کار انجام‌شده — ${TimeUtils.formatDuration(worked)}", worked, primary()),
+                        BarItem("مرخصی — ${TimeUtils.formatDuration(leave)}", leave, 0xFFF9A825.toInt())
+                    )
                     if (jiraLogs.isNotEmpty()) {
                         val byTask = jiraLogs.groupBy { it.taskId }
                         byTask.forEach { (tid, logs) ->
                             val sum = logs.sumOf { it.duration }
-                            bar("لاگ تسک #$tid", sum, maxBar, 0xFF00897B.toInt())
+                            barItems.add(BarItem("لاگ تسک #$tid — ${TimeUtils.formatDuration(sum)}", sum, 0xFF00897B.toInt()))
                         }
                     }
+                    val chartCard = MaterialCardView(ctx)
+                    ThemeHelper.applyCard(chartCard, dark())
+                    val chart = BarChartView(ctx).apply {
+                        items = barItems
+                        trackColor = ThemeHelper.outline(dark())
+                        labelColor = ThemeHelper.textPrimary(dark())
+                    }
+                    chartCard.setContentPadding(24, 20, 24, 20)
+                    chartCard.addView(chart)
+                    chartBox.addView(chartCard)
 
                     listBox.removeAllViews()
                     if (list.isEmpty()) {
@@ -248,23 +303,50 @@ class DashboardFragment : Fragment() {
                         list.forEach { r ->
                             val card = MaterialCardView(ctx)
                             ThemeHelper.applyCard(card, dark())
-                            card.addView(TextView(ctx).apply {
-                                setPadding(24, 20, 24, 20)
+                            val box = LinearLayout(ctx).apply {
+                                orientation = LinearLayout.VERTICAL
+                                setPadding(24, 18, 24, 18)
+                            }
+                            val headRow = LinearLayout(ctx).apply {
+                                orientation = LinearLayout.HORIZONTAL
+                                gravity = Gravity.CENTER_VERTICAL
+                            }
+                            headRow.addView(TextView(ctx).apply {
                                 setTextColor(ThemeHelper.textPrimary(dark()))
                                 textSize = 14f
-                                text = buildString {
-                                    if (r.exitTime != null) {
-                                        append(r.entryTime); append("  →  "); append(r.exitTime)
-                                        append('\n')
+                                setTypeface(null, Typeface.BOLD)
+                                text = if (r.exitTime != null) "${r.entryTime}  →  ${r.exitTime}" else r.entryTime
+                                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                            })
+                            if (r.exitTime == null) {
+                                headRow.addView(ThemeHelper.pill(ctx, "فعال", primary(), ThemeHelper.onColor(primary())))
+                            }
+                            box.addView(headRow)
+                            if (r.exitTime != null) {
+                                box.addView(TextView(ctx).apply {
+                                    setTextColor(ThemeHelper.textSecondary(dark()))
+                                    textSize = 12.5f
+                                    setPadding(0, 6, 0, 0)
+                                    text = buildString {
                                         append(TimeUtils.formatDuration(r.duration))
                                         if (r.leaveDuration > 0) {
-                                            append("  ·  مرخصی "); append(TimeUtils.formatDuration(r.leaveDuration))
+                                            append("   ·   مرخصی "); append(TimeUtils.formatDuration(r.leaveDuration))
                                         }
-                                    } else {
-                                        append(r.entryTime); append("  ·  فعال")
                                     }
-                                }
+                                })
+                            }
+                            val rActions = LinearLayout(ctx).apply {
+                                orientation = LinearLayout.HORIZONTAL
+                                setPadding(0, 10, 0, 0)
+                            }
+                            rActions.addView(ThemeHelper.iconButton(ctx, "✎", primary(), dark(), "ویرایش تردد") {
+                                AttendanceEditor.open(ctx, r, repo, lifecycleScope, primary(), dark())
                             })
+                            rActions.addView(ThemeHelper.iconButton(ctx, "🗑", ThemeHelper.deleteColor, dark(), "حذف تردد") {
+                                AttendanceEditor.confirmDelete(ctx, r, repo, lifecycleScope, primary(), dark())
+                            })
+                            box.addView(rActions)
+                            card.addView(box)
                             listBox.addView(card, lp(bottom = 10))
                         }
                     }
@@ -275,6 +357,29 @@ class DashboardFragment : Fragment() {
             }
         }
         return rootBg
+    }
+
+    private fun startTicker(entryTime: String) {
+        tickerJob?.cancel()
+        tickerJob = viewLifecycleOwner.lifecycleScope.launch {
+            while (true) {
+                val elapsed = TimeUtils.minutesBetween(entryTime, TimeUtils.nowTime()).coerceAtLeast(0)
+                statusSub.text = "از ساعت $entryTime  ·  ${TimeUtils.formatDuration(elapsed)}"
+                delay(30_000)
+            }
+        }
+    }
+
+    private fun stopTicker() {
+        tickerJob?.cancel()
+        tickerJob = null
+    }
+
+    override fun onDestroyView() {
+        pulseAnimator?.cancel()
+        pulseAnimator = null
+        stopTicker()
+        super.onDestroyView()
     }
 
     private fun statCard(label: String, value: String, primary: Int): View {
@@ -289,6 +394,17 @@ class DashboardFragment : Fragment() {
             setPadding(16, 20, 16, 20)
             gravity = Gravity.CENTER
         }
+        val dot = View(ctx).apply {
+            val density = ctx.resources.displayMetrics.density
+            background = android.graphics.drawable.GradientDrawable().apply {
+                shape = android.graphics.drawable.GradientDrawable.OVAL
+                setColor(primary)
+            }
+            layoutParams = LinearLayout.LayoutParams((8 * density).toInt(), (8 * density).toInt()).apply {
+                bottomMargin = (6 * density).toInt()
+            }
+        }
+        box.addView(dot)
         box.addView(TextView(ctx).apply {
             text = value
             textSize = 15f
