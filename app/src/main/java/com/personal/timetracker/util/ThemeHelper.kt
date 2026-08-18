@@ -47,12 +47,15 @@ object ThemeHelper {
             btn.backgroundTintList = ColorStateList.valueOf(primary)
             btn.setTextColor(onColor(primary))
             btn.iconTint = ColorStateList.valueOf(onColor(primary))
+            btn.elevation = 6f
+            btn.stateListAnimator = null
         } else {
             btn.backgroundTintList = ColorStateList.valueOf(Color.TRANSPARENT)
             btn.strokeColor = ColorStateList.valueOf(primary)
             btn.strokeWidth = 2
             btn.setTextColor(primary)
             btn.iconTint = ColorStateList.valueOf(primary)
+            btn.elevation = 0f
         }
         btn.cornerRadius = 28
     }
@@ -74,9 +77,9 @@ object ThemeHelper {
 
     fun applyCard(card: MaterialCardView, dark: Boolean, accent: Int? = null) {
         card.setCardBackgroundColor(surfaceCard(dark))
-        card.radius = 20f
-        card.cardElevation = if (dark) 2f else 4f
-        card.strokeWidth = 1
+        card.radius = 22f
+        card.cardElevation = if (dark) 3f else 7f
+        card.strokeWidth = if (dark) 1 else 0
         card.strokeColor = outline(dark)
         if (accent != null) {
             // left accent via content - handled by caller
@@ -114,6 +117,21 @@ object ThemeHelper {
         ).apply { cornerRadius = radiusPx }
     }
 
+    /** A glossy, slightly raised gradient fill — a light highlight fading to the base color —
+     *  used to give flat icons/badges a more three-dimensional, modern feel. */
+    fun glossy(color: Int, dark: Boolean, oval: Boolean, cornerRadiusPx: Float = 0f): android.graphics.drawable.GradientDrawable {
+        val highlight = ColorUtils.blendARGB(color, Color.WHITE, if (dark) 0.22f else 0.42f)
+        val base = ColorUtils.blendARGB(color, Color.BLACK, if (dark) 0.12f else 0f)
+        return android.graphics.drawable.GradientDrawable(
+            android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
+            intArrayOf(highlight, base)
+        ).apply {
+            shape = if (oval) android.graphics.drawable.GradientDrawable.OVAL
+            else android.graphics.drawable.GradientDrawable.RECTANGLE
+            if (!oval) cornerRadius = cornerRadiusPx
+        }
+    }
+
     /** Small rounded status pill, e.g. task status / running indicator. */
     fun pill(ctx: Context, text: String, bg: Int, fg: Int): TextView {
         val density = ctx.resources.displayMetrics.density
@@ -122,10 +140,8 @@ object ThemeHelper {
             textSize = 11f
             setTextColor(fg)
             setPadding((12 * density).toInt(), (4 * density).toInt(), (12 * density).toInt(), (4 * density).toInt())
-            background = android.graphics.drawable.GradientDrawable().apply {
-                cornerRadius = 40f
-                setColor(bg)
-            }
+            background = glossy(bg, false, oval = false, cornerRadiusPx = 40f)
+            elevation = 2.5f * density
         }
     }
 
@@ -140,22 +156,21 @@ object ThemeHelper {
     }
 
     /** Compact round icon button (edit/delete etc.) instead of a full text button, to save
-     *  space on rows like task-log / attendance entries. */
+     *  space on rows like task-log / attendance entries. Glossy + slightly raised for a
+     *  modern, three-dimensional feel. */
     fun iconButton(ctx: Context, icon: String, tint: Int, dark: Boolean, contentDesc: String, onClick: () -> Unit): TextView {
         val density = ctx.resources.displayMetrics.density
         return TextView(ctx).apply {
             text = icon
             textSize = 14f
             gravity = Gravity.CENTER
-            setTextColor(tint)
+            setTextColor(onColor(tint))
             contentDescription = contentDesc
-            background = android.graphics.drawable.GradientDrawable().apply {
-                shape = android.graphics.drawable.GradientDrawable.OVAL
-                setColor(ColorUtils.setAlphaComponent(tint, if (dark) 55 else 35))
-            }
+            background = glossy(tint, dark, oval = true)
+            elevation = 3.5f * density
             isClickable = true
             isFocusable = true
-            layoutParams = android.widget.LinearLayout.LayoutParams((30 * density).toInt(), (30 * density).toInt()).apply {
+            layoutParams = android.widget.LinearLayout.LayoutParams((32 * density).toInt(), (32 * density).toInt()).apply {
                 marginStart = (8 * density).toInt()
             }
             setOnClickListener { onClick() }

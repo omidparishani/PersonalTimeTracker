@@ -42,7 +42,9 @@ class AppRepository(context: Context) {
         attendanceDao.insert(AttendanceEntity(date = date, entryTime = entryTime, status = "active"))
         val settings = getSettings()
         if (settings.notifEnabled && date == TimeUtils.today()) {
-            val end = TimeCalc.suggestedEnd(entryTime, settings.minimumWorkMinutes)
+            val end = TimeCalc.applyFlex(
+                entryTime, settings.startWorkTime, settings.endWorkTime, settings.flexibleMinutes
+            ).suggestedEnd
             NotifHelper.scheduleWorkEnd(
                 appContext, end, settings.notifMinutesBefore,
                 settings.notifTitle, settings.notifBody
@@ -55,7 +57,12 @@ class AppRepository(context: Context) {
         val active = attendanceDao.getActive() ?: return
         val settings = getSettings()
         val duration = TimeUtils.minutesBetween(active.entryTime, exitTime)
-        val leave = TimeCalc.earlyLeave(active.entryTime, exitTime, settings.minimumWorkMinutes)
+
+        val flex = TimeCalc.applyFlex(
+            active.entryTime, settings.startWorkTime, settings.endWorkTime, settings.flexibleMinutes
+        )
+        val (exitLeave, exitOvertime) = TimeCalc.exitOutcome(exitTime, flex.suggestedEnd)
+
         var mid = 0
         val dayRecords = attendanceDao.getByDateOnce(active.date)
         val prev = dayRecords.filter { it.id != active.id && it.exitTime != null }.lastOrNull()
@@ -66,7 +73,8 @@ class AppRepository(context: Context) {
             active.copy(
                 exitTime = exitTime,
                 duration = duration,
-                leaveDuration = leave + mid,
+                leaveDuration = flex.entryLeaveMinutes + exitLeave + mid,
+                overtimeDuration = exitOvertime,
                 status = "completed"
             )
         )
@@ -80,11 +88,17 @@ class AppRepository(context: Context) {
             attendanceDao.insert(AttendanceEntity(date = date, entryTime = entry, status = "active"))
         } else {
             val dur = TimeUtils.minutesBetween(entry, exit)
-            val leave = TimeCalc.earlyLeave(entry, exit, settings.minimumWorkMinutes)
+            val flex = TimeCalc.applyFlex(
+                entry, settings.startWorkTime, settings.endWorkTime, settings.flexibleMinutes
+            )
+            val (exitLeave, exitOvertime) = TimeCalc.exitOutcome(exit, flex.suggestedEnd)
             attendanceDao.insert(
                 AttendanceEntity(
                     date = date, entryTime = entry, exitTime = exit,
-                    duration = dur, leaveDuration = leave, status = "completed"
+                    duration = dur,
+                    leaveDuration = flex.entryLeaveMinutes + exitLeave,
+                    overtimeDuration = exitOvertime,
+                    status = "completed"
                 )
             )
         }
@@ -95,8 +109,16 @@ class AppRepository(context: Context) {
         val settings = getSettings()
         val updated = if (item.exitTime != null) {
             val dur = TimeUtils.minutesBetween(item.entryTime, item.exitTime)
-            val leave = TimeCalc.earlyLeave(item.entryTime, item.exitTime, settings.minimumWorkMinutes)
-            item.copy(duration = dur, leaveDuration = leave, status = "completed")
+            val flex = TimeCalc.applyFlex(
+                item.entryTime, settings.startWorkTime, settings.endWorkTime, settings.flexibleMinutes
+            )
+            val (exitLeave, exitOvertime) = TimeCalc.exitOutcome(item.exitTime, flex.suggestedEnd)
+            item.copy(
+                duration = dur,
+                leaveDuration = flex.entryLeaveMinutes + exitLeave,
+                overtimeDuration = exitOvertime,
+                status = "completed"
+            )
         } else item.copy(status = "active")
         attendanceDao.update(updated)
         try { WorkWidgetProvider.requestUpdate(appContext) } catch (_: Exception) {}

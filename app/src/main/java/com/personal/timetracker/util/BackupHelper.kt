@@ -33,6 +33,7 @@ object BackupHelper {
                 put("exitTime", it.exitTime)
                 put("duration", it.duration)
                 put("leaveDuration", it.leaveDuration)
+                put("overtimeDuration", it.overtimeDuration)
                 put("status", it.status)
             })
         }
@@ -123,6 +124,7 @@ object BackupHelper {
                         exitTime = if (o.isNull("exitTime")) null else o.getString("exitTime"),
                         duration = o.optInt("duration", 0),
                         leaveDuration = o.optInt("leaveDuration", 0),
+                        overtimeDuration = o.optInt("overtimeDuration", 0),
                         status = o.optString("status", "completed")
                     )
                 )

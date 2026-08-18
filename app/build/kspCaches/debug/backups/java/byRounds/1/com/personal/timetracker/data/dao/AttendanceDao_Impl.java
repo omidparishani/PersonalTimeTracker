@@ -50,7 +50,7 @@ public final class AttendanceDao_Impl implements AttendanceDao {
       @Override
       @NonNull
       protected String createQuery() {
-        return "INSERT OR ABORT INTO `attendance` (`id`,`date`,`entryTime`,`exitTime`,`duration`,`leaveDuration`,`status`) VALUES (nullif(?, 0),?,?,?,?,?,?)";
+        return "INSERT OR ABORT INTO `attendance` (`id`,`date`,`entryTime`,`exitTime`,`duration`,`leaveDuration`,`overtimeDuration`,`status`) VALUES (nullif(?, 0),?,?,?,?,?,?,?)";
       }
 
       @Override
@@ -66,7 +66,8 @@ public final class AttendanceDao_Impl implements AttendanceDao {
         }
         statement.bindLong(5, entity.getDuration());
         statement.bindLong(6, entity.getLeaveDuration());
-        statement.bindString(7, entity.getStatus());
+        statement.bindLong(7, entity.getOvertimeDuration());
+        statement.bindString(8, entity.getStatus());
       }
     };
     this.__deletionAdapterOfAttendanceEntity = new EntityDeletionOrUpdateAdapter<AttendanceEntity>(__db) {
@@ -86,7 +87,7 @@ public final class AttendanceDao_Impl implements AttendanceDao {
       @Override
       @NonNull
       protected String createQuery() {
-        return "UPDATE OR ABORT `attendance` SET `id` = ?,`date` = ?,`entryTime` = ?,`exitTime` = ?,`duration` = ?,`leaveDuration` = ?,`status` = ? WHERE `id` = ?";
+        return "UPDATE OR ABORT `attendance` SET `id` = ?,`date` = ?,`entryTime` = ?,`exitTime` = ?,`duration` = ?,`leaveDuration` = ?,`overtimeDuration` = ?,`status` = ? WHERE `id` = ?";
       }
 
       @Override
@@ -102,8 +103,9 @@ public final class AttendanceDao_Impl implements AttendanceDao {
         }
         statement.bindLong(5, entity.getDuration());
         statement.bindLong(6, entity.getLeaveDuration());
-        statement.bindString(7, entity.getStatus());
-        statement.bindLong(8, entity.getId());
+        statement.bindLong(7, entity.getOvertimeDuration());
+        statement.bindString(8, entity.getStatus());
+        statement.bindLong(9, entity.getId());
       }
     };
     this.__preparedStmtOfDeleteAll = new SharedSQLiteStatement(__db) {
@@ -216,6 +218,7 @@ public final class AttendanceDao_Impl implements AttendanceDao {
           final int _cursorIndexOfExitTime = CursorUtil.getColumnIndexOrThrow(_cursor, "exitTime");
           final int _cursorIndexOfDuration = CursorUtil.getColumnIndexOrThrow(_cursor, "duration");
           final int _cursorIndexOfLeaveDuration = CursorUtil.getColumnIndexOrThrow(_cursor, "leaveDuration");
+          final int _cursorIndexOfOvertimeDuration = CursorUtil.getColumnIndexOrThrow(_cursor, "overtimeDuration");
           final int _cursorIndexOfStatus = CursorUtil.getColumnIndexOrThrow(_cursor, "status");
           final List<AttendanceEntity> _result = new ArrayList<AttendanceEntity>(_cursor.getCount());
           while (_cursor.moveToNext()) {
@@ -236,9 +239,11 @@ public final class AttendanceDao_Impl implements AttendanceDao {
             _tmpDuration = _cursor.getInt(_cursorIndexOfDuration);
             final int _tmpLeaveDuration;
             _tmpLeaveDuration = _cursor.getInt(_cursorIndexOfLeaveDuration);
+            final int _tmpOvertimeDuration;
+            _tmpOvertimeDuration = _cursor.getInt(_cursorIndexOfOvertimeDuration);
             final String _tmpStatus;
             _tmpStatus = _cursor.getString(_cursorIndexOfStatus);
-            _item = new AttendanceEntity(_tmpId,_tmpDate,_tmpEntryTime,_tmpExitTime,_tmpDuration,_tmpLeaveDuration,_tmpStatus);
+            _item = new AttendanceEntity(_tmpId,_tmpDate,_tmpEntryTime,_tmpExitTime,_tmpDuration,_tmpLeaveDuration,_tmpOvertimeDuration,_tmpStatus);
             _result.add(_item);
           }
           return _result;
@@ -279,6 +284,7 @@ public final class AttendanceDao_Impl implements AttendanceDao {
           final int _cursorIndexOfExitTime = CursorUtil.getColumnIndexOrThrow(_cursor, "exitTime");
           final int _cursorIndexOfDuration = CursorUtil.getColumnIndexOrThrow(_cursor, "duration");
           final int _cursorIndexOfLeaveDuration = CursorUtil.getColumnIndexOrThrow(_cursor, "leaveDuration");
+          final int _cursorIndexOfOvertimeDuration = CursorUtil.getColumnIndexOrThrow(_cursor, "overtimeDuration");
           final int _cursorIndexOfStatus = CursorUtil.getColumnIndexOrThrow(_cursor, "status");
           final List<AttendanceEntity> _result = new ArrayList<AttendanceEntity>(_cursor.getCount());
           while (_cursor.moveToNext()) {
@@ -299,9 +305,11 @@ public final class AttendanceDao_Impl implements AttendanceDao {
             _tmpDuration = _cursor.getInt(_cursorIndexOfDuration);
             final int _tmpLeaveDuration;
             _tmpLeaveDuration = _cursor.getInt(_cursorIndexOfLeaveDuration);
+            final int _tmpOvertimeDuration;
+            _tmpOvertimeDuration = _cursor.getInt(_cursorIndexOfOvertimeDuration);
             final String _tmpStatus;
             _tmpStatus = _cursor.getString(_cursorIndexOfStatus);
-            _item = new AttendanceEntity(_tmpId,_tmpDate,_tmpEntryTime,_tmpExitTime,_tmpDuration,_tmpLeaveDuration,_tmpStatus);
+            _item = new AttendanceEntity(_tmpId,_tmpDate,_tmpEntryTime,_tmpExitTime,_tmpDuration,_tmpLeaveDuration,_tmpOvertimeDuration,_tmpStatus);
             _result.add(_item);
           }
           return _result;
@@ -335,6 +343,7 @@ public final class AttendanceDao_Impl implements AttendanceDao {
           final int _cursorIndexOfExitTime = CursorUtil.getColumnIndexOrThrow(_cursor, "exitTime");
           final int _cursorIndexOfDuration = CursorUtil.getColumnIndexOrThrow(_cursor, "duration");
           final int _cursorIndexOfLeaveDuration = CursorUtil.getColumnIndexOrThrow(_cursor, "leaveDuration");
+          final int _cursorIndexOfOvertimeDuration = CursorUtil.getColumnIndexOrThrow(_cursor, "overtimeDuration");
           final int _cursorIndexOfStatus = CursorUtil.getColumnIndexOrThrow(_cursor, "status");
           final List<AttendanceEntity> _result = new ArrayList<AttendanceEntity>(_cursor.getCount());
           while (_cursor.moveToNext()) {
@@ -355,9 +364,11 @@ public final class AttendanceDao_Impl implements AttendanceDao {
             _tmpDuration = _cursor.getInt(_cursorIndexOfDuration);
             final int _tmpLeaveDuration;
             _tmpLeaveDuration = _cursor.getInt(_cursorIndexOfLeaveDuration);
+            final int _tmpOvertimeDuration;
+            _tmpOvertimeDuration = _cursor.getInt(_cursorIndexOfOvertimeDuration);
             final String _tmpStatus;
             _tmpStatus = _cursor.getString(_cursorIndexOfStatus);
-            _item = new AttendanceEntity(_tmpId,_tmpDate,_tmpEntryTime,_tmpExitTime,_tmpDuration,_tmpLeaveDuration,_tmpStatus);
+            _item = new AttendanceEntity(_tmpId,_tmpDate,_tmpEntryTime,_tmpExitTime,_tmpDuration,_tmpLeaveDuration,_tmpOvertimeDuration,_tmpStatus);
             _result.add(_item);
           }
           return _result;
@@ -386,6 +397,7 @@ public final class AttendanceDao_Impl implements AttendanceDao {
           final int _cursorIndexOfExitTime = CursorUtil.getColumnIndexOrThrow(_cursor, "exitTime");
           final int _cursorIndexOfDuration = CursorUtil.getColumnIndexOrThrow(_cursor, "duration");
           final int _cursorIndexOfLeaveDuration = CursorUtil.getColumnIndexOrThrow(_cursor, "leaveDuration");
+          final int _cursorIndexOfOvertimeDuration = CursorUtil.getColumnIndexOrThrow(_cursor, "overtimeDuration");
           final int _cursorIndexOfStatus = CursorUtil.getColumnIndexOrThrow(_cursor, "status");
           final AttendanceEntity _result;
           if (_cursor.moveToFirst()) {
@@ -405,9 +417,11 @@ public final class AttendanceDao_Impl implements AttendanceDao {
             _tmpDuration = _cursor.getInt(_cursorIndexOfDuration);
             final int _tmpLeaveDuration;
             _tmpLeaveDuration = _cursor.getInt(_cursorIndexOfLeaveDuration);
+            final int _tmpOvertimeDuration;
+            _tmpOvertimeDuration = _cursor.getInt(_cursorIndexOfOvertimeDuration);
             final String _tmpStatus;
             _tmpStatus = _cursor.getString(_cursorIndexOfStatus);
-            _result = new AttendanceEntity(_tmpId,_tmpDate,_tmpEntryTime,_tmpExitTime,_tmpDuration,_tmpLeaveDuration,_tmpStatus);
+            _result = new AttendanceEntity(_tmpId,_tmpDate,_tmpEntryTime,_tmpExitTime,_tmpDuration,_tmpLeaveDuration,_tmpOvertimeDuration,_tmpStatus);
           } else {
             _result = null;
           }
@@ -436,6 +450,7 @@ public final class AttendanceDao_Impl implements AttendanceDao {
           final int _cursorIndexOfExitTime = CursorUtil.getColumnIndexOrThrow(_cursor, "exitTime");
           final int _cursorIndexOfDuration = CursorUtil.getColumnIndexOrThrow(_cursor, "duration");
           final int _cursorIndexOfLeaveDuration = CursorUtil.getColumnIndexOrThrow(_cursor, "leaveDuration");
+          final int _cursorIndexOfOvertimeDuration = CursorUtil.getColumnIndexOrThrow(_cursor, "overtimeDuration");
           final int _cursorIndexOfStatus = CursorUtil.getColumnIndexOrThrow(_cursor, "status");
           final AttendanceEntity _result;
           if (_cursor.moveToFirst()) {
@@ -455,9 +470,11 @@ public final class AttendanceDao_Impl implements AttendanceDao {
             _tmpDuration = _cursor.getInt(_cursorIndexOfDuration);
             final int _tmpLeaveDuration;
             _tmpLeaveDuration = _cursor.getInt(_cursorIndexOfLeaveDuration);
+            final int _tmpOvertimeDuration;
+            _tmpOvertimeDuration = _cursor.getInt(_cursorIndexOfOvertimeDuration);
             final String _tmpStatus;
             _tmpStatus = _cursor.getString(_cursorIndexOfStatus);
-            _result = new AttendanceEntity(_tmpId,_tmpDate,_tmpEntryTime,_tmpExitTime,_tmpDuration,_tmpLeaveDuration,_tmpStatus);
+            _result = new AttendanceEntity(_tmpId,_tmpDate,_tmpEntryTime,_tmpExitTime,_tmpDuration,_tmpLeaveDuration,_tmpOvertimeDuration,_tmpStatus);
           } else {
             _result = null;
           }

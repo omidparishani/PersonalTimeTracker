@@ -231,8 +231,7 @@ class CalendarFragment : Fragment() {
                 else 0
             }
             val leave = att.sumOf { it.leaveDuration }
-            val settings = repo.getSettings()
-            val ot = (worked - settings.minimumWorkMinutes).coerceAtLeast(0)
+            val ot = att.sumOf { it.overtimeDuration }
 
             detailBox.addView(card(ctx, "جمع روز", buildString {
                 append("کار: "); append(TimeUtils.formatDuration(worked))

@@ -45,15 +45,15 @@ public final class AppDatabase_Impl extends AppDatabase {
   @Override
   @NonNull
   protected SupportSQLiteOpenHelper createOpenHelper(@NonNull final DatabaseConfiguration config) {
-    final SupportSQLiteOpenHelper.Callback _openCallback = new RoomOpenHelper(config, new RoomOpenHelper.Delegate(4) {
+    final SupportSQLiteOpenHelper.Callback _openCallback = new RoomOpenHelper(config, new RoomOpenHelper.Delegate(5) {
       @Override
       public void createAllTables(@NonNull final SupportSQLiteDatabase db) {
-        db.execSQL("CREATE TABLE IF NOT EXISTS `attendance` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `date` TEXT NOT NULL, `entryTime` TEXT NOT NULL, `exitTime` TEXT, `duration` INTEGER NOT NULL, `leaveDuration` INTEGER NOT NULL, `status` TEXT NOT NULL)");
+        db.execSQL("CREATE TABLE IF NOT EXISTS `attendance` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `date` TEXT NOT NULL, `entryTime` TEXT NOT NULL, `exitTime` TEXT, `duration` INTEGER NOT NULL, `leaveDuration` INTEGER NOT NULL, `overtimeDuration` INTEGER NOT NULL, `status` TEXT NOT NULL)");
         db.execSQL("CREATE TABLE IF NOT EXISTS `tasks` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `jiraNumber` TEXT, `projectName` TEXT NOT NULL, `taskTitle` TEXT NOT NULL, `description` TEXT, `requiredMinutes` INTEGER NOT NULL, `remainingMinutes` INTEGER NOT NULL, `status` TEXT NOT NULL, `isRunning` INTEGER NOT NULL, `runStartedAt` TEXT, `createdAt` TEXT NOT NULL)");
         db.execSQL("CREATE TABLE IF NOT EXISTS `task_logs` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `taskId` INTEGER NOT NULL, `date` TEXT NOT NULL, `startTime` TEXT, `endTime` TEXT, `duration` INTEGER NOT NULL, `note` TEXT, `createdAt` TEXT NOT NULL)");
         db.execSQL("CREATE TABLE IF NOT EXISTS `settings` (`id` INTEGER NOT NULL, `startWorkTime` TEXT NOT NULL, `endWorkTime` TEXT NOT NULL, `flexibleMinutes` INTEGER NOT NULL, `minimumWorkMinutes` INTEGER NOT NULL, `isDarkMode` INTEGER NOT NULL, `themeColor` INTEGER NOT NULL, `projects` TEXT NOT NULL, `notifEnabled` INTEGER NOT NULL, `notifMinutesBefore` INTEGER NOT NULL, `notifTitle` TEXT NOT NULL, `notifBody` TEXT NOT NULL, `biometricEnabled` INTEGER NOT NULL, `workLat` REAL NOT NULL, `workLng` REAL NOT NULL, `workRadiusMeters` REAL NOT NULL, `geoAutoCheckIn` INTEGER NOT NULL, `geoAlertOnly` INTEGER NOT NULL, `geoAutoCheckOut` INTEGER NOT NULL, PRIMARY KEY(`id`))");
         db.execSQL("CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)");
-        db.execSQL("INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '19ac33ba90fc9ce943106611f94c2ad2')");
+        db.execSQL("INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '4e8d897cff778b88c4ae60466fa70d96')");
       }
 
       @Override
@@ -105,13 +105,14 @@ public final class AppDatabase_Impl extends AppDatabase {
       @NonNull
       public RoomOpenHelper.ValidationResult onValidateSchema(
           @NonNull final SupportSQLiteDatabase db) {
-        final HashMap<String, TableInfo.Column> _columnsAttendance = new HashMap<String, TableInfo.Column>(7);
+        final HashMap<String, TableInfo.Column> _columnsAttendance = new HashMap<String, TableInfo.Column>(8);
         _columnsAttendance.put("id", new TableInfo.Column("id", "INTEGER", true, 1, null, TableInfo.CREATED_FROM_ENTITY));
         _columnsAttendance.put("date", new TableInfo.Column("date", "TEXT", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
         _columnsAttendance.put("entryTime", new TableInfo.Column("entryTime", "TEXT", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
         _columnsAttendance.put("exitTime", new TableInfo.Column("exitTime", "TEXT", false, 0, null, TableInfo.CREATED_FROM_ENTITY));
         _columnsAttendance.put("duration", new TableInfo.Column("duration", "INTEGER", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
         _columnsAttendance.put("leaveDuration", new TableInfo.Column("leaveDuration", "INTEGER", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsAttendance.put("overtimeDuration", new TableInfo.Column("overtimeDuration", "INTEGER", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
         _columnsAttendance.put("status", new TableInfo.Column("status", "TEXT", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
         final HashSet<TableInfo.ForeignKey> _foreignKeysAttendance = new HashSet<TableInfo.ForeignKey>(0);
         final HashSet<TableInfo.Index> _indicesAttendance = new HashSet<TableInfo.Index>(0);
@@ -192,7 +193,7 @@ public final class AppDatabase_Impl extends AppDatabase {
         }
         return new RoomOpenHelper.ValidationResult(true, null);
       }
-    }, "19ac33ba90fc9ce943106611f94c2ad2", "e5a0800c24cd6c4fd38aa8e91d9d7581");
+    }, "4e8d897cff778b88c4ae60466fa70d96", "7081353c815c52ff370853de352f2db8");
     final SupportSQLiteOpenHelper.Configuration _sqliteConfig = SupportSQLiteOpenHelper.Configuration.builder(config.context).name(config.name).callback(_openCallback).build();
     final SupportSQLiteOpenHelper _helper = config.sqliteOpenHelperFactory.create(_sqliteConfig);
     return _helper;

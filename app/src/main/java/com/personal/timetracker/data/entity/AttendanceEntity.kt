@@ -11,5 +11,6 @@ data class AttendanceEntity(
     val exitTime: String? = null,
     val duration: Int = 0,     // minutes
     val leaveDuration: Int = 0,
+    val overtimeDuration: Int = 0,
     val status: String = "active" // active | completed
 )

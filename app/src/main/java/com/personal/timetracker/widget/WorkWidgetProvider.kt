@@ -72,7 +72,9 @@ class WorkWidgetProvider : AppWidgetProvider() {
             if (isWorking) {
                 status = "▶ در حال کار"
                 val end = if (settings != null)
-                    TimeCalc.suggestedEnd(active!!.entryTime, settings.minimumWorkMinutes)
+                    TimeCalc.applyFlex(
+                        active!!.entryTime, settings.startWorkTime, settings.endWorkTime, settings.flexibleMinutes
+                    ).suggestedEnd
                 else "—"
                 detail = "ورود ${active!!.entryTime}  ·  پایان پیشنهادی $end"
             } else {

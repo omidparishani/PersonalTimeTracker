@@ -244,6 +244,10 @@ class AttendanceFragment : Fragment() {
                         append("   ·   مرخصی: ")
                         append(TimeUtils.formatDuration(item.leaveDuration))
                     }
+                    if (item.overtimeDuration > 0) {
+                        append("   ·   اضافه‌کار: ")
+                        append(TimeUtils.formatDuration(item.overtimeDuration))
+                    }
                 }
                 textSize = 12.5f
                 setTextColor(ThemeHelper.textSecondary(dark))

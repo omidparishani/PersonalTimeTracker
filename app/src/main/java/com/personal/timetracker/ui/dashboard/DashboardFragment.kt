@@ -92,10 +92,11 @@ class DashboardFragment : Fragment() {
             textSize = 20f
             gravity = Gravity.CENTER
             setTextColor(ThemeHelper.onColor(primary))
-            background = android.graphics.drawable.GradientDrawable().apply {
-                shape = android.graphics.drawable.GradientDrawable.OVAL
-                setColor(androidx.core.graphics.ColorUtils.blendARGB(primary, android.graphics.Color.WHITE, 0.22f))
-            }
+            background = ThemeHelper.glossy(
+                androidx.core.graphics.ColorUtils.blendARGB(primary, android.graphics.Color.WHITE, 0.22f),
+                dark, oval = true
+            )
+            elevation = DialogHelper.dp(ctx, 4).toFloat()
             layoutParams = LinearLayout.LayoutParams(DialogHelper.dp(ctx, 52), DialogHelper.dp(ctx, 52)).apply {
                 marginEnd = DialogHelper.dp(ctx, 14)
             }
@@ -245,7 +246,9 @@ class DashboardFragment : Fragment() {
                             }
                         }
                         startTicker(activeRec.entryTime)
-                        val end = TimeCalc.suggestedEnd(activeRec.entryTime, settings.minimumWorkMinutes)
+                        val end = TimeCalc.applyFlex(
+                            activeRec.entryTime, settings.startWorkTime, settings.endWorkTime, settings.flexibleMinutes
+                        ).suggestedEnd
                         suggestedText.text = "پایان پیشنهادی کار: $end"
                     } else {
                         pulseDot.visibility = View.GONE
@@ -332,6 +335,9 @@ class DashboardFragment : Fragment() {
                                         if (r.leaveDuration > 0) {
                                             append("   ·   مرخصی "); append(TimeUtils.formatDuration(r.leaveDuration))
                                         }
+                                        if (r.overtimeDuration > 0) {
+                                            append("   ·   اضافه‌کار "); append(TimeUtils.formatDuration(r.overtimeDuration))
+                                        }
                                     }
                                 })
                             }
@@ -396,10 +402,8 @@ class DashboardFragment : Fragment() {
         }
         val dot = View(ctx).apply {
             val density = ctx.resources.displayMetrics.density
-            background = android.graphics.drawable.GradientDrawable().apply {
-                shape = android.graphics.drawable.GradientDrawable.OVAL
-                setColor(primary)
-            }
+            background = ThemeHelper.glossy(primary, dark(), oval = true)
+            elevation = 2f * ctx.resources.displayMetrics.density
             layoutParams = LinearLayout.LayoutParams((8 * density).toInt(), (8 * density).toInt()).apply {
                 bottomMargin = (6 * density).toInt()
             }

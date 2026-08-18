@@ -74,11 +74,9 @@ object DialogHelper {
             textSize = 19f
             gravity = Gravity.CENTER
             setTextColor(ThemeHelper.onColor(primary))
-            background = GradientDrawable().apply {
-                shape = GradientDrawable.OVAL
-                setColor(primary)
-            }
-            layoutParams = LinearLayout.LayoutParams(dp(ctx, 44), dp(ctx, 44)).apply {
+            background = ThemeHelper.glossy(primary, dark, oval = true)
+            elevation = dp(ctx, 3).toFloat()
+            layoutParams = LinearLayout.LayoutParams(dp(ctx, 46), dp(ctx, 46)).apply {
                 marginEnd = dp(ctx, 14)
             }
         }
