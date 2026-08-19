@@ -7,17 +7,19 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.personal.timetracker.data.dao.AttendanceDao
+import com.personal.timetracker.data.dao.HolidayDao
 import com.personal.timetracker.data.dao.SettingsDao
 import com.personal.timetracker.data.dao.TaskDao
 import com.personal.timetracker.data.dao.TaskLogDao
 import com.personal.timetracker.data.entity.AttendanceEntity
+import com.personal.timetracker.data.entity.HolidayEntity
 import com.personal.timetracker.data.entity.SettingsEntity
 import com.personal.timetracker.data.entity.TaskEntity
 import com.personal.timetracker.data.entity.TaskLogEntity
 
 @Database(
-    entities = [AttendanceEntity::class, TaskEntity::class, TaskLogEntity::class, SettingsEntity::class],
-    version = 5,
+    entities = [AttendanceEntity::class, TaskEntity::class, TaskLogEntity::class, SettingsEntity::class, HolidayEntity::class],
+    version = 7,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -25,6 +27,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun taskDao(): TaskDao
     abstract fun taskLogDao(): TaskLogDao
     abstract fun settingsDao(): SettingsDao
+    abstract fun holidayDao(): HolidayDao
 
     companion object {
         @Volatile private var INSTANCE: AppDatabase? = null
@@ -92,6 +95,37 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                try {
+                    db.execSQL("ALTER TABLE settings ADD COLUMN autoBackupEnabled INTEGER NOT NULL DEFAULT 0")
+                } catch (_: Exception) {}
+                try {
+                    db.execSQL("ALTER TABLE settings ADD COLUMN autoBackupIntervalHours INTEGER NOT NULL DEFAULT 24")
+                } catch (_: Exception) {}
+            }
+        }
+
+        private val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                try {
+                    db.execSQL("ALTER TABLE settings ADD COLUMN weeklyRequiredMinutes INTEGER NOT NULL DEFAULT 2775")
+                } catch (_: Exception) {}
+                try {
+                    db.execSQL("ALTER TABLE settings ADD COLUMN thursdayWorking INTEGER NOT NULL DEFAULT 0")
+                } catch (_: Exception) {}
+                try {
+                    db.execSQL("ALTER TABLE settings ADD COLUMN thursdayMinutes INTEGER NOT NULL DEFAULT 300")
+                } catch (_: Exception) {}
+                db.execSQL(
+                    """CREATE TABLE IF NOT EXISTS holidays (
+                        date TEXT NOT NULL PRIMARY KEY,
+                        title TEXT NOT NULL DEFAULT ''
+                    )"""
+                )
+            }
+        }
+
         fun get(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 INSTANCE ?: build(context.applicationContext).also { INSTANCE = it }
@@ -100,7 +134,7 @@ abstract class AppDatabase : RoomDatabase() {
 
         private fun build(context: Context): AppDatabase {
             return Room.databaseBuilder(context, AppDatabase::class.java, "personal_time_tracker.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
                 .fallbackToDestructiveMigration()
                 .allowMainThreadQueries()
                 .addCallback(object : Callback() {

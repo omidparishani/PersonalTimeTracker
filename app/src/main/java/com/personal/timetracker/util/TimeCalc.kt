@@ -2,14 +2,44 @@ package com.personal.timetracker.util
 
 /** Outcome of applying the flexible-hours (شناوری) policy to a check-in time. */
 data class FlexOutcome(
-    /** Recommended check-out time to complete the required daily duration under this policy. */
+    /** Recommended check-out time to complete the required duration for this day. */
     val suggestedEnd: String,
-    /** Leave (مرخصی) minutes to record immediately because entry was later than the allowed
-     *  flex window (start + flexibleMinutes). Zero if entry was within the flex window. */
+    /** Leave (مرخصی) minutes to record immediately because entry was later than the
+     *  allowed flex window (start + flexibleMinutes). Zero if entry was within the window. */
     val entryLeaveMinutes: Int
 )
 
 object TimeCalc {
+
+    /**
+     * Required work duration (minutes) for a given date, driven by the weekly-hours
+     * schedule rather than a flat daily number:
+     * - A holiday (official or manual) requires 0 minutes.
+     * - Friday is always off.
+     * - If Thursday is NOT a working day: Thursday is also off, and the weekly total is
+     *   split evenly across Saturday–Wednesday (5 days).
+     * - If Thursday IS a working day: Thursday gets its own configured minutes, and the
+     *   remaining weekly total is split evenly across Saturday–Wednesday (5 days).
+     */
+    fun requiredMinutesForDate(
+        date: String,
+        weeklyRequiredMinutes: Int,
+        thursdayWorking: Boolean,
+        thursdayMinutes: Int,
+        isHoliday: Boolean
+    ): Int {
+        if (isHoliday) return 0
+        val weekday = TimeUtils.weekdayOf(date) // 0=Sat ... 5=Thu, 6=Fri
+        if (weekday == 6) return 0 // Friday
+        if (weekday == 5) {
+            return if (thursdayWorking) thursdayMinutes.coerceAtLeast(0) else 0
+        }
+        // Saturday..Wednesday
+        val poolMinutes = if (thursdayWorking) {
+            (weeklyRequiredMinutes - thursdayMinutes).coerceAtLeast(0)
+        } else weeklyRequiredMinutes
+        return (poolMinutes / 5).coerceAtLeast(0)
+    }
 
     /**
      * Applies the flexible-hours policy:
@@ -19,20 +49,19 @@ object TimeCalc {
      * - If they check in *after* the flex window closes, the extra lateness (from the end
      *   of the flex window to the actual entry) is recorded as leave right away, and the
      *   suggested end time is capped at startWorkTime + flexibleMinutes + requiredDuration
-     *   (equivalently endWorkTime + flexibleMinutes) — it does not keep shifting further.
+     *   — it does not keep shifting further.
      *
-     * Example: start=07:00, end=16:15, flex=120min, entry=10:10
+     * Example: start=07:00, flex=120min, requiredDuration=555min (9:15), entry=10:10
      *   flexWindowEnd = 09:00 -> entry (10:10) is past it
      *   entryLeaveMinutes = 10:10 - 09:00 = 70 (leave from 09:00 to 10:10)
-     *   suggestedEnd = 16:15 + 2:00 = 18:15
+     *   suggestedEnd = 09:00 + 9:15 = 18:15
      */
     fun applyFlex(
         entryTime: String,
         startWorkTime: String,
-        endWorkTime: String,
-        flexibleMinutes: Int
+        flexibleMinutes: Int,
+        requiredDurationMinutes: Int
     ): FlexOutcome {
-        val requiredDuration = TimeUtils.minutesBetween(startWorkTime, endWorkTime)
         val flexWindowEnd = TimeUtils.addMinutes(startWorkTime, flexibleMinutes)
 
         val entryAbs = TimeUtils.minutesBetween("00:00", entryTime)
@@ -43,19 +72,19 @@ object TimeCalc {
         // [start, flexWindowEnd] — arriving early doesn't grant an earlier end, and arriving
         // beyond the flex window doesn't keep shifting the end further.
         val effectiveAbs = entryAbs.coerceIn(startAbs, flexEndAbs)
-        val suggestedEnd = TimeUtils.addMinutes(startWorkTime, (effectiveAbs - startAbs) + requiredDuration)
+        val suggestedEnd = TimeUtils.addMinutes(startWorkTime, (effectiveAbs - startAbs) + requiredDurationMinutes)
 
         val entryLeave = (entryAbs - flexEndAbs).coerceAtLeast(0)
         return FlexOutcome(suggestedEnd, entryLeave)
     }
 
-    /** Backward-compatible simple version (no flex policy) — end = entry + minimum minutes. */
-    fun suggestedEnd(entryTime: String, minWorkMinutes: Int): String =
-        TimeUtils.addMinutes(entryTime, minWorkMinutes)
+    /** Backward-compatible simple version (no flex policy) — end = entry + required minutes. */
+    fun suggestedEnd(entryTime: String, requiredMinutes: Int): String =
+        TimeUtils.addMinutes(entryTime, requiredMinutes)
 
-    fun earlyLeave(entryTime: String, exitTime: String, minWorkMinutes: Int): Int {
+    fun earlyLeave(entryTime: String, exitTime: String, requiredMinutes: Int): Int {
         val worked = TimeUtils.minutesBetween(entryTime, exitTime)
-        return (minWorkMinutes - worked).coerceAtLeast(0)
+        return (requiredMinutes - worked).coerceAtLeast(0)
     }
 
     /** Leave/overtime minutes from comparing an actual exit time against a target

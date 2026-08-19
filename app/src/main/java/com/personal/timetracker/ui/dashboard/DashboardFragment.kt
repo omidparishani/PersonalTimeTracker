@@ -212,6 +212,9 @@ class DashboardFragment : Fragment() {
                         if (!task.jiraNumber.isNullOrBlank()) {
                             append("  ·  ")
                             append(task.jiraNumber)
+                            if (!task.taskTitle.isNullOrBlank() && task.taskTitle != task.jiraNumber) {
+                                // jiraNumber already shown, title shown above
+                            }
                         }
                         append('\n')
                         append("مدت ثبت‌شده: ")
@@ -245,11 +248,12 @@ class DashboardFragment : Fragment() {
                                 start()
                             }
                         }
-                        startTicker(activeRec.entryTime)
+                        val required = repo.requiredMinutesFor(activeRec.date, settings)
                         val end = TimeCalc.applyFlex(
-                            activeRec.entryTime, settings.startWorkTime, settings.endWorkTime, settings.flexibleMinutes
+                            activeRec.entryTime, settings.startWorkTime, settings.flexibleMinutes, required
                         ).suggestedEnd
-                        suggestedText.text = "پایان پیشنهادی کار: $end"
+                        startTicker(activeRec.entryTime, end)
+                        suggestedText.text = "پایان پیشنهادی کار: ${TimeUtils.faNum(end)}"
                     } else {
                         pulseDot.visibility = View.GONE
                         pulseAnimator?.cancel(); pulseAnimator = null
@@ -325,22 +329,37 @@ class DashboardFragment : Fragment() {
                                 headRow.addView(ThemeHelper.pill(ctx, "فعال", primary(), ThemeHelper.onColor(primary())))
                             }
                             box.addView(headRow)
-                            if (r.exitTime != null) {
-                                box.addView(TextView(ctx).apply {
-                                    setTextColor(ThemeHelper.textSecondary(dark()))
-                                    textSize = 12.5f
-                                    setPadding(0, 6, 0, 0)
-                                    text = buildString {
-                                        append(TimeUtils.formatDuration(r.duration))
-                                        if (r.leaveDuration > 0) {
-                                            append("   ·   مرخصی "); append(TimeUtils.formatDuration(r.leaveDuration))
-                                        }
-                                        if (r.overtimeDuration > 0) {
-                                            append("   ·   اضافه‌کار "); append(TimeUtils.formatDuration(r.overtimeDuration))
-                                        }
-                                    }
-                                })
+
+                            // نمودار دایره‌ای حتی برای رکوردهای فعال (بدون خروج) نشان داده می‌شود
+                            val displayDuration = if (r.exitTime != null) r.duration
+                                else TimeUtils.minutesBetween(r.entryTime, TimeUtils.nowTime()).coerceAtLeast(0)
+                            val isActive = r.exitTime == null
+
+                            val infoRow = LinearLayout(ctx).apply {
+                                orientation = LinearLayout.HORIZONTAL
+                                gravity = Gravity.CENTER_VERTICAL
+                                setPadding(0, 6, 0, 0)
                             }
+                            infoRow.addView(TextView(ctx).apply {
+                                setTextColor(ThemeHelper.textSecondary(dark()))
+                                textSize = 12.5f
+                                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                                text = buildString {
+                                    append(TimeUtils.formatDuration(displayDuration))
+                                    if (isActive) append("  (در حال کار)")
+                                    if (r.leaveDuration > 0) {
+                                        append("   ·   مرخصی "); append(TimeUtils.formatDuration(r.leaveDuration))
+                                    }
+                                    if (r.overtimeDuration > 0) {
+                                        append("   ·   اضافه‌کار "); append(TimeUtils.formatDuration(r.overtimeDuration))
+                                    }
+                                }
+                            })
+                            infoRow.addView(com.personal.timetracker.util.ChartHelper.attendanceDonut(
+                                ctx, displayDuration, r.overtimeDuration, r.leaveDuration,
+                                dark(), primary(), sizeDp = 40, isActive = isActive
+                            ))
+                            box.addView(infoRow)
                             val rActions = LinearLayout(ctx).apply {
                                 orientation = LinearLayout.HORIZONTAL
                                 setPadding(0, 10, 0, 0)
@@ -365,12 +384,20 @@ class DashboardFragment : Fragment() {
         return rootBg
     }
 
-    private fun startTicker(entryTime: String) {
+    private fun startTicker(entryTime: String, targetEnd: String) {
         tickerJob?.cancel()
         tickerJob = viewLifecycleOwner.lifecycleScope.launch {
             while (true) {
                 val elapsed = TimeUtils.minutesBetween(entryTime, TimeUtils.nowTime()).coerceAtLeast(0)
-                statusSub.text = "از ساعت $entryTime  ·  ${TimeUtils.formatDuration(elapsed)}"
+                val (_, liveOvertime) = TimeCalc.exitOutcome(TimeUtils.nowTime(), targetEnd)
+                statusSub.text = buildString {
+                    append("از ساعت "); append(TimeUtils.faNum(entryTime))
+                    append("  ·  "); append(TimeUtils.formatDuration(elapsed))
+                    if (liveOvertime > 0) {
+                        append("  ·  اضافه‌کار ")
+                        append(TimeUtils.formatDuration(liveOvertime))
+                    }
+                }
                 delay(30_000)
             }
         }

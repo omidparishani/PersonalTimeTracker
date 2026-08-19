@@ -35,6 +35,12 @@ class App : Application() {
             Log.e("PTT", "Notification channel failed", e)
         }
         try {
+            com.personal.timetracker.util.DynamicAppIcon.schedule(this)
+            com.personal.timetracker.util.DynamicAppIcon.sync(this)
+        } catch (e: Exception) {
+            Log.e("PTT", "Icon sync failed", e)
+        }
+        try {
             // Keeps geofence auto check-in/out and reminders running in the background,
             // not just while the app is open in the foreground.
             NotifHelper.scheduleGeoBackgroundCheck(this)

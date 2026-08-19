@@ -42,7 +42,7 @@ public final class SettingsDao_Impl implements SettingsDao {
       @Override
       @NonNull
       protected String createQuery() {
-        return "INSERT OR REPLACE INTO `settings` (`id`,`startWorkTime`,`endWorkTime`,`flexibleMinutes`,`minimumWorkMinutes`,`isDarkMode`,`themeColor`,`projects`,`notifEnabled`,`notifMinutesBefore`,`notifTitle`,`notifBody`,`biometricEnabled`,`workLat`,`workLng`,`workRadiusMeters`,`geoAutoCheckIn`,`geoAlertOnly`,`geoAutoCheckOut`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+        return "INSERT OR REPLACE INTO `settings` (`id`,`startWorkTime`,`endWorkTime`,`flexibleMinutes`,`minimumWorkMinutes`,`isDarkMode`,`themeColor`,`projects`,`notifEnabled`,`notifMinutesBefore`,`notifTitle`,`notifBody`,`biometricEnabled`,`workLat`,`workLng`,`workRadiusMeters`,`geoAutoCheckIn`,`geoAlertOnly`,`geoAutoCheckOut`,`weeklyRequiredMinutes`,`thursdayWorking`,`thursdayMinutes`,`autoBackupEnabled`,`autoBackupIntervalHours`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
       }
 
       @Override
@@ -73,6 +73,13 @@ public final class SettingsDao_Impl implements SettingsDao {
         statement.bindLong(18, _tmp_4);
         final int _tmp_5 = entity.getGeoAutoCheckOut() ? 1 : 0;
         statement.bindLong(19, _tmp_5);
+        statement.bindLong(20, entity.getWeeklyRequiredMinutes());
+        final int _tmp_6 = entity.getThursdayWorking() ? 1 : 0;
+        statement.bindLong(21, _tmp_6);
+        statement.bindLong(22, entity.getThursdayMinutes());
+        final int _tmp_7 = entity.getAutoBackupEnabled() ? 1 : 0;
+        statement.bindLong(23, _tmp_7);
+        statement.bindLong(24, entity.getAutoBackupIntervalHours());
       }
     };
     this.__preparedStmtOfDeleteAll = new SharedSQLiteStatement(__db) {
@@ -156,6 +163,11 @@ public final class SettingsDao_Impl implements SettingsDao {
           final int _cursorIndexOfGeoAutoCheckIn = CursorUtil.getColumnIndexOrThrow(_cursor, "geoAutoCheckIn");
           final int _cursorIndexOfGeoAlertOnly = CursorUtil.getColumnIndexOrThrow(_cursor, "geoAlertOnly");
           final int _cursorIndexOfGeoAutoCheckOut = CursorUtil.getColumnIndexOrThrow(_cursor, "geoAutoCheckOut");
+          final int _cursorIndexOfWeeklyRequiredMinutes = CursorUtil.getColumnIndexOrThrow(_cursor, "weeklyRequiredMinutes");
+          final int _cursorIndexOfThursdayWorking = CursorUtil.getColumnIndexOrThrow(_cursor, "thursdayWorking");
+          final int _cursorIndexOfThursdayMinutes = CursorUtil.getColumnIndexOrThrow(_cursor, "thursdayMinutes");
+          final int _cursorIndexOfAutoBackupEnabled = CursorUtil.getColumnIndexOrThrow(_cursor, "autoBackupEnabled");
+          final int _cursorIndexOfAutoBackupIntervalHours = CursorUtil.getColumnIndexOrThrow(_cursor, "autoBackupIntervalHours");
           final SettingsEntity _result;
           if (_cursor.moveToFirst()) {
             final int _tmpId;
@@ -208,7 +220,21 @@ public final class SettingsDao_Impl implements SettingsDao {
             final int _tmp_5;
             _tmp_5 = _cursor.getInt(_cursorIndexOfGeoAutoCheckOut);
             _tmpGeoAutoCheckOut = _tmp_5 != 0;
-            _result = new SettingsEntity(_tmpId,_tmpStartWorkTime,_tmpEndWorkTime,_tmpFlexibleMinutes,_tmpMinimumWorkMinutes,_tmpIsDarkMode,_tmpThemeColor,_tmpProjects,_tmpNotifEnabled,_tmpNotifMinutesBefore,_tmpNotifTitle,_tmpNotifBody,_tmpBiometricEnabled,_tmpWorkLat,_tmpWorkLng,_tmpWorkRadiusMeters,_tmpGeoAutoCheckIn,_tmpGeoAlertOnly,_tmpGeoAutoCheckOut);
+            final int _tmpWeeklyRequiredMinutes;
+            _tmpWeeklyRequiredMinutes = _cursor.getInt(_cursorIndexOfWeeklyRequiredMinutes);
+            final boolean _tmpThursdayWorking;
+            final int _tmp_6;
+            _tmp_6 = _cursor.getInt(_cursorIndexOfThursdayWorking);
+            _tmpThursdayWorking = _tmp_6 != 0;
+            final int _tmpThursdayMinutes;
+            _tmpThursdayMinutes = _cursor.getInt(_cursorIndexOfThursdayMinutes);
+            final boolean _tmpAutoBackupEnabled;
+            final int _tmp_7;
+            _tmp_7 = _cursor.getInt(_cursorIndexOfAutoBackupEnabled);
+            _tmpAutoBackupEnabled = _tmp_7 != 0;
+            final int _tmpAutoBackupIntervalHours;
+            _tmpAutoBackupIntervalHours = _cursor.getInt(_cursorIndexOfAutoBackupIntervalHours);
+            _result = new SettingsEntity(_tmpId,_tmpStartWorkTime,_tmpEndWorkTime,_tmpFlexibleMinutes,_tmpMinimumWorkMinutes,_tmpIsDarkMode,_tmpThemeColor,_tmpProjects,_tmpNotifEnabled,_tmpNotifMinutesBefore,_tmpNotifTitle,_tmpNotifBody,_tmpBiometricEnabled,_tmpWorkLat,_tmpWorkLng,_tmpWorkRadiusMeters,_tmpGeoAutoCheckIn,_tmpGeoAlertOnly,_tmpGeoAutoCheckOut,_tmpWeeklyRequiredMinutes,_tmpThursdayWorking,_tmpThursdayMinutes,_tmpAutoBackupEnabled,_tmpAutoBackupIntervalHours);
           } else {
             _result = null;
           }
@@ -255,6 +281,11 @@ public final class SettingsDao_Impl implements SettingsDao {
           final int _cursorIndexOfGeoAutoCheckIn = CursorUtil.getColumnIndexOrThrow(_cursor, "geoAutoCheckIn");
           final int _cursorIndexOfGeoAlertOnly = CursorUtil.getColumnIndexOrThrow(_cursor, "geoAlertOnly");
           final int _cursorIndexOfGeoAutoCheckOut = CursorUtil.getColumnIndexOrThrow(_cursor, "geoAutoCheckOut");
+          final int _cursorIndexOfWeeklyRequiredMinutes = CursorUtil.getColumnIndexOrThrow(_cursor, "weeklyRequiredMinutes");
+          final int _cursorIndexOfThursdayWorking = CursorUtil.getColumnIndexOrThrow(_cursor, "thursdayWorking");
+          final int _cursorIndexOfThursdayMinutes = CursorUtil.getColumnIndexOrThrow(_cursor, "thursdayMinutes");
+          final int _cursorIndexOfAutoBackupEnabled = CursorUtil.getColumnIndexOrThrow(_cursor, "autoBackupEnabled");
+          final int _cursorIndexOfAutoBackupIntervalHours = CursorUtil.getColumnIndexOrThrow(_cursor, "autoBackupIntervalHours");
           final SettingsEntity _result;
           if (_cursor.moveToFirst()) {
             final int _tmpId;
@@ -307,7 +338,21 @@ public final class SettingsDao_Impl implements SettingsDao {
             final int _tmp_5;
             _tmp_5 = _cursor.getInt(_cursorIndexOfGeoAutoCheckOut);
             _tmpGeoAutoCheckOut = _tmp_5 != 0;
-            _result = new SettingsEntity(_tmpId,_tmpStartWorkTime,_tmpEndWorkTime,_tmpFlexibleMinutes,_tmpMinimumWorkMinutes,_tmpIsDarkMode,_tmpThemeColor,_tmpProjects,_tmpNotifEnabled,_tmpNotifMinutesBefore,_tmpNotifTitle,_tmpNotifBody,_tmpBiometricEnabled,_tmpWorkLat,_tmpWorkLng,_tmpWorkRadiusMeters,_tmpGeoAutoCheckIn,_tmpGeoAlertOnly,_tmpGeoAutoCheckOut);
+            final int _tmpWeeklyRequiredMinutes;
+            _tmpWeeklyRequiredMinutes = _cursor.getInt(_cursorIndexOfWeeklyRequiredMinutes);
+            final boolean _tmpThursdayWorking;
+            final int _tmp_6;
+            _tmp_6 = _cursor.getInt(_cursorIndexOfThursdayWorking);
+            _tmpThursdayWorking = _tmp_6 != 0;
+            final int _tmpThursdayMinutes;
+            _tmpThursdayMinutes = _cursor.getInt(_cursorIndexOfThursdayMinutes);
+            final boolean _tmpAutoBackupEnabled;
+            final int _tmp_7;
+            _tmp_7 = _cursor.getInt(_cursorIndexOfAutoBackupEnabled);
+            _tmpAutoBackupEnabled = _tmp_7 != 0;
+            final int _tmpAutoBackupIntervalHours;
+            _tmpAutoBackupIntervalHours = _cursor.getInt(_cursorIndexOfAutoBackupIntervalHours);
+            _result = new SettingsEntity(_tmpId,_tmpStartWorkTime,_tmpEndWorkTime,_tmpFlexibleMinutes,_tmpMinimumWorkMinutes,_tmpIsDarkMode,_tmpThemeColor,_tmpProjects,_tmpNotifEnabled,_tmpNotifMinutesBefore,_tmpNotifTitle,_tmpNotifBody,_tmpBiometricEnabled,_tmpWorkLat,_tmpWorkLng,_tmpWorkRadiusMeters,_tmpGeoAutoCheckIn,_tmpGeoAlertOnly,_tmpGeoAutoCheckOut,_tmpWeeklyRequiredMinutes,_tmpThursdayWorking,_tmpThursdayMinutes,_tmpAutoBackupEnabled,_tmpAutoBackupIntervalHours);
           } else {
             _result = null;
           }

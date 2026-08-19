@@ -65,10 +65,8 @@ class CalendarFragment : Fragment() {
         ).apply {
             text = "‹"
             setOnClickListener {
-                jm--; if (jm < 1) {
-                jm = 12; jy--
-            }
-                renderMonth(); loadDay()
+                jm--; if (jm < 1) { jm = 12; jy-- }
+                loadMonthHolidays(); loadDay()
             }
         }
         monthTitle = TextView(ctx).apply {
@@ -85,10 +83,8 @@ class CalendarFragment : Fragment() {
         ).apply {
             text = "›"
             setOnClickListener {
-                jm++; if (jm > 12) {
-                jm = 1; jy++
-            }
-                renderMonth(); loadDay()
+                jm++; if (jm > 12) { jm = 1; jy++ }
+                loadMonthHolidays(); loadDay()
             }
         }
         ThemeHelper.applyButton(prev, primary(), false)
@@ -127,13 +123,16 @@ class CalendarFragment : Fragment() {
             addView(detailBox)
         })
 
-        renderMonth()
+        loadMonthHolidays()
         loadDay()
         return root
     }
 
+    // نگه‌داری مناسبت‌ها برای ماه جاری
+    private var monthHolidays: Map<String, String> = emptyMap() // date-iso -> title
+
     private fun renderMonth() {
-        monthTitle.text = "${TimeUtils.jalaliMonthName(jm)} $jy"
+        monthTitle.text = "${TimeUtils.jalaliMonthName(jm)} ${TimeUtils.faNum(jy)}"
         grid.removeAllViews()
         val daysInMonth = TimeUtils.jalaliMonthDays(jy, jm)
         val startWeekday = TimeUtils.weekdayJalali(jy, jm, 1) // 0=Sat
@@ -141,35 +140,105 @@ class CalendarFragment : Fragment() {
         val dark = dark()
         val today = TimeUtils.toJalali(Calendar.getInstance().time)
 
+        // رنگ‌ها
+        val holidayTextColor = if (dark) 0xFFFF5252.toInt() else 0xFFC62828.toInt()
+        val weekendTextColor  = if (dark) 0xFFFF8A65.toInt() else 0xFFE64A19.toInt()
+        val todayRingColor    = primary
+
         // empty cells
         for (i in 0 until startWeekday) {
-            grid.addView(TextView(requireContext()).apply {
-                layoutParams = cellLp()
-            })
+            grid.addView(TextView(requireContext()).apply { layoutParams = cellLp() })
         }
         for (d in 1..daysInMonth) {
-            val cell = TextView(requireContext()).apply {
-                text = d.toString()
+            val dateIso = TimeUtils.formatDate(TimeUtils.fromJalali(jy, jm, d))
+            val weekday = TimeUtils.weekdayJalali(jy, jm, d)  // 0=Sat…6=Fri
+            val isFriday   = weekday == 6
+            val isThursday = weekday == 5
+            val isHoliday  = monthHolidays.containsKey(dateIso)
+            val holidayTitle = monthHolidays[dateIso]
+
+            val isSelected = d == selectedJd
+            val isToday    = jy == today[0] && jm == today[1] && d == today[2]
+
+            val cell = LinearLayout(requireContext()).apply {
+                orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER
-                textSize = 14f
-                setPadding(0, 18, 0, 18)
+                setPadding(2, 6, 2, 6)
                 layoutParams = cellLp()
-                setTextColor(ThemeHelper.textPrimary(dark))
-                if (d == selectedJd) {
-                    setBackgroundColor(primary)
-                    setTextColor(ThemeHelper.onColor(primary))
-                    setTypeface(null, Typeface.BOLD)
-                } else if (jy == today[0] && jm == today[1] && d == today[2]) {
-                    setTextColor(primary)
-                    setTypeface(null, Typeface.BOLD)
-                }
-                setOnClickListener {
-                    selectedJd = d
-                    renderMonth()
-                    loadDay()
+                isClickable = true
+                isFocusable = true
+                setOnClickListener { selectedJd = d; renderMonth(); loadDay() }
+            }
+
+            val numTv = TextView(requireContext()).apply {
+                text = TimeUtils.faNum(d)
+                gravity = Gravity.CENTER
+                textSize = 13f
+                when {
+                    isSelected -> {
+                        background = android.graphics.drawable.GradientDrawable().apply {
+                            shape = android.graphics.drawable.GradientDrawable.OVAL
+                            setColor(primary)
+                            setSize(
+                                (34 * resources.displayMetrics.density).toInt(),
+                                (34 * resources.displayMetrics.density).toInt()
+                            )
+                        }
+                        setTextColor(ThemeHelper.onColor(primary))
+                        setTypeface(null, Typeface.BOLD)
+                    }
+                    isToday -> {
+                        background = android.graphics.drawable.GradientDrawable().apply {
+                            shape = android.graphics.drawable.GradientDrawable.OVAL
+                            setStroke(
+                                (2 * resources.displayMetrics.density).toInt(),
+                                todayRingColor
+                            )
+                            setColor(android.graphics.Color.TRANSPARENT)
+                            setSize(
+                                (34 * resources.displayMetrics.density).toInt(),
+                                (34 * resources.displayMetrics.density).toInt()
+                            )
+                        }
+                        setTextColor(if (isHoliday || isFriday) holidayTextColor
+                                     else if (isThursday) weekendTextColor
+                                     else primary)
+                        setTypeface(null, Typeface.BOLD)
+                    }
+                    isHoliday || isFriday -> setTextColor(holidayTextColor)
+                    isThursday -> setTextColor(weekendTextColor)
+                    else -> setTextColor(ThemeHelper.textPrimary(dark))
                 }
             }
+            cell.addView(numTv)
+
+            // نقطه کوچک برای مناسبت
+            if (!holidayTitle.isNullOrBlank() && !isSelected) {
+                cell.addView(View(requireContext()).apply {
+                    background = android.graphics.drawable.GradientDrawable().apply {
+                        shape = android.graphics.drawable.GradientDrawable.OVAL
+                        setColor(holidayTextColor)
+                    }
+                    layoutParams = LinearLayout.LayoutParams(
+                        (5 * resources.displayMetrics.density).toInt(),
+                        (5 * resources.displayMetrics.density).toInt()
+                    ).apply { topMargin = (2 * resources.displayMetrics.density).toInt() }
+                })
+            }
             grid.addView(cell)
+        }
+    }
+
+    /** بارگذاری تعطیلات ماه جاری و رندر مجدد */
+    private fun loadMonthHolidays() {
+        lifecycleScope.launch {
+            val repo = (requireActivity().application as App).repository
+            val startIso = TimeUtils.formatDate(TimeUtils.fromJalali(jy, jm, 1))
+            val endIso   = TimeUtils.formatDate(TimeUtils.fromJalali(jy, jm, TimeUtils.jalaliMonthDays(jy, jm)))
+            val all = repo.getHolidaysOnce()
+            monthHolidays = all.filter { it.date >= startIso && it.date <= endIso }
+                               .associate { it.date to it.title }
+            renderMonth()
         }
     }
 
@@ -192,28 +261,25 @@ class CalendarFragment : Fragment() {
         val primary = primary()
         val dark = dark()
         detailBox.removeAllViews()
+        val selectedIsoDate = selectedIso()
+        val holidayTitle = monthHolidays[selectedIsoDate]
         detailBox.addView(TextView(ctx).apply {
-            val wd = when (
-                TimeUtils.weekdayJalali(
-                    jy,
-                    jm,
-                    selectedJd
-                )
-            ) {
-                0 -> "شنبه"
-                1 -> "یکشنبه"
-                2 -> "دوشنبه"
-                3 -> "سه‌شنبه"
-                4 -> "چهارشنبه"
-                5 -> "پنجشنبه"
-                6 -> "جمعه"
-                else -> ""
+            val wd = when (TimeUtils.weekdayJalali(jy, jm, selectedJd)) {
+                0 -> "شنبه"; 1 -> "یکشنبه"; 2 -> "دوشنبه"
+                3 -> "سه‌شنبه"; 4 -> "چهارشنبه"; 5 -> "پنجشنبه"
+                6 -> "جمعه"; else -> ""
             }
-
-            text = "$wd، $selectedJd ${TimeUtils.jalaliMonthName(jm)} $jy"
+            text = buildString {
+                append("$wd، ${TimeUtils.faNum(selectedJd)} ${TimeUtils.jalaliMonthName(jm)} ${TimeUtils.faNum(jy)}")
+                if (!holidayTitle.isNullOrBlank()) {
+                    append("\n"); append(holidayTitle)
+                }
+            }
             textSize = 15f
             setTypeface(null, Typeface.BOLD)
-            setTextColor(primary)
+            setTextColor(if (!holidayTitle.isNullOrBlank()) {
+                if (dark) 0xFFFF5252.toInt() else 0xFFC62828.toInt()
+            } else primary)
             setPadding(4, 4, 4, 12)
         })
         lifecycleScope.launch {
@@ -262,7 +328,10 @@ class CalendarFragment : Fragment() {
                         if (r.exitTime != null) "${r.entryTime}  →  ${r.exitTime}" else "${r.entryTime} (فعال)",
                         primary, dark,
                         onEdit = { AttendanceEditor.open(ctx, r, repo, lifecycleScope, primary, dark) { loadDay() } },
-                        onDelete = { AttendanceEditor.confirmDelete(ctx, r, repo, lifecycleScope, primary, dark) { loadDay() } }
+                        onDelete = { AttendanceEditor.confirmDelete(ctx, r, repo, lifecycleScope, primary, dark) { loadDay() } },
+                        extra = if (r.exitTime != null) com.personal.timetracker.util.ChartHelper.attendanceDonut(
+                            ctx, r.duration, r.overtimeDuration, r.leaveDuration, dark, primary, sizeDp = 34
+                        ) else null
                     ))
                 }
             }
@@ -329,7 +398,7 @@ class CalendarFragment : Fragment() {
 
     private fun rowWithActions(
         ctx: android.content.Context, label: String, primary: Int, dark: Boolean,
-        onEdit: () -> Unit, onDelete: () -> Unit
+        onEdit: () -> Unit, onDelete: () -> Unit, extra: View? = null
     ): LinearLayout {
         val row = LinearLayout(ctx).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -342,6 +411,7 @@ class CalendarFragment : Fragment() {
             setTextColor(ThemeHelper.textPrimary(dark))
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         })
+        if (extra != null) row.addView(extra)
         row.addView(ThemeHelper.iconButton(ctx, "✎", primary, dark, "ویرایش", onEdit))
         row.addView(ThemeHelper.iconButton(ctx, "🗑", ThemeHelper.deleteColor, dark, "حذف", onDelete))
         return row

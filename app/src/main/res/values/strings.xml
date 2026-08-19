@@ -7,4 +7,6 @@
     <string name="nav_reports">گزارش</string>
     <string name="nav_calendar">تقویم</string>
     <string name="nav_settings">تنظیمات</string>
+    <string name="widget_hours_desc">ساعت کار امروز</string>
+    <string name="widget_work_desc">ورود و خروج سریع</string>
 </resources>

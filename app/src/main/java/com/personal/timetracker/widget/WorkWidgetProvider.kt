@@ -51,7 +51,6 @@ class WorkWidgetProvider : AppWidgetProvider() {
                         if (intent.action == ACTION_CHECK_IN) repo.checkIn() else repo.checkOut()
                     } catch (_: Exception) {
                     } finally {
-                        requestUpdate(context)
                         pending.finish()
                     }
                 }
@@ -71,12 +70,14 @@ class WorkWidgetProvider : AppWidgetProvider() {
             val isWorking = active != null && active.exitTime == null
             if (isWorking) {
                 status = "▶ در حال کار"
-                val end = if (settings != null)
+                val end = if (settings != null) {
+                    val repo = (context.applicationContext as App).repository
+                    val required = repo.requiredMinutesFor(active!!.date, settings)
                     TimeCalc.applyFlex(
-                        active!!.entryTime, settings.startWorkTime, settings.endWorkTime, settings.flexibleMinutes
+                        active.entryTime, settings.startWorkTime, settings.flexibleMinutes, required
                     ).suggestedEnd
-                else "—"
-                detail = "ورود ${active!!.entryTime}  ·  پایان پیشنهادی $end"
+                } else "—"
+                detail = "ورود ${TimeUtils.faNum(active!!.entryTime)}  ·  پایان پیشنهادی ${TimeUtils.faNum(end)}"
             } else {
                 status = "■ خارج از کار"
                 detail = TimeUtils.toJalaliShort()

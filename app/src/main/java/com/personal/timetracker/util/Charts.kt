@@ -224,6 +224,60 @@ class DonutChartView(context: Context) : View(context) {
 }
 
 object ChartHelper {
+    /** Generates a readable, evenly-spaced color palette for pie/donut charts.
+     *  Colors are based on the primary theme color with offsets around the hue wheel,
+     *  ensuring good contrast in both light and dark modes. */
+    fun paletteForTheme(primary: Int, count: Int, dark: Boolean): List<Int> {
+        val hsv = FloatArray(3)
+        android.graphics.Color.colorToHSV(primary, hsv)
+        val baseHue = hsv[0]
+        val sat = if (dark) 0.72f else 0.78f
+        val vals = if (dark) 0.88f else 0.82f
+        return List(count) { i ->
+            val hue = (baseHue + i * (360f / count.coerceAtLeast(1))) % 360f
+            android.graphics.Color.HSVToColor(floatArrayOf(hue, sat, vals))
+        }
+    }
+
+    /** Small shared donut showing worked/overtime/leave proportions for one attendance
+     *  record — reused in the Attendance tile, Dashboard, and Calendar so they all look
+     *  and behave the same. Even if exitTime is null (active session), shows live worked time.
+     *  Also shows early-leave if present. */
+    fun attendanceDonut(
+        ctx: Context, worked: Int, overtime: Int, leave: Int,
+        dark: Boolean, primary: Int, sizeDp: Int = 48,
+        isActive: Boolean = false
+    ): DonutChartView {
+        val density = ctx.resources.displayMetrics.density
+        val parts = mutableListOf<DonutItem>()
+        // Use theme-derived colors
+        val workedColor = primary
+        val overtimeColor = if (dark) 0xFF00C853.toInt() else 0xFF2E7D32.toInt()
+        val leaveColor = if (dark) 0xFFFF5252.toInt() else 0xFFC62828.toInt()
+        val activeColor = ColorUtils.blendARGB(primary, android.graphics.Color.WHITE, 0.35f)
+
+        if (isActive && worked > 0) {
+            parts.add(DonutItem("در حال کار", worked, activeColor))
+        } else {
+            if (worked > 0) parts.add(DonutItem("کارکرد", worked, workedColor))
+        }
+        if (overtime > 0) parts.add(DonutItem("اضافه‌کار", overtime, overtimeColor))
+        if (leave > 0) parts.add(DonutItem("مرخصی", leave, leaveColor))
+
+        // If nothing to show (e.g. active with 0 elapsed), show a placeholder arc
+        if (parts.isEmpty()) {
+            parts.add(DonutItem("", 1, ColorUtils.setAlphaComponent(primary, 80)))
+        }
+
+        return DonutChartView(ctx).apply {
+            items = parts
+            trackColor = ThemeHelper.outline(dark)
+            titleColor = ThemeHelper.textPrimary(dark)
+            subtitleColor = ThemeHelper.textSecondary(dark)
+            layoutParams = LinearLayout.LayoutParams((sizeDp * density).toInt(), (sizeDp * density).toInt())
+        }
+    }
+
     /** Builds a legend row (colored dot + label + value) list under a donut chart. */
     fun legend(
         ctx: Context,

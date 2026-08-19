@@ -13,6 +13,8 @@ import androidx.sqlite.db.SupportSQLiteDatabase;
 import androidx.sqlite.db.SupportSQLiteOpenHelper;
 import com.personal.timetracker.data.dao.AttendanceDao;
 import com.personal.timetracker.data.dao.AttendanceDao_Impl;
+import com.personal.timetracker.data.dao.HolidayDao;
+import com.personal.timetracker.data.dao.HolidayDao_Impl;
 import com.personal.timetracker.data.dao.SettingsDao;
 import com.personal.timetracker.data.dao.SettingsDao_Impl;
 import com.personal.timetracker.data.dao.TaskDao;
@@ -42,18 +44,21 @@ public final class AppDatabase_Impl extends AppDatabase {
 
   private volatile SettingsDao _settingsDao;
 
+  private volatile HolidayDao _holidayDao;
+
   @Override
   @NonNull
   protected SupportSQLiteOpenHelper createOpenHelper(@NonNull final DatabaseConfiguration config) {
-    final SupportSQLiteOpenHelper.Callback _openCallback = new RoomOpenHelper(config, new RoomOpenHelper.Delegate(5) {
+    final SupportSQLiteOpenHelper.Callback _openCallback = new RoomOpenHelper(config, new RoomOpenHelper.Delegate(7) {
       @Override
       public void createAllTables(@NonNull final SupportSQLiteDatabase db) {
         db.execSQL("CREATE TABLE IF NOT EXISTS `attendance` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `date` TEXT NOT NULL, `entryTime` TEXT NOT NULL, `exitTime` TEXT, `duration` INTEGER NOT NULL, `leaveDuration` INTEGER NOT NULL, `overtimeDuration` INTEGER NOT NULL, `status` TEXT NOT NULL)");
         db.execSQL("CREATE TABLE IF NOT EXISTS `tasks` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `jiraNumber` TEXT, `projectName` TEXT NOT NULL, `taskTitle` TEXT NOT NULL, `description` TEXT, `requiredMinutes` INTEGER NOT NULL, `remainingMinutes` INTEGER NOT NULL, `status` TEXT NOT NULL, `isRunning` INTEGER NOT NULL, `runStartedAt` TEXT, `createdAt` TEXT NOT NULL)");
         db.execSQL("CREATE TABLE IF NOT EXISTS `task_logs` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `taskId` INTEGER NOT NULL, `date` TEXT NOT NULL, `startTime` TEXT, `endTime` TEXT, `duration` INTEGER NOT NULL, `note` TEXT, `createdAt` TEXT NOT NULL)");
-        db.execSQL("CREATE TABLE IF NOT EXISTS `settings` (`id` INTEGER NOT NULL, `startWorkTime` TEXT NOT NULL, `endWorkTime` TEXT NOT NULL, `flexibleMinutes` INTEGER NOT NULL, `minimumWorkMinutes` INTEGER NOT NULL, `isDarkMode` INTEGER NOT NULL, `themeColor` INTEGER NOT NULL, `projects` TEXT NOT NULL, `notifEnabled` INTEGER NOT NULL, `notifMinutesBefore` INTEGER NOT NULL, `notifTitle` TEXT NOT NULL, `notifBody` TEXT NOT NULL, `biometricEnabled` INTEGER NOT NULL, `workLat` REAL NOT NULL, `workLng` REAL NOT NULL, `workRadiusMeters` REAL NOT NULL, `geoAutoCheckIn` INTEGER NOT NULL, `geoAlertOnly` INTEGER NOT NULL, `geoAutoCheckOut` INTEGER NOT NULL, PRIMARY KEY(`id`))");
+        db.execSQL("CREATE TABLE IF NOT EXISTS `settings` (`id` INTEGER NOT NULL, `startWorkTime` TEXT NOT NULL, `endWorkTime` TEXT NOT NULL, `flexibleMinutes` INTEGER NOT NULL, `minimumWorkMinutes` INTEGER NOT NULL, `isDarkMode` INTEGER NOT NULL, `themeColor` INTEGER NOT NULL, `projects` TEXT NOT NULL, `notifEnabled` INTEGER NOT NULL, `notifMinutesBefore` INTEGER NOT NULL, `notifTitle` TEXT NOT NULL, `notifBody` TEXT NOT NULL, `biometricEnabled` INTEGER NOT NULL, `workLat` REAL NOT NULL, `workLng` REAL NOT NULL, `workRadiusMeters` REAL NOT NULL, `geoAutoCheckIn` INTEGER NOT NULL, `geoAlertOnly` INTEGER NOT NULL, `geoAutoCheckOut` INTEGER NOT NULL, `weeklyRequiredMinutes` INTEGER NOT NULL, `thursdayWorking` INTEGER NOT NULL, `thursdayMinutes` INTEGER NOT NULL, `autoBackupEnabled` INTEGER NOT NULL, `autoBackupIntervalHours` INTEGER NOT NULL, PRIMARY KEY(`id`))");
+        db.execSQL("CREATE TABLE IF NOT EXISTS `holidays` (`date` TEXT NOT NULL, `title` TEXT NOT NULL, PRIMARY KEY(`date`))");
         db.execSQL("CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)");
-        db.execSQL("INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '4e8d897cff778b88c4ae60466fa70d96')");
+        db.execSQL("INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '240de0d165e462afe1022a8f6772ad62')");
       }
 
       @Override
@@ -62,6 +67,7 @@ public final class AppDatabase_Impl extends AppDatabase {
         db.execSQL("DROP TABLE IF EXISTS `tasks`");
         db.execSQL("DROP TABLE IF EXISTS `task_logs`");
         db.execSQL("DROP TABLE IF EXISTS `settings`");
+        db.execSQL("DROP TABLE IF EXISTS `holidays`");
         final List<? extends RoomDatabase.Callback> _callbacks = mCallbacks;
         if (_callbacks != null) {
           for (RoomDatabase.Callback _callback : _callbacks) {
@@ -162,7 +168,7 @@ public final class AppDatabase_Impl extends AppDatabase {
                   + " Expected:\n" + _infoTaskLogs + "\n"
                   + " Found:\n" + _existingTaskLogs);
         }
-        final HashMap<String, TableInfo.Column> _columnsSettings = new HashMap<String, TableInfo.Column>(19);
+        final HashMap<String, TableInfo.Column> _columnsSettings = new HashMap<String, TableInfo.Column>(24);
         _columnsSettings.put("id", new TableInfo.Column("id", "INTEGER", true, 1, null, TableInfo.CREATED_FROM_ENTITY));
         _columnsSettings.put("startWorkTime", new TableInfo.Column("startWorkTime", "TEXT", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
         _columnsSettings.put("endWorkTime", new TableInfo.Column("endWorkTime", "TEXT", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
@@ -182,6 +188,11 @@ public final class AppDatabase_Impl extends AppDatabase {
         _columnsSettings.put("geoAutoCheckIn", new TableInfo.Column("geoAutoCheckIn", "INTEGER", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
         _columnsSettings.put("geoAlertOnly", new TableInfo.Column("geoAlertOnly", "INTEGER", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
         _columnsSettings.put("geoAutoCheckOut", new TableInfo.Column("geoAutoCheckOut", "INTEGER", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsSettings.put("weeklyRequiredMinutes", new TableInfo.Column("weeklyRequiredMinutes", "INTEGER", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsSettings.put("thursdayWorking", new TableInfo.Column("thursdayWorking", "INTEGER", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsSettings.put("thursdayMinutes", new TableInfo.Column("thursdayMinutes", "INTEGER", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsSettings.put("autoBackupEnabled", new TableInfo.Column("autoBackupEnabled", "INTEGER", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsSettings.put("autoBackupIntervalHours", new TableInfo.Column("autoBackupIntervalHours", "INTEGER", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
         final HashSet<TableInfo.ForeignKey> _foreignKeysSettings = new HashSet<TableInfo.ForeignKey>(0);
         final HashSet<TableInfo.Index> _indicesSettings = new HashSet<TableInfo.Index>(0);
         final TableInfo _infoSettings = new TableInfo("settings", _columnsSettings, _foreignKeysSettings, _indicesSettings);
@@ -191,9 +202,21 @@ public final class AppDatabase_Impl extends AppDatabase {
                   + " Expected:\n" + _infoSettings + "\n"
                   + " Found:\n" + _existingSettings);
         }
+        final HashMap<String, TableInfo.Column> _columnsHolidays = new HashMap<String, TableInfo.Column>(2);
+        _columnsHolidays.put("date", new TableInfo.Column("date", "TEXT", true, 1, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsHolidays.put("title", new TableInfo.Column("title", "TEXT", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        final HashSet<TableInfo.ForeignKey> _foreignKeysHolidays = new HashSet<TableInfo.ForeignKey>(0);
+        final HashSet<TableInfo.Index> _indicesHolidays = new HashSet<TableInfo.Index>(0);
+        final TableInfo _infoHolidays = new TableInfo("holidays", _columnsHolidays, _foreignKeysHolidays, _indicesHolidays);
+        final TableInfo _existingHolidays = TableInfo.read(db, "holidays");
+        if (!_infoHolidays.equals(_existingHolidays)) {
+          return new RoomOpenHelper.ValidationResult(false, "holidays(com.personal.timetracker.data.entity.HolidayEntity).\n"
+                  + " Expected:\n" + _infoHolidays + "\n"
+                  + " Found:\n" + _existingHolidays);
+        }
         return new RoomOpenHelper.ValidationResult(true, null);
       }
-    }, "4e8d897cff778b88c4ae60466fa70d96", "7081353c815c52ff370853de352f2db8");
+    }, "240de0d165e462afe1022a8f6772ad62", "e9ddfefb5a4ffb965f2e92fe2e468478");
     final SupportSQLiteOpenHelper.Configuration _sqliteConfig = SupportSQLiteOpenHelper.Configuration.builder(config.context).name(config.name).callback(_openCallback).build();
     final SupportSQLiteOpenHelper _helper = config.sqliteOpenHelperFactory.create(_sqliteConfig);
     return _helper;
@@ -204,7 +227,7 @@ public final class AppDatabase_Impl extends AppDatabase {
   protected InvalidationTracker createInvalidationTracker() {
     final HashMap<String, String> _shadowTablesMap = new HashMap<String, String>(0);
     final HashMap<String, Set<String>> _viewTables = new HashMap<String, Set<String>>(0);
-    return new InvalidationTracker(this, _shadowTablesMap, _viewTables, "attendance","tasks","task_logs","settings");
+    return new InvalidationTracker(this, _shadowTablesMap, _viewTables, "attendance","tasks","task_logs","settings","holidays");
   }
 
   @Override
@@ -217,6 +240,7 @@ public final class AppDatabase_Impl extends AppDatabase {
       _db.execSQL("DELETE FROM `tasks`");
       _db.execSQL("DELETE FROM `task_logs`");
       _db.execSQL("DELETE FROM `settings`");
+      _db.execSQL("DELETE FROM `holidays`");
       super.setTransactionSuccessful();
     } finally {
       super.endTransaction();
@@ -235,6 +259,7 @@ public final class AppDatabase_Impl extends AppDatabase {
     _typeConvertersMap.put(TaskDao.class, TaskDao_Impl.getRequiredConverters());
     _typeConvertersMap.put(TaskLogDao.class, TaskLogDao_Impl.getRequiredConverters());
     _typeConvertersMap.put(SettingsDao.class, SettingsDao_Impl.getRequiredConverters());
+    _typeConvertersMap.put(HolidayDao.class, HolidayDao_Impl.getRequiredConverters());
     return _typeConvertersMap;
   }
 
@@ -305,6 +330,20 @@ public final class AppDatabase_Impl extends AppDatabase {
           _settingsDao = new SettingsDao_Impl(this);
         }
         return _settingsDao;
+      }
+    }
+  }
+
+  @Override
+  public HolidayDao holidayDao() {
+    if (_holidayDao != null) {
+      return _holidayDao;
+    } else {
+      synchronized(this) {
+        if(_holidayDao == null) {
+          _holidayDao = new HolidayDao_Impl(this);
+        }
+        return _holidayDao;
       }
     }
   }

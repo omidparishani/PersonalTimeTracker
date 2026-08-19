@@ -104,6 +104,7 @@ class MainActivity : AppCompatActivity() {
                     }
 
                     try { NotifHelper.scheduleGeoBackgroundCheck(this@MainActivity) } catch (_: Exception) {}
+                    try { com.personal.timetracker.util.DynamicAppIcon.sync(this@MainActivity) } catch (_: Exception) {}
 
                     if (settings.biometricEnabled && !unlocked) {
                         binding.root.visibility = View.INVISIBLE
@@ -154,6 +155,11 @@ class MainActivity : AppCompatActivity() {
             Log.e("PTT", "MainActivity", e)
             Toast.makeText(this, "خطا: ${e.message}", Toast.LENGTH_LONG).show()
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        try { com.personal.timetracker.util.DynamicAppIcon.sync(this) } catch (_: Exception) {}
     }
 
     fun applyChrome(primary: Int, dark: Boolean) {

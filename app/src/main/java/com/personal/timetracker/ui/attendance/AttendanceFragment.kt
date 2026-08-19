@@ -1,6 +1,5 @@
 package com.personal.timetracker.ui.attendance
 
-import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -20,12 +19,12 @@ import com.personal.timetracker.App
 import com.personal.timetracker.data.entity.AttendanceEntity
 import com.personal.timetracker.util.AttendanceEditor
 import com.personal.timetracker.util.DialogHelper
+import com.personal.timetracker.util.JalaliDatePickerDialog
 import com.personal.timetracker.util.ThemeHelper
 import com.personal.timetracker.util.TimeUtils
 import com.personal.timetracker.ui.MainActivity
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-import java.util.Calendar
 
 class AttendanceFragment : Fragment() {
     private lateinit var listContainer: LinearLayout
@@ -88,30 +87,16 @@ class AttendanceFragment : Fragment() {
             )
 
             setOnClickListener {
-
-                val cal = Calendar.getInstance()
-
-                DatePickerDialog(
-                    ctx,
-                    { _, y, m, d ->
-
-                        selectedDate =
-                            "%04d-%02d-%02d".format(
-                                y,
-                                m + 1,
-                                d
-                            )
-
-                        updateTitle()
-
-                        loadAttendance()
-
-                    },
-                    cal.get(Calendar.YEAR),
-                    cal.get(Calendar.MONTH),
-                    cal.get(Calendar.DAY_OF_MONTH)
-                ).show()
-
+                JalaliDatePickerDialog.show(
+                    ctx = ctx,
+                    primary = primary,
+                    dark = (activity as? MainActivity)?.isDark == true,
+                    initialGregorianDate = selectedDate
+                ) { gregStr, _ ->
+                    selectedDate = gregStr
+                    updateTitle()
+                    loadAttendance()
+                }
             }
 
         }
@@ -236,10 +221,16 @@ class AttendanceFragment : Fragment() {
             })
             box.addView(headRow)
 
+            val isActive = item.exitTime == null
+            val displayDur = if (isActive)
+                TimeUtils.minutesBetween(item.entryTime, TimeUtils.nowTime()).coerceAtLeast(0)
+            else item.duration
+
             val tv = TextView(ctx).apply {
                 text = buildString {
                     append("مدت: ")
-                    append(TimeUtils.formatDuration(item.duration))
+                    append(TimeUtils.formatDuration(displayDur))
+                    if (isActive) append("  (در حال کار)")
                     if (item.leaveDuration > 0) {
                         append("   ·   مرخصی: ")
                         append(TimeUtils.formatDuration(item.leaveDuration))
@@ -251,32 +242,22 @@ class AttendanceFragment : Fragment() {
                 }
                 textSize = 12.5f
                 setTextColor(ThemeHelper.textSecondary(dark))
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            }
+            val infoRow = LinearLayout(ctx).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = android.view.Gravity.CENTER_VERTICAL
                 setPadding(0, 6, 0, 0)
             }
-            box.addView(tv)
+            infoRow.addView(tv)
+            // نمودار دایره‌ای همیشه نشان داده می‌شود (حتی بدون خروج)
+            infoRow.addView(com.personal.timetracker.util.ChartHelper.attendanceDonut(
+                ctx, displayDur, item.overtimeDuration, item.leaveDuration,
+                dark, primary, sizeDp = 48, isActive = isActive
+            ))
+            box.addView(infoRow)
 
-            // Progress relative to the minimum work hours set in Settings, shown as the
-            // card's own background fill.
-            val effectiveMinutes = if (item.exitTime != null) item.duration
-            else TimeUtils.minutesBetween(item.entryTime, TimeUtils.nowTime()).coerceAtLeast(0)
-            val fraction = (effectiveMinutes.toFloat() / minWorkMinutes).coerceIn(0f, 1f)
-
-            val wrapper = android.widget.FrameLayout(ctx)
-            wrapper.addView(
-                ThemeHelper.progressBackdrop(ctx, primary, dark, fraction),
-                android.widget.FrameLayout.LayoutParams(
-                    android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
-                    android.widget.FrameLayout.LayoutParams.MATCH_PARENT
-                )
-            )
-            wrapper.addView(
-                box,
-                android.widget.FrameLayout.LayoutParams(
-                    android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
-                    android.widget.FrameLayout.LayoutParams.WRAP_CONTENT
-                )
-            )
-            card.addView(wrapper)
+            card.addView(box)
 
             listContainer.addView(card, LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT

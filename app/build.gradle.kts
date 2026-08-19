@@ -4,6 +4,34 @@ plugins {
     id("com.google.devtools.ksp")
 }
 
+import java.util.Properties
+import java.io.File
+
+val keystoreProperties = Properties()
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+if (keystorePropertiesFile.exists()) {
+    keystorePropertiesFile.inputStream().use { keystoreProperties.load(it) }
+}
+
+fun secret(env: String, prop: String): String? =
+    System.getenv(env)?.takeIf { it.isNotBlank() }
+        ?: keystoreProperties.getProperty(prop)?.takeIf { it.isNotBlank() }
+
+val releaseStorePath = secret("RELEASE_STORE_FILE", "storeFile")
+val releaseStoreFile = releaseStorePath?.let { path ->
+    val asIs = File(path)
+    when {
+        asIs.isAbsolute && asIs.exists() -> asIs
+        rootProject.file(path).exists() -> rootProject.file(path)
+        file(path).exists() -> file(path)
+        else -> null
+    }
+}
+val canSignRelease = releaseStoreFile != null &&
+    !secret("RELEASE_STORE_PASSWORD", "storePassword").isNullOrBlank() &&
+    !secret("RELEASE_KEY_ALIAS", "keyAlias").isNullOrBlank() &&
+    !secret("RELEASE_KEY_PASSWORD", "keyPassword").isNullOrBlank()
+
 android {
     namespace = "com.personal.timetracker"
     compileSdk = 34
@@ -12,17 +40,39 @@ android {
         applicationId = "com.personal.timetracker"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = (System.getenv("VERSION_CODE")?.toIntOrNull() ?: 2).coerceAtLeast(2)
+        versionName = System.getenv("VERSION_NAME") ?: "1.1.0"
+    }
+
+    signingConfigs {
+        create("release") {
+            if (canSignRelease) {
+                storeFile = releaseStoreFile
+                storePassword = secret("RELEASE_STORE_PASSWORD", "storePassword")
+                keyAlias = secret("RELEASE_KEY_ALIAS", "keyAlias")
+                keyPassword = secret("RELEASE_KEY_PASSWORD", "keyPassword")
+            }
+        }
     }
 
     buildTypes {
-        release {
+        debug {
             isMinifyEnabled = false
+            isDebuggable = true
+        }
+        release {
+            isMinifyEnabled = true
+            isShrinkResources = true
+            isDebuggable = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = if (canSignRelease) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
         }
     }
 
@@ -35,6 +85,15 @@ android {
     }
     buildFeatures {
         viewBinding = true
+    }
+    lint {
+        abortOnError = false
+        checkReleaseBuilds = false
+    }
+    packaging {
+        resources {
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        }
     }
 }
 

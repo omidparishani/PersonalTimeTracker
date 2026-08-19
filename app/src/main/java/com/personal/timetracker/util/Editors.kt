@@ -1,6 +1,5 @@
 package com.personal.timetracker.util
 
-import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import android.content.Context
 import android.widget.LinearLayout
@@ -12,7 +11,6 @@ import com.personal.timetracker.data.entity.TaskLogEntity
 import com.personal.timetracker.data.repository.AppRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
-import java.util.Calendar
 
 /**
  * Shared attendance add/edit dialog — same styled form used by the Attendance screen,
@@ -33,15 +31,21 @@ object AttendanceEditor {
         val layout = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL }
 
         layout.addView(DialogHelper.sectionLabel(ctx, "تاریخ", dark))
-        val (dateL, dateField) = DialogHelper.inputField(ctx, "تاریخ (yyyy-MM-dd)", existing?.date ?: defaultDate ?: TimeUtils.today(), primary)
+        val initDate = existing?.date ?: defaultDate ?: TimeUtils.today()
+        val (dateL, dateField) = DialogHelper.inputField(
+            ctx, "تاریخ", TimeUtils.toJalaliShort(TimeUtils.parseDate(initDate)), primary
+        )
+        // ذخیره تاریخ میلادی در tag برای ارسال به repo
+        dateField.tag = initDate
         dateField.isFocusable = false
         dateField.setOnClickListener {
-            val c = Calendar.getInstance()
-            DatePickerDialog(
-                ctx,
-                { _, y, m, d -> dateField.setText("%04d-%02d-%02d".format(y, m + 1, d)) },
-                c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_MONTH)
-            ).show()
+            JalaliDatePickerDialog.show(
+                ctx = ctx, primary = primary, dark = dark,
+                initialGregorianDate = dateField.tag as? String
+            ) { gregStr, jalDisplay ->
+                dateField.tag = gregStr
+                dateField.setText(jalDisplay)
+            }
         }
         layout.addView(dateL)
 
@@ -86,7 +90,8 @@ object AttendanceEditor {
             title = if (existing == null) "ثبت تردد" else "ویرایش تردد",
             primary = primary, dark = dark, body = layout, positiveText = "ذخیره",
             onPositive = {
-                val date = dateField.text?.toString()?.trim().orEmpty()
+                // تاریخ میلادی از tag (توسط JalaliDatePickerDialog تنظیم شده)
+                val date = (dateField.tag as? String)?.trim().orEmpty()
                 val entry = entryField.text?.toString()?.trim().orEmpty()
                 val exit = exitField.text?.toString()?.trim()?.ifBlank { null }
                 if (date.isEmpty() || entry.isEmpty()) {
@@ -136,24 +141,22 @@ object TaskLogEditor {
         val layout = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL }
 
         layout.addView(DialogHelper.sectionLabel(ctx, "تاریخ", dark))
-        val jalaliHint = TextView(ctx).apply {
-            text = TimeUtils.toJalaliDisplay(TimeUtils.today())
-            textSize = 12f
-            setTextColor(primary)
-            setPadding(DialogHelper.dp(ctx, 4), DialogHelper.dp(ctx, 4), 0, 0)
-        }
-        val (dateL, dateField) = DialogHelper.inputField(ctx, "تاریخ لاگ (yyyy-MM-dd)", TimeUtils.today(), primary)
+        val todayIso = TimeUtils.today()
+        val (dateL, dateField) = DialogHelper.inputField(
+            ctx, "تاریخ لاگ", TimeUtils.toJalaliShort(TimeUtils.parseDate(todayIso)), primary
+        )
+        dateField.tag = todayIso
         dateField.isFocusable = false
         dateField.setOnClickListener {
-            val c = Calendar.getInstance()
-            DatePickerDialog(ctx, { _, y, m, d ->
-                val iso = "%04d-%02d-%02d".format(y, m + 1, d)
-                dateField.setText(iso)
-                jalaliHint.text = TimeUtils.toJalaliDisplay(iso)
-            }, c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_MONTH)).show()
+            JalaliDatePickerDialog.show(
+                ctx = ctx, primary = primary, dark = dark,
+                initialGregorianDate = dateField.tag as? String
+            ) { gregStr, jalDisplay ->
+                dateField.tag = gregStr
+                dateField.setText(jalDisplay)
+            }
         }
         layout.addView(dateL)
-        layout.addView(jalaliHint)
 
         layout.addView(DialogHelper.sectionLabel(ctx, "مدت", dark))
         val row = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL }
@@ -173,7 +176,7 @@ object TaskLogEditor {
             ctx = ctx, icon = "⏱", title = "ثبت لاگ جدید", subtitle = task.taskTitle,
             primary = primary, dark = dark, body = layout, positiveText = "ثبت",
             onPositive = {
-                val date = dateField.text?.toString()?.trim().orEmpty().ifEmpty { TimeUtils.today() }
+                val date = (dateField.tag as? String)?.trim().orEmpty().ifEmpty { TimeUtils.today() }
                 val dur = ((hours.text?.toString() ?: "0").toIntOrNull() ?: 0) * 60 +
                         ((mins.text?.toString() ?: "0").toIntOrNull() ?: 0)
                 if (dur <= 0) {
@@ -198,24 +201,21 @@ object TaskLogEditor {
         val layout = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL }
 
         layout.addView(DialogHelper.sectionLabel(ctx, "تاریخ", dark))
-        val jalaliHint = TextView(ctx).apply {
-            text = TimeUtils.toJalaliDisplay(log.date)
-            textSize = 12f
-            setTextColor(primary)
-            setPadding(DialogHelper.dp(ctx, 4), DialogHelper.dp(ctx, 4), 0, 0)
-        }
-        val (dateL, dateField) = DialogHelper.inputField(ctx, "تاریخ لاگ (yyyy-MM-dd)", log.date, primary)
+        val (dateL, dateField) = DialogHelper.inputField(
+            ctx, "تاریخ لاگ", TimeUtils.toJalaliShort(TimeUtils.parseDate(log.date)), primary
+        )
+        dateField.tag = log.date
         dateField.isFocusable = false
         dateField.setOnClickListener {
-            val c = Calendar.getInstance()
-            DatePickerDialog(ctx, { _, y, m, d ->
-                val iso = "%04d-%02d-%02d".format(y, m + 1, d)
-                dateField.setText(iso)
-                jalaliHint.text = TimeUtils.toJalaliDisplay(iso)
-            }, c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_MONTH)).show()
+            JalaliDatePickerDialog.show(
+                ctx = ctx, primary = primary, dark = dark,
+                initialGregorianDate = dateField.tag as? String
+            ) { gregStr, jalDisplay ->
+                dateField.tag = gregStr
+                dateField.setText(jalDisplay)
+            }
         }
         layout.addView(dateL)
-        layout.addView(jalaliHint)
 
         layout.addView(DialogHelper.sectionLabel(ctx, "مدت", dark))
         val row = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL }
@@ -235,7 +235,7 @@ object TaskLogEditor {
             ctx = ctx, icon = "✎", title = "ویرایش لاگ", subtitle = task.taskTitle,
             primary = primary, dark = dark, body = layout, positiveText = "ذخیره",
             onPositive = {
-                val date = dateField.text?.toString()?.trim().orEmpty().ifEmpty { TimeUtils.today() }
+                val date = (dateField.tag as? String)?.trim().orEmpty().ifEmpty { TimeUtils.today() }
                 val dur = ((hours.text?.toString() ?: "0").toIntOrNull() ?: 0) * 60 +
                         ((mins.text?.toString() ?: "0").toIntOrNull() ?: 0)
                 if (dur <= 0) {

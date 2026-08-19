@@ -89,6 +89,12 @@ object BackupHelper {
                 put("workRadiusMeters", settings.workRadiusMeters)
                 put("geoAutoCheckIn", settings.geoAutoCheckIn)
                 put("geoAlertOnly", settings.geoAlertOnly)
+                put("geoAutoCheckOut", settings.geoAutoCheckOut)
+                put("weeklyRequiredMinutes", settings.weeklyRequiredMinutes)
+                put("thursdayWorking", settings.thursdayWorking)
+                put("thursdayMinutes", settings.thursdayMinutes)
+                put("autoBackupEnabled", settings.autoBackupEnabled)
+                put("autoBackupIntervalHours", settings.autoBackupIntervalHours)
             })
         }
 
@@ -132,12 +138,14 @@ object BackupHelper {
         }
 
         val tasks = root.optJSONArray("tasks")
+        val taskIdMap = mutableMapOf<Long, Long>()
         if (tasks != null) {
             for (i in 0 until tasks.length()) {
                 val o = tasks.getJSONObject(i)
                 val req = o.optInt("requiredMinutes", o.optInt("duration", 0))
                 val rem = o.optInt("remainingMinutes", req)
-                db.taskDao().insert(
+                val oldId = o.optLong("id", 0L)
+                val newId = db.taskDao().insert(
                     TaskEntity(
                         jiraNumber = if (o.isNull("jiraNumber")) null else o.optString("jiraNumber", null),
                         projectName = o.getString("projectName"),
@@ -150,6 +158,7 @@ object BackupHelper {
                         createdAt = o.optString("createdAt", TimeUtils.nowDateTime())
                     )
                 )
+                if (oldId != 0L) taskIdMap[oldId] = newId
             }
         }
 
@@ -157,9 +166,11 @@ object BackupHelper {
         if (logs != null) {
             for (i in 0 until logs.length()) {
                 val o = logs.getJSONObject(i)
+                val oldTaskId = o.getLong("taskId")
+                val newTaskId = taskIdMap[oldTaskId] ?: oldTaskId
                 db.taskLogDao().insert(
                     TaskLogEntity(
-                        taskId = o.getLong("taskId"),
+                        taskId = newTaskId,
                         date = o.getString("date"),
                         startTime = if (o.isNull("startTime")) null else o.optString("startTime", null),
                         endTime = if (o.isNull("endTime")) null else o.optString("endTime", null),
@@ -191,7 +202,13 @@ object BackupHelper {
                     workLng = s.optDouble("workLng", 0.0),
                     workRadiusMeters = s.optDouble("workRadiusMeters", 150.0).toFloat(),
                     geoAutoCheckIn = s.optBoolean("geoAutoCheckIn", false),
-                    geoAlertOnly = s.optBoolean("geoAlertOnly", true)
+                    geoAlertOnly = s.optBoolean("geoAlertOnly", true),
+                    geoAutoCheckOut = s.optBoolean("geoAutoCheckOut", false),
+                    weeklyRequiredMinutes = s.optInt("weeklyRequiredMinutes", 2775),
+                    thursdayWorking = s.optBoolean("thursdayWorking", false),
+                    thursdayMinutes = s.optInt("thursdayMinutes", 300),
+                    autoBackupEnabled = s.optBoolean("autoBackupEnabled", false),
+                    autoBackupIntervalHours = s.optInt("autoBackupIntervalHours", 24)
                 )
             )
         }

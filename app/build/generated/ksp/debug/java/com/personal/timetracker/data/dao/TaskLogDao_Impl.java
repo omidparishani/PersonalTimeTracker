@@ -542,6 +542,68 @@ public final class TaskLogDao_Impl implements TaskLogDao {
   }
 
   @Override
+  public Object getAllOnce(final Continuation<? super List<TaskLogEntity>> $completion) {
+    final String _sql = "SELECT * FROM task_logs ORDER BY date DESC, id DESC";
+    final RoomSQLiteQuery _statement = RoomSQLiteQuery.acquire(_sql, 0);
+    final CancellationSignal _cancellationSignal = DBUtil.createCancellationSignal();
+    return CoroutinesRoom.execute(__db, false, _cancellationSignal, new Callable<List<TaskLogEntity>>() {
+      @Override
+      @NonNull
+      public List<TaskLogEntity> call() throws Exception {
+        final Cursor _cursor = DBUtil.query(__db, _statement, false, null);
+        try {
+          final int _cursorIndexOfId = CursorUtil.getColumnIndexOrThrow(_cursor, "id");
+          final int _cursorIndexOfTaskId = CursorUtil.getColumnIndexOrThrow(_cursor, "taskId");
+          final int _cursorIndexOfDate = CursorUtil.getColumnIndexOrThrow(_cursor, "date");
+          final int _cursorIndexOfStartTime = CursorUtil.getColumnIndexOrThrow(_cursor, "startTime");
+          final int _cursorIndexOfEndTime = CursorUtil.getColumnIndexOrThrow(_cursor, "endTime");
+          final int _cursorIndexOfDuration = CursorUtil.getColumnIndexOrThrow(_cursor, "duration");
+          final int _cursorIndexOfNote = CursorUtil.getColumnIndexOrThrow(_cursor, "note");
+          final int _cursorIndexOfCreatedAt = CursorUtil.getColumnIndexOrThrow(_cursor, "createdAt");
+          final List<TaskLogEntity> _result = new ArrayList<TaskLogEntity>(_cursor.getCount());
+          while (_cursor.moveToNext()) {
+            final TaskLogEntity _item;
+            final long _tmpId;
+            _tmpId = _cursor.getLong(_cursorIndexOfId);
+            final long _tmpTaskId;
+            _tmpTaskId = _cursor.getLong(_cursorIndexOfTaskId);
+            final String _tmpDate;
+            _tmpDate = _cursor.getString(_cursorIndexOfDate);
+            final String _tmpStartTime;
+            if (_cursor.isNull(_cursorIndexOfStartTime)) {
+              _tmpStartTime = null;
+            } else {
+              _tmpStartTime = _cursor.getString(_cursorIndexOfStartTime);
+            }
+            final String _tmpEndTime;
+            if (_cursor.isNull(_cursorIndexOfEndTime)) {
+              _tmpEndTime = null;
+            } else {
+              _tmpEndTime = _cursor.getString(_cursorIndexOfEndTime);
+            }
+            final int _tmpDuration;
+            _tmpDuration = _cursor.getInt(_cursorIndexOfDuration);
+            final String _tmpNote;
+            if (_cursor.isNull(_cursorIndexOfNote)) {
+              _tmpNote = null;
+            } else {
+              _tmpNote = _cursor.getString(_cursorIndexOfNote);
+            }
+            final String _tmpCreatedAt;
+            _tmpCreatedAt = _cursor.getString(_cursorIndexOfCreatedAt);
+            _item = new TaskLogEntity(_tmpId,_tmpTaskId,_tmpDate,_tmpStartTime,_tmpEndTime,_tmpDuration,_tmpNote,_tmpCreatedAt);
+            _result.add(_item);
+          }
+          return _result;
+        } finally {
+          _cursor.close();
+          _statement.release();
+        }
+      }
+    }, $completion);
+  }
+
+  @Override
   public Object sumByDate(final String date, final Continuation<? super Integer> $completion) {
     final String _sql = "SELECT COALESCE(SUM(duration),0) FROM task_logs WHERE date = ?";
     final RoomSQLiteQuery _statement = RoomSQLiteQuery.acquire(_sql, 1);

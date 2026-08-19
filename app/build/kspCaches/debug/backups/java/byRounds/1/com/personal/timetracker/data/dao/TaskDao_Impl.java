@@ -910,7 +910,7 @@ public final class TaskDao_Impl implements TaskDao {
             _tmpJiraNumber = _cursor.getString(_cursorIndexOfJiraNumber);
             final int _tmpTotal;
             _tmpTotal = _cursor.getInt(_cursorIndexOfTotal);
-            _item = new JiraSum(_tmpJiraNumber,_tmpTotal);
+            _item = new JiraSum(_tmpJiraNumber,_tmpTotal,null);
             _result.add(_item);
           }
           return _result;

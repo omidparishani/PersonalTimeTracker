@@ -53,4 +53,4 @@ interface TaskDao {
 }
 
 data class ProjectSum(val projectName: String, val total: Int)
-data class JiraSum(val jiraNumber: String, val total: Int)
+data class JiraSum(val jiraNumber: String, val total: Int, val taskTitle: String? = null)

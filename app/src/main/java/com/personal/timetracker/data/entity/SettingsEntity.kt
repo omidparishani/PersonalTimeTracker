@@ -26,5 +26,12 @@ data class SettingsEntity(
     val workRadiusMeters: Float = 150f,
     val geoAutoCheckIn: Boolean = false,
     val geoAlertOnly: Boolean = true,
-    val geoAutoCheckOut: Boolean = false
+    val geoAutoCheckOut: Boolean = false,
+    // weekly work-schedule (شیفت کاری)
+    val weeklyRequiredMinutes: Int = 2775, // 46:15 default (Sat-Wed, Thu off)
+    val thursdayWorking: Boolean = false,
+    val thursdayMinutes: Int = 300, // used only when thursdayWorking = true
+    // auto backup
+    val autoBackupEnabled: Boolean = false,
+    val autoBackupIntervalHours: Int = 24 // 0 = disabled
 )

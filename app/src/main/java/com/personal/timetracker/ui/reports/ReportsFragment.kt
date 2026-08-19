@@ -225,11 +225,9 @@ class ReportsFragment : Fragment() {
         return card
     }
 
-    private val palette = intArrayOf(
-        0xFF1565C0.toInt(), 0xFF00897B.toInt(), 0xFFF9A825.toInt(),
-        0xFF8E24AA.toInt(), 0xFFE53935.toInt(), 0xFF3949AB.toInt(),
-        0xFF43A047.toInt(), 0xFFFB8C00.toInt()
-    )
+    // palette is generated dynamically from the theme primary color via ChartHelper.paletteForTheme
+    private fun palette(count: Int): List<Int> =
+        com.personal.timetracker.util.ChartHelper.paletteForTheme(primary(), count.coerceAtLeast(1), dark())
 
     private fun load() {
         val repo = (requireActivity().application as App).repository
@@ -289,7 +287,7 @@ class ReportsFragment : Fragment() {
                 accent = 0xFFE53935.toInt()
             ))
             content.addView(metricCard("لاگ روی تسک‌ها", TimeUtils.formatDuration(r.taskLogMinutes)))
-            content.addView(metricCard("تعداد ورود/خروج", "${r.entryCount}"))
+            content.addView(metricCard("تعداد ورود/خروج", TimeUtils.faNum(r.entryCount)))
 
             content.addView(ThemeHelper.sectionTitle(ctx, "جزئیات روزبه‌روز", dark(), primary()))
             if (days.isEmpty()) {
@@ -308,8 +306,9 @@ class ReportsFragment : Fragment() {
                 })
             } else {
                 val total = projects.sumOf { it.total }
+                val colors = palette(projects.size)
                 val donutItems = projects.mapIndexed { i, p ->
-                    DonutItem(p.projectName, p.total, palette[i % palette.size])
+                    DonutItem(p.projectName, p.total, colors[i % colors.size])
                 }
                 val donutCard = MaterialCardView(ctx)
                 ThemeHelper.applyCard(donutCard, dark())
@@ -350,8 +349,19 @@ class ReportsFragment : Fragment() {
                     text = "داده‌ای نیست"; setTextColor(ThemeHelper.textSecondary(dark()))
                 })
             } else {
+                val jiraColors = palette(jiras.size)
                 val jiraItems = jiras.mapIndexed { i, j ->
-                    BarItem("${j.jiraNumber} — ${TimeUtils.formatDuration(j.total)}", j.total, palette[i % palette.size])
+                    val label = buildString {
+                        append(j.jiraNumber)
+                        if (!j.taskTitle.isNullOrBlank()) {
+                            append(" — ")
+                            append(j.taskTitle)
+                        }
+                        append("  (")
+                        append(TimeUtils.formatDuration(j.total))
+                        append(")")
+                    }
+                    BarItem(label, j.total, jiraColors[i % jiraColors.size])
                 }
                 val jiraCard = MaterialCardView(ctx)
                 ThemeHelper.applyCard(jiraCard, dark())

@@ -46,9 +46,9 @@ object TimeUtils {
         val h = m / 60
         val min = m % 60
         return when {
-            h == 0 -> "$min دقیقه"
-            min == 0 -> "$h ساعت"
-            else -> "$h ساعت و $min دقیقه"
+            h == 0 -> "${faNum(min)} دقیقه"
+            min == 0 -> "${faNum(h)} ساعت"
+            else -> "${faNum(h)} ساعت و ${faNum(min)} دقیقه"
         }
     }
 
@@ -87,7 +87,7 @@ object TimeUtils {
 
     fun toJalaliShort(date: Date = Date()): String {
         val j = toJalali(date)
-        return "${j[2]} ${months[j[1] - 1]} ${j[0]}"
+        return "${faNum(j[2])} ${months[j[1] - 1]} ${faNum(j[0])}"
     }
 
     fun toJalaliDisplay(dateStr: String): String {
@@ -112,7 +112,7 @@ object TimeUtils {
                 else -> ""
             }
 
-            "$wd، ${j[2]} ${months[j[1] - 1]} ${j[0]}"
+            "$wd، ${faNum(j[2])} ${months[j[1] - 1]} ${faNum(j[0])}"
 
         } catch (_: Exception) {
             dateStr
@@ -292,6 +292,35 @@ object TimeUtils {
         }
     }
 
+    fun weekdayOf(dateStr: String): Int {
+        return try {
+            val d = parseDate(dateStr)
+            val j = toJalali(d)
+            weekdayJalali(j[0], j[1], j[2])
+        } catch (_: Exception) {
+            0
+        }
+    }
+
+    /** All yyyy-MM-dd dates from [start] to [end] inclusive. Guards against huge/invalid
+     *  ranges by capping at 400 days. */
+    fun datesBetween(start: String, end: String): List<String> {
+        return try {
+            val cal = Calendar.getInstance().apply { time = parseDate(start) }
+            val endDate = parseDate(end)
+            val out = mutableListOf<String>()
+            var guard = 0
+            while (!cal.time.after(endDate) && guard < 400) {
+                out.add(dateFmt.format(cal.time))
+                cal.add(Calendar.DAY_OF_MONTH, 1)
+                guard++
+            }
+            out
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
     fun isWeekend(dateStr: String): Boolean {
         return try {
             val d = parseDate(dateStr)
@@ -310,4 +339,18 @@ object TimeUtils {
             false
         }
     }
+
+    private val faDigitsMap = mapOf(
+        '0' to '۰', '1' to '۱', '2' to '۲', '3' to '۳', '4' to '۴',
+        '5' to '۵', '6' to '۶', '7' to '۷', '8' to '۸', '9' to '۹'
+    )
+
+    /** Converts every Latin digit in [s] to its Persian equivalent for display. Never call
+     *  this on values that will be parsed back (e.g. before saving to DB or into an
+     *  EditText that's read again) — it's presentation-only. */
+    fun faNum(s: String): String = buildString {
+        for (c in s) append(faDigitsMap[c] ?: c)
+    }
+
+    fun faNum(n: Int): String = faNum(n.toString())
 }

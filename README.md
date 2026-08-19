@@ -2,63 +2,94 @@
 
 اپلیکیشن کاملاً آفلاین حضور و غیاب + تسک + گزارش + پشتیبان‌گیری
 
-**Kotlin + Room + Material 3 — بدون Flutter**
+**Kotlin + Room + Material 3**
 
 ## باز کردن در Android Studio
 
-1. Android Studio را باز کنید (Hedgehog یا جدیدتر پیشنهاد می‌شود)
+1. Android Studio را باز کنید (Hedgehog یا جدیدتر)
 2. **File → Open** و پوشه `PersonalTimeTracker` را انتخاب کنید
 3. صبر کنید تا Gradle Sync تمام شود
-4. اگر SDK path خواست، مسیر SDK را در `local.properties` تنظیم کنید:
+4. مسیر SDK را در `local.properties` تنظیم کنید:
 
 ```
 sdk.dir=C:\\Users\\YOUR_USER\\AppData\\Local\\Android\\Sdk
 ```
 
-5. یک Emulator بسازید یا گوشی را با USB Debugging وصل کنید
-6. دکمه **Run** (سبز) را بزنید
+5. دکمه **Run** را بزنید
 
-## ساخت APK
+## ساخت APK ریلیز (بدون هشدار Play Protect)
 
-منوی:
+نصب APK دیباگ معمولاً هشدار اسکن گوگل می‌دهد. برای نصب روی گوشی از **release امضاشده** استفاده کنید.
 
-```
-Build → Build Bundle(s) / APK(s) → Build APK(s)
-```
-
-یا از Terminal داخل Android Studio:
+یک‌بار کلید امضا بسازید:
 
 ```
-./gradlew assembleRelease
+powershell -ExecutionPolicy Bypass -File scripts/create-keystore.ps1
+```
+
+سپس `keystore.properties.example` را به `keystore.properties` کپی کنید و رمز را پر کنید. فایل‌های `ptt-release.jks` و `keystore.properties` را commit نکنید.
+
+از Android Studio:
+
+```
+Build → Generate Signed Bundle / APK → APK → release
+```
+
+یا با Gradle (اگر Wrapper دارید):
+
+```
+gradle :app:assembleRelease
 ```
 
 خروجی:
 
 ```
-app/build/outputs/apk/release/app-release-unsigned.apk
+app/build/outputs/apk/release/app-release.apk
 ```
 
-برای نصب روی گوشی می‌توانید از `assembleDebug` استفاده کنید:
+همین کلید را برای همه آپدیت‌ها نگه دارید؛ در غیر این صورت نصب روی نسخه قبلی خطا می‌دهد.
+
+## ساخت APK در GitHub Actions
+
+فایل گردش‌کار: `.github/workflows/android-release.yml`
+
+با هر push به `main`/`master`، تگ `v*`، Pull Request، یا اجرای دستی **Run workflow** یک APK ریلیز ساخته می‌شود.
+
+در Settings → Secrets and variables → Actions این‌ها را اضافه کنید:
+
+| Secret | مقدار |
+|---|---|
+| `KEYSTORE_BASE64` | خروجی base64 فایل `ptt-release.jks` |
+| `KEYSTORE_PASSWORD` | رمز keystore |
+| `KEY_ALIAS` | `ptt` |
+| `KEY_PASSWORD` | رمز کلید |
+
+ساخت base64 در PowerShell:
 
 ```
-./gradlew assembleDebug
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("ptt-release.jks")) | Set-Clipboard
 ```
 
-فایل: `app/build/outputs/apk/debug/app-debug.apk`
+APK از تب **Actions → artifact** با نام `PersonalTimeTracker-release` دانلود می‌شود.
+
+بدون این secretها هم بیلد انجام می‌شود ولی با کلید دیباگ امضا می‌شود و Play Protect ممکن است هشدار بدهد.
+
+## آیکون پویا
+
+آیکون لانچر ساعت کار امروز را به‌صورت ۰ تا ۱۰+ نشان می‌دهد و هر ۱۵ دقیقه (و بعد از ورود/خروج) به‌روز می‌شود.
+
+برای نمایش دقیق «ساعت:دقیقه» به فارسی، ویجت ۱×۱ **ساعت کار امروز** را روی صفحه اصلی بگذارید.
 
 ## قابلیت‌ها
 
-- ورود / خروج (الان یا تاریخ دلخواه) + ویرایش/حذف
+- ورود / خروج + ویرایش/حذف
 - محاسبه مرخصی و پایان پیشنهادی کار
-- تسک با تایمر Start/Stop و ویرایش مدت
-- پروژه‌های Jira در تنظیمات
+- تسک با تایمر و لاگ
 - گزارش روزانه/هفتگی/ماهانه
-- تقویم
-- تاریخ شمسی
-- RTL فارسی
+- تقویم شمسی و تعطیلات
 - Dark Mode
-- پشتیبان JSON + بازیابی + پاک کردن داده
-- کاملاً آفلاین (Room/SQLite)
+- پشتیبان JSON + پشتیبان خودکار
+- ویجت ورود/خروج و ویجت ساعت کار
 
 ## نیازمندی‌ها
 

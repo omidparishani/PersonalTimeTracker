@@ -1,6 +1,5 @@
 package com.personal.timetracker.ui.tasks
 
-import android.app.DatePickerDialog
 import android.graphics.Typeface
 import android.os.Bundle
 import com.personal.timetracker.data.entity.TaskLogEntity
@@ -9,11 +8,9 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ArrayAdapter
 import android.widget.LinearLayout
-import android.widget.ProgressBar
 import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
-import androidx.appcompat.app.AlertDialog
 import androidx.core.view.setPadding
 import androidx.core.widget.addTextChangedListener
 import androidx.fragment.app.Fragment
@@ -34,7 +31,6 @@ import com.personal.timetracker.util.TimeUtils
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-import java.util.Calendar
 
 class TasksFragment : Fragment() {
     private lateinit var listContainer: LinearLayout
@@ -42,6 +38,9 @@ class TasksFragment : Fragment() {
     private var collectJob: Job? = null
     private val expandedTaskIds = mutableSetOf<Long>()
     private var currentList: List<TaskEntity> = emptyList()
+    private var lastQuery: String = ""
+    /** لاگ‌های همه‌ی تسک‌ها، گروه‌بندی‌شده با taskId — هرگز از روی ایندکس لیست خوانده نمی‌شود */
+    private var logsByTaskId: Map<Long, List<TaskLogEntity>> = emptyMap()
 
     private fun primary() = (activity as? MainActivity)?.primaryColor ?: 0xFF1565C0.toInt()
     private fun dark() = (activity as? MainActivity)?.isDark == true
@@ -106,6 +105,7 @@ class TasksFragment : Fragment() {
     }
 
     private fun reload(repo: com.personal.timetracker.data.repository.AppRepository, q: String) {
+        lastQuery = q
         collectJob?.cancel()
         collectJob = viewLifecycleOwner.lifecycleScope.launch {
             val flow = when {
@@ -121,6 +121,8 @@ class TasksFragment : Fragment() {
                     list.filter { it.status == filterStatus }
                 } else list
                 currentList = filtered
+                // یک کوئری برای همه لاگ‌ها، بعد گروه‌بندی با taskId — بدون coroutine جدا برای هر کارت
+                logsByTaskId = repo.getAllLogsOnce().groupBy { it.taskId }
                 bind(filtered)
             }
         }
@@ -155,18 +157,37 @@ class TasksFragment : Fragment() {
                 setPadding(22, 18, 22, 18)
             }
 
-            box.addView(TextView(ctx).apply {
+            // Progress: done portion of required — shown as a small circular chart next
+            // to the title instead of a background fill.
+            val req = task.requiredMinutes.coerceAtLeast(1)
+            val done = (req - task.remainingMinutes).coerceIn(0, req)
+            val remaining = (req - done).coerceAtLeast(0)
+            val pct = (done * 100 / req)
+
+            val headerRow = LinearLayout(ctx).apply {
+                orientation = LinearLayout.HORIZONTAL
+            }
+            val textCol = LinearLayout(ctx).apply {
+                orientation = LinearLayout.VERTICAL
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            }
+            textCol.addView(TextView(ctx).apply {
                 text = task.taskTitle
                 textSize = 16f
                 setTypeface(null, Typeface.BOLD)
                 setTextColor(ThemeHelper.textPrimary(dark()))
             })
-            box.addView(TextView(ctx).apply {
+            textCol.addView(TextView(ctx).apply {
                 text = buildString {
                     append(task.projectName)
                     if (!task.jiraNumber.isNullOrBlank()) {
                         append("  ·  ")
                         append(task.jiraNumber)
+                        // نمایش عنوان جیرا (همان عنوان تسک) در کنار شماره
+                        if (!task.taskTitle.isNullOrBlank()) {
+                            append(" — ")
+                            append(task.taskTitle)
+                        }
                     }
                     append("  ·  ")
                     append(statusLabel(task.status))
@@ -174,26 +195,33 @@ class TasksFragment : Fragment() {
                 }
                 textSize = 12f
                 setTextColor(ThemeHelper.textSecondary(dark()))
-                setPadding(0, 4, 0, 10)
+                setPadding(0, 4, 0, 0)
             })
+            headerRow.addView(textCol)
+            headerRow.addView(com.personal.timetracker.util.DonutChartView(ctx).apply {
+                items = listOf(
+                    com.personal.timetracker.util.DonutItem("", done, primary),
+                    com.personal.timetracker.util.DonutItem("", remaining, ThemeHelper.outline(dark()))
+                )
+                trackColor = ThemeHelper.outline(dark())
+                centerTitle = "${TimeUtils.faNum(pct)}٪"
+                titleColor = ThemeHelper.textPrimary(dark())
+                layoutParams = LinearLayout.LayoutParams(DialogHelper.dp(ctx, 54), DialogHelper.dp(ctx, 54)).apply {
+                    marginStart = DialogHelper.dp(ctx, 10)
+                }
+            })
+            box.addView(headerRow)
 
-            // Progress: done portion of required — shown as the card's own background fill
-            val req = task.requiredMinutes.coerceAtLeast(1)
-            val done = (req - task.remainingMinutes).coerceIn(0, req)
-            val pct = (done * 100 / req)
-            val fraction = done.toFloat() / req
             box.addView(TextView(ctx).apply {
                 text = buildString {
-                    append("پیشرفت ")
-                    append(pct)
-                    append("٪  |  باقیمانده: ")
+                    append("باقیمانده: ")
                     append(TimeUtils.formatDuration(task.remainingMinutes))
                     append(" از ")
                     append(TimeUtils.formatDuration(task.requiredMinutes))
                 }
                 textSize = 11f
                 setTextColor(primary)
-                setPadding(0, 0, 0, 6)
+                setPadding(0, 10, 0, 6)
             })
 
             val actions = LinearLayout(ctx).apply {
@@ -234,8 +262,40 @@ class TasksFragment : Fragment() {
             })
             box.addView(actions)
 
-            // "لاگ‌ها" as its own expandable row below the action buttons, not squeezed
-            // in alongside them.
+            val taskId = task.id
+            val taskLogs = logsByTaskId[taskId].orEmpty().filter { it.taskId == taskId }
+
+            val drawerBody = LinearLayout(ctx).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(0, 10, 0, 0)
+                tag = taskId
+            }
+            paintLogRows(drawerBody, task, taskLogs)
+
+            val addLogBtn = smallBtn("＋ لاگ جدید", true) {
+                TaskLogEditor.openNew(ctx, task, repo, viewLifecycleOwner.lifecycleScope, primary, dark()) {
+                    refreshLogsFor(taskId, drawerBody)
+                }
+            }
+            addLogBtn.layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { topMargin = DialogHelper.dp(ctx, 10) }
+
+            val drawerContainer = LinearLayout(ctx).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(0, 8, 0, 0)
+                visibility = if (taskId in expandedTaskIds) View.VISIBLE else View.GONE
+                tag = taskId
+            }
+            drawerContainer.addView(ThemeHelper.divider(ctx, dark()))
+            drawerContainer.addView(drawerBody)
+            drawerContainer.addView(addLogBtn)
+
+            val arrowTv = TextView(ctx).apply {
+                text = if (taskId in expandedTaskIds) "▴" else "▾"
+                textSize = 12.5f
+                setTextColor(primary)
+            }
             val logsToggle = LinearLayout(ctx).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = android.view.Gravity.CENTER_VERTICAL
@@ -243,8 +303,15 @@ class TasksFragment : Fragment() {
                 isFocusable = true
                 setPadding(4, 12, 4, 4)
                 setOnClickListener {
-                    if (task.id in expandedTaskIds) expandedTaskIds.remove(task.id) else expandedTaskIds.add(task.id)
-                    bind(currentList)
+                    if (taskId in expandedTaskIds) {
+                        expandedTaskIds.remove(taskId)
+                        drawerContainer.visibility = View.GONE
+                        arrowTv.text = "▾"
+                    } else {
+                        expandedTaskIds.add(taskId)
+                        drawerContainer.visibility = View.VISIBLE
+                        arrowTv.text = "▴"
+                    }
                 }
             }
             logsToggle.addView(TextView(ctx).apply {
@@ -253,113 +320,88 @@ class TasksFragment : Fragment() {
                 setTextColor(primary)
                 layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
             })
-            logsToggle.addView(TextView(ctx).apply {
-                text = if (task.id in expandedTaskIds) "▴" else "▾"
-                textSize = 12.5f
-                setTextColor(primary)
-            })
+            logsToggle.addView(arrowTv)
             box.addView(logsToggle)
+            box.addView(drawerContainer)
 
-            if (task.id in expandedTaskIds) {
-                val drawer = LinearLayout(ctx).apply {
-                    orientation = LinearLayout.VERTICAL
-                    setPadding(0, 8, 0, 0)
-                }
-                drawer.addView(ThemeHelper.divider(ctx, dark()))
-                val drawerBody = LinearLayout(ctx).apply {
-                    orientation = LinearLayout.VERTICAL
-                    setPadding(0, 10, 0, 0)
-                }
-                drawerBody.addView(TextView(ctx).apply {
-                    text = "در حال بارگذاری..."
-                    textSize = 12f
-                    setTextColor(ThemeHelper.textSecondary(dark()))
-                })
-                drawer.addView(drawerBody)
-
-                val addLogBtn = smallBtn("＋ لاگ جدید", true) {
-                    TaskLogEditor.openNew(ctx, task, repo, lifecycleScope, primary, dark()) {
-                        bind(currentList)
-                    }
-                }
-                addLogBtn.layoutParams = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
-                ).apply { topMargin = DialogHelper.dp(ctx, 10) }
-                drawer.addView(addLogBtn)
-
-                box.addView(drawer)
-
-                lifecycleScope.launch {
-                    val logs = repo.getLogsByTask(task.id)
-                    drawerBody.removeAllViews()
-                    if (logs.isEmpty()) {
-                        drawerBody.addView(TextView(ctx).apply {
-                            text = "هنوز لاگی ثبت نشده"
-                            textSize = 12f
-                            setTextColor(ThemeHelper.textSecondary(dark()))
-                        })
-                    } else {
-                        logs.sortedByDescending { it.date }.forEach { log ->
-                            val row = LinearLayout(ctx).apply {
-                                orientation = LinearLayout.HORIZONTAL
-                                gravity = android.view.Gravity.CENTER_VERTICAL
-                                setPadding(0, 8, 0, 8)
-                            }
-                            val info = LinearLayout(ctx).apply {
-                                orientation = LinearLayout.VERTICAL
-                                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-                            }
-                            info.addView(TextView(ctx).apply {
-                                text = "${TimeUtils.toJalaliDisplay(log.date)}  ·  ${TimeUtils.formatDuration(log.duration)}"
-                                textSize = 12.5f
-                                setTextColor(ThemeHelper.textPrimary(dark()))
-                            })
-                            if (!log.note.isNullOrBlank()) {
-                                info.addView(TextView(ctx).apply {
-                                    text = log.note
-                                    textSize = 11f
-                                    setTextColor(ThemeHelper.textSecondary(dark()))
-                                })
-                            }
-                            row.addView(info)
-                            row.addView(ThemeHelper.iconButton(ctx, "✎", primary, dark(), "ویرایش لاگ") {
-                                TaskLogEditor.openEdit(ctx, task, log, repo, lifecycleScope, primary, dark()) {
-                                    bind(currentList)
-                                }
-                            })
-                            row.addView(ThemeHelper.iconButton(ctx, "🗑", ThemeHelper.deleteColor, dark(), "حذف لاگ") {
-                                TaskLogEditor.confirmDelete(ctx, task, log, repo, lifecycleScope, primary, dark()) {
-                                    bind(currentList)
-                                }
-                            })
-                            drawerBody.addView(row)
-                        }
-                    }
-                }
-            }
-
-            val wrapper = android.widget.FrameLayout(ctx)
-            wrapper.addView(
-                ThemeHelper.progressBackdrop(ctx, primary, dark(), fraction),
-                android.widget.FrameLayout.LayoutParams(
-                    android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
-                    android.widget.FrameLayout.LayoutParams.MATCH_PARENT
-                )
-            )
-            wrapper.addView(
-                box,
-                android.widget.FrameLayout.LayoutParams(
-                    android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
-                    android.widget.FrameLayout.LayoutParams.WRAP_CONTENT
-                )
-            )
-            card.addView(wrapper)
+            card.addView(box)
             listContainer.addView(
                 card,
                 LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT
                 ).apply { bottomMargin = 12 })
+        }
+    }
+
+    /** فقط لاگ‌هایی که taskId دقیقاً برابر تسک همین کارت است رسم می‌شوند. */
+    private fun paintLogRows(
+        drawerBody: LinearLayout,
+        task: TaskEntity,
+        logs: List<TaskLogEntity>
+    ) {
+        val ctx = drawerBody.context
+        val primary = primary()
+        val dark = dark()
+        val repo = (requireActivity().application as App).repository
+        drawerBody.tag = task.id
+        drawerBody.removeAllViews()
+        val mine = logs.filter { it.taskId == task.id }.sortedByDescending { it.date }
+        if (mine.isEmpty()) {
+            drawerBody.addView(TextView(ctx).apply {
+                text = "هنوز لاگی ثبت نشده"
+                textSize = 12f
+                setTextColor(ThemeHelper.textSecondary(dark))
+            })
+            return
+        }
+        mine.forEach { log ->
+            val row = LinearLayout(ctx).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = android.view.Gravity.CENTER_VERTICAL
+                setPadding(0, 8, 0, 8)
+            }
+            val info = LinearLayout(ctx).apply {
+                orientation = LinearLayout.VERTICAL
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            }
+            val startStr = if (!log.startTime.isNullOrBlank()) "  ·  ${log.startTime}" else ""
+            info.addView(TextView(ctx).apply {
+                text = "${TimeUtils.toJalaliDisplay(log.date)}$startStr  ·  ${TimeUtils.formatDuration(log.duration)}"
+                textSize = 12.5f
+                setTextColor(ThemeHelper.textPrimary(dark))
+            })
+            if (!log.note.isNullOrBlank()) {
+                info.addView(TextView(ctx).apply {
+                    text = log.note
+                    textSize = 11f
+                    setTextColor(ThemeHelper.textSecondary(dark))
+                })
+            }
+            row.addView(info)
+            row.addView(ThemeHelper.iconButton(ctx, "✎", primary, dark, "ویرایش لاگ") {
+                TaskLogEditor.openEdit(ctx, task, log, repo, viewLifecycleOwner.lifecycleScope, primary, dark) {
+                    refreshLogsFor(task.id, drawerBody)
+                }
+            })
+            row.addView(ThemeHelper.iconButton(ctx, "🗑", ThemeHelper.deleteColor, dark, "حذف لاگ") {
+                TaskLogEditor.confirmDelete(ctx, task, log, repo, viewLifecycleOwner.lifecycleScope, primary, dark) {
+                    refreshLogsFor(task.id, drawerBody)
+                }
+            })
+            drawerBody.addView(row)
+        }
+    }
+
+    private fun refreshLogsFor(taskId: Long, drawerBody: LinearLayout) {
+        viewLifecycleOwner.lifecycleScope.launch {
+            val repo = (requireActivity().application as App).repository
+            val task = repo.getTask(taskId) ?: return@launch
+            val logs = repo.getLogsByTask(taskId).filter { it.taskId == taskId }
+            logsByTaskId = logsByTaskId + (taskId to logs)
+            if (!isAdded) return@launch
+            if ((drawerBody.tag as? Long) != taskId) return@launch
+            paintLogRows(drawerBody, task, logs)
         }
     }
 

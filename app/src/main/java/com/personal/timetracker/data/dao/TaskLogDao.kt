@@ -21,6 +21,9 @@ interface TaskLogDao {
     @Query("SELECT * FROM task_logs WHERE date BETWEEN :start AND :end ORDER BY date")
     suspend fun getByRange(start: String, end: String): List<TaskLogEntity>
 
+    @Query("SELECT * FROM task_logs ORDER BY date DESC, id DESC")
+    suspend fun getAllOnce(): List<TaskLogEntity>
+
     @Insert
     suspend fun insert(item: TaskLogEntity): Long
 
