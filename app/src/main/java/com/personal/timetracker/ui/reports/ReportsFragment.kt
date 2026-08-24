@@ -2,6 +2,7 @@ package com.personal.timetracker.ui.reports
 
 import android.graphics.Typeface
 import android.os.Bundle
+import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -22,6 +23,7 @@ import com.personal.timetracker.util.ChartHelper
 import com.personal.timetracker.util.DialogHelper
 import com.personal.timetracker.util.DonutChartView
 import com.personal.timetracker.util.DonutItem
+import com.personal.timetracker.util.JalaliDatePickerDialog
 import com.personal.timetracker.util.TaskLogEditor
 import com.personal.timetracker.util.ThemeHelper
 import com.personal.timetracker.util.TimeUtils
@@ -29,7 +31,16 @@ import kotlinx.coroutines.launch
 
 class ReportsFragment : Fragment() {
     private lateinit var content: LinearLayout
+    private lateinit var navRow: LinearLayout
+    private lateinit var customRow: LinearLayout
+    private lateinit var periodLabel: TextView
+    private lateinit var btnCustomStart: MaterialButton
+    private lateinit var btnCustomEnd: MaterialButton
+    /** 0=روزانه 1=هفتگی 2=ماهانه 3=بازه سفارشی */
     private var period = 0
+    private var anchorDate = TimeUtils.today()
+    private var customStart = TimeUtils.startOfMonth()
+    private var customEnd = TimeUtils.today()
     private fun primary() = (activity as? MainActivity)?.primaryColor ?: 0xFF1565C0.toInt()
     private fun dark() = (activity as? MainActivity)?.isDark == true
 
@@ -54,17 +65,96 @@ class ReportsFragment : Fragment() {
         val b3 = MaterialButton(ctx, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
             text = "ماهانه"; id = View.generateViewId()
         }
-        listOf(b1, b2, b3).forEach {
+        val b4 = MaterialButton(ctx, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
+            text = "بازه"; id = View.generateViewId()
+        }
+        listOf(b1, b2, b3, b4).forEach {
             ThemeHelper.applyButton(it, primary(), false)
+            it.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            it.textSize = 12f
             group.addView(it)
         }
         group.check(b1.id)
         group.addOnButtonCheckedListener { _, id, checked ->
             if (!checked) return@addOnButtonCheckedListener
-            period = when (id) { b2.id -> 1; b3.id -> 2; else -> 0 }
+            period = when (id) {
+                b2.id -> 1
+                b3.id -> 2
+                b4.id -> 3
+                else -> 0
+            }
+            refreshPeriodChrome()
             load()
         }
         root.addView(group)
+
+        navRow = LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, 12, 0, 0)
+        }
+        val btnPrev = MaterialButton(ctx, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
+            text = "‹"
+            ThemeHelper.applyButton(this, primary(), false)
+            setOnClickListener { shiftPeriod(-1) }
+        }
+        periodLabel = TextView(ctx).apply {
+            textSize = 14f
+            gravity = Gravity.CENTER
+            setTypeface(null, Typeface.BOLD)
+            setTextColor(primary())
+            setPadding(8, 8, 8, 8)
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            setOnClickListener { pickAnchorDate() }
+        }
+        val btnNext = MaterialButton(ctx, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
+            text = "›"
+            ThemeHelper.applyButton(this, primary(), false)
+            setOnClickListener { shiftPeriod(1) }
+        }
+        navRow.addView(btnPrev)
+        navRow.addView(periodLabel)
+        navRow.addView(btnNext)
+        root.addView(navRow)
+
+        customRow = LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, 12, 0, 0)
+            visibility = View.GONE
+        }
+        btnCustomStart = MaterialButton(ctx, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
+            text = "از تاریخ"
+            ThemeHelper.applyButton(this, primary(), false)
+            textSize = 12f
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { marginEnd = 8 }
+            setOnClickListener {
+                JalaliDatePickerDialog.show(ctx, primary(), dark(), customStart) { greg, _ ->
+                    customStart = greg
+                    if (customStart > customEnd) customEnd = customStart
+                    refreshPeriodChrome()
+                    load()
+                }
+            }
+        }
+        btnCustomEnd = MaterialButton(ctx, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
+            text = "تا تاریخ"
+            ThemeHelper.applyButton(this, primary(), false)
+            textSize = 12f
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            setOnClickListener {
+                JalaliDatePickerDialog.show(ctx, primary(), dark(), customEnd) { greg, _ ->
+                    customEnd = greg
+                    if (customEnd < customStart) customStart = customEnd
+                    refreshPeriodChrome()
+                    load()
+                }
+            }
+        }
+        customRow.addView(btnCustomStart)
+        customRow.addView(btnCustomEnd)
+        root.addView(customRow)
+        refreshPeriodChrome()
         content = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL }
         root.addView(android.widget.ScrollView(ctx).apply {
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
@@ -229,14 +319,89 @@ class ReportsFragment : Fragment() {
     private fun palette(count: Int): List<Int> =
         com.personal.timetracker.util.ChartHelper.paletteForTheme(primary(), count.coerceAtLeast(1), dark())
 
+    private data class Range(val start: String, val end: String)
+
+    private fun selectedRange(): Range {
+        val today = TimeUtils.today()
+        val anchor = TimeUtils.parseDate(anchorDate)
+        val raw = when (period) {
+            1 -> {
+                val start = TimeUtils.startOfWeek(anchor)
+                Range(start, TimeUtils.addDays(start, 6))
+            }
+            2 -> Range(TimeUtils.startOfMonth(anchor), TimeUtils.endOfMonth(anchor))
+            3 -> Range(
+                TimeUtils.minDate(customStart, customEnd),
+                TimeUtils.maxDate(customStart, customEnd)
+            )
+            else -> Range(anchorDate, anchorDate)
+        }
+        if (period == 3) return raw
+        val end = TimeUtils.minDate(raw.end, today)
+        return if (raw.start > end) Range(raw.start, raw.start) else Range(raw.start, end)
+    }
+
+    private fun shiftPeriod(delta: Int) {
+        when (period) {
+            0 -> anchorDate = TimeUtils.addDays(anchorDate, delta)
+            1 -> anchorDate = TimeUtils.addDays(anchorDate, delta * 7)
+            2 -> {
+                val j = TimeUtils.toJalali(TimeUtils.parseDate(anchorDate))
+                var y = j[0]
+                var m = j[1] + delta
+                while (m < 1) { m += 12; y-- }
+                while (m > 12) { m -= 12; y++ }
+                val day = j[2].coerceAtMost(TimeUtils.jalaliMonthDays(y, m))
+                anchorDate = TimeUtils.formatDate(TimeUtils.fromJalali(y, m, day))
+            }
+            else -> return
+        }
+        refreshPeriodChrome()
+        load()
+    }
+
+    private fun pickAnchorDate() {
+        val ctx = requireContext()
+        JalaliDatePickerDialog.show(ctx, primary(), dark(), anchorDate) { greg, _ ->
+            anchorDate = greg
+            refreshPeriodChrome()
+            load()
+        }
+    }
+
+    private fun refreshPeriodChrome() {
+        val range = selectedRange()
+        when (period) {
+            0 -> {
+                navRow.visibility = View.VISIBLE
+                customRow.visibility = View.GONE
+                periodLabel.text = TimeUtils.toJalaliDisplay(anchorDate)
+            }
+            1 -> {
+                navRow.visibility = View.VISIBLE
+                customRow.visibility = View.GONE
+                periodLabel.text = "${TimeUtils.toJalaliShort(TimeUtils.parseDate(range.start))} تا ${TimeUtils.toJalaliShort(TimeUtils.parseDate(range.end))}"
+            }
+            2 -> {
+                navRow.visibility = View.VISIBLE
+                customRow.visibility = View.GONE
+                val j = TimeUtils.toJalali(TimeUtils.parseDate(anchorDate))
+                periodLabel.text = "${TimeUtils.jalaliMonthName(j[1])} ${TimeUtils.faNum(j[0])}"
+            }
+            else -> {
+                navRow.visibility = View.GONE
+                customRow.visibility = View.VISIBLE
+                btnCustomStart.text = "از ${TimeUtils.toJalaliShort(TimeUtils.parseDate(customStart))}"
+                btnCustomEnd.text = "تا ${TimeUtils.toJalaliShort(TimeUtils.parseDate(customEnd))}"
+            }
+        }
+    }
+
     private fun load() {
         val repo = (requireActivity().application as App).repository
-        val end = TimeUtils.today()
-        val start = when (period) {
-            1 -> TimeUtils.startOfWeek()
-            2 -> TimeUtils.startOfMonth()
-            else -> end
-        }
+        val range = selectedRange()
+        val start = range.start
+        val end = range.end
         content.removeAllViews()
         lifecycleScope.launch {
             val r = repo.report(start, end)

@@ -144,6 +144,25 @@ object TimeUtils {
         return dateFmt.format(firstDay)
     }
 
+    fun endOfMonth(date: Date = Date()): String {
+        val j = toJalali(date)
+        val last = fromJalali(j[0], j[1], jalaliMonthDays(j[0], j[1]))
+        return dateFmt.format(last)
+    }
+
+    fun addDays(dateStr: String, days: Int): String {
+        return try {
+            val cal = Calendar.getInstance().apply { time = parseDate(dateStr) }
+            cal.add(Calendar.DAY_OF_MONTH, days)
+            dateFmt.format(cal.time)
+        } catch (_: Exception) {
+            dateStr
+        }
+    }
+
+    fun minDate(a: String, b: String): String = if (a <= b) a else b
+    fun maxDate(a: String, b: String): String = if (a >= b) a else b
+
 
     /** Days in Jalali month (1-12) */
     fun jalaliMonthDays(jy: Int, jm: Int): Int {
