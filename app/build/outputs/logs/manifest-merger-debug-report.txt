@@ -1,20 +1,20 @@
 -- Merging decision tree log ---
 provider#androidx.core.content.FileProvider
-INJECTED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:50:9-58:20
+INJECTED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:215:9-223:20
 	android:grantUriPermissions
-		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:54:13-47
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:219:13-47
 	android:authorities
 		INJECTED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml
-		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:52:13-64
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:217:13-64
 	android:exported
-		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:53:13-37
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:218:13-37
 	android:name
-		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:51:13-62
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:216:13-62
 manifest
-ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:2:1-60:12
-INJECTED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:2:1-60:12
-INJECTED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:2:1-60:12
-INJECTED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:2:1-60:12
+ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:2:1-225:12
+INJECTED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:2:1-225:12
+INJECTED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:2:1-225:12
+INJECTED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:2:1-225:12
 MERGED from [androidx.databinding:viewbinding:8.5.2] C:\Users\o.parishani\.gradle\caches\transforms-4\3b702d0b6ddc9d370e4fda88d24efa99\transformed\viewbinding-8.5.2\AndroidManifest.xml:2:1-7:12
 MERGED from [androidx.navigation:navigation-common:2.7.7] C:\Users\o.parishani\.gradle\caches\transforms-4\fe0bfa0d5983e4510a88f46c7299367f\transformed\navigation-common-2.7.7\AndroidManifest.xml:17:1-22:12
 MERGED from [androidx.navigation:navigation-common-ktx:2.7.7] C:\Users\o.parishani\.gradle\caches\transforms-4\938d43e392aa6764573d52ba27c67c88\transformed\navigation-common-ktx-2.7.7\AndroidManifest.xml:2:1-7:12
@@ -141,8 +141,8 @@ MERGED from [androidx.biometric:biometric:1.1.0] C:\Users\o.parishani\.gradle\ca
 	android:name
 		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:13:22-71
 application
-ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:15:5-59:19
-INJECTED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:15:5-59:19
+ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:15:5-224:19
+INJECTED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:15:5-224:19
 MERGED from [com.google.android.material:material:1.12.0] C:\Users\o.parishani\.gradle\caches\transforms-4\38be1f04a714dfee07e2bd1c57595bfb\transformed\material-1.12.0\AndroidManifest.xml:22:5-20
 MERGED from [com.google.android.material:material:1.12.0] C:\Users\o.parishani\.gradle\caches\transforms-4\38be1f04a714dfee07e2bd1c57595bfb\transformed\material-1.12.0\AndroidManifest.xml:22:5-20
 MERGED from [androidx.constraintlayout:constraintlayout:2.1.4] C:\Users\o.parishani\.gradle\caches\transforms-4\500f5bdd24c3cca57718a755435eb48c\transformed\constraintlayout-2.1.4\AndroidManifest.xml:9:5-20
@@ -170,69 +170,279 @@ MERGED from [androidx.startup:startup-runtime:1.1.1] C:\Users\o.parishani\.gradl
 	android:appComponentFactory
 		ADDED from [androidx.core:core:1.13.1] C:\Users\o.parishani\.gradle\caches\transforms-4\e91d43edd169d12026c8450ba62b92db\transformed\core-1.13.1\AndroidManifest.xml:28:18-86
 	android:supportsRtl
-		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:21:9-35
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:24:9-35
 	android:label
-		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:20:9-41
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:22:9-41
+	android:fullBackupContent
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:19:9-54
 	android:roundIcon
-		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:19:9-48
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:21:9-48
 	android:icon
-		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:18:9-45
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:20:9-43
 	android:allowBackup
 		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:17:9-35
 	android:theme
-		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:22:9-57
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:26:9-57
+	android:networkSecurityConfig
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:23:9-69
+	android:dataExtractionRules
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:18:9-65
+	android:usesCleartextTraffic
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:25:9-45
 	android:name
 		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:16:9-28
 activity#com.personal.timetracker.ui.MainActivity
-ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:24:9-32:20
+ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:28:9-32:58
+	android:launchMode
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:31:13-43
 	android:windowSoftInputMode
-		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:27:13-55
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:32:13-55
 	android:exported
-		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:26:13-36
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:30:13-36
 	android:name
-		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:25:13-44
-intent-filter#action:name:android.intent.action.MAIN+category:name:android.intent.category.LAUNCHER
-ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:28:13-31:29
-action#android.intent.action.MAIN
-ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:29:17-69
-	android:name
-		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:29:25-66
-category#android.intent.category.LAUNCHER
-ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:30:17-77
-	android:name
-		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:30:27-74
-receiver#com.personal.timetracker.util.WorkEndReceiver
-ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:34:9-36:40
-	android:exported
-		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:36:13-37
-	android:name
-		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:35:13-49
-receiver#com.personal.timetracker.widget.WorkWidgetProvider
-ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:38:9-48:20
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:29:13-44
+activity-alias#com.personal.timetracker.ui.LauncherH0
+ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:34:9-46:26
+	android:enabled
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:36:13-35
 	android:label
-		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:41:13-39
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:40:13-45
 	android:exported
-		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:40:13-36
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:37:13-36
+	android:targetActivity
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:41:13-54
+	android:roundIcon
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:39:13-55
+	android:icon
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:38:13-50
 	android:name
-		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:39:13-54
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:35:13-42
+intent-filter#action:name:android.intent.action.MAIN+category:name:android.intent.category.LAUNCHER
+ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:42:13-45:29
+action#android.intent.action.MAIN
+ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:43:17-69
+	android:name
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:43:25-66
+category#android.intent.category.LAUNCHER
+ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:44:17-77
+	android:name
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:44:27-74
+activity-alias#com.personal.timetracker.ui.LauncherH1
+ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:47:9-59:26
+	android:enabled
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:49:13-36
+	android:label
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:53:13-45
+	android:exported
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:50:13-36
+	android:targetActivity
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:54:13-54
+	android:roundIcon
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:52:13-55
+	android:icon
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:51:13-50
+	android:name
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:48:13-42
+activity-alias#com.personal.timetracker.ui.LauncherH2
+ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:60:9-72:26
+	android:enabled
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:62:13-36
+	android:label
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:66:13-45
+	android:exported
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:63:13-36
+	android:targetActivity
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:67:13-54
+	android:roundIcon
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:65:13-55
+	android:icon
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:64:13-50
+	android:name
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:61:13-42
+activity-alias#com.personal.timetracker.ui.LauncherH3
+ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:73:9-85:26
+	android:enabled
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:75:13-36
+	android:label
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:79:13-45
+	android:exported
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:76:13-36
+	android:targetActivity
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:80:13-54
+	android:roundIcon
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:78:13-55
+	android:icon
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:77:13-50
+	android:name
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:74:13-42
+activity-alias#com.personal.timetracker.ui.LauncherH4
+ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:86:9-98:26
+	android:enabled
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:88:13-36
+	android:label
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:92:13-45
+	android:exported
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:89:13-36
+	android:targetActivity
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:93:13-54
+	android:roundIcon
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:91:13-55
+	android:icon
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:90:13-50
+	android:name
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:87:13-42
+activity-alias#com.personal.timetracker.ui.LauncherH5
+ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:99:9-111:26
+	android:enabled
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:101:13-36
+	android:label
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:105:13-45
+	android:exported
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:102:13-36
+	android:targetActivity
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:106:13-54
+	android:roundIcon
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:104:13-55
+	android:icon
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:103:13-50
+	android:name
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:100:13-42
+activity-alias#com.personal.timetracker.ui.LauncherH6
+ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:112:9-124:26
+	android:enabled
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:114:13-36
+	android:label
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:118:13-45
+	android:exported
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:115:13-36
+	android:targetActivity
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:119:13-54
+	android:roundIcon
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:117:13-55
+	android:icon
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:116:13-50
+	android:name
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:113:13-42
+activity-alias#com.personal.timetracker.ui.LauncherH7
+ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:125:9-137:26
+	android:enabled
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:127:13-36
+	android:label
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:131:13-45
+	android:exported
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:128:13-36
+	android:targetActivity
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:132:13-54
+	android:roundIcon
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:130:13-55
+	android:icon
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:129:13-50
+	android:name
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:126:13-42
+activity-alias#com.personal.timetracker.ui.LauncherH8
+ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:138:9-150:26
+	android:enabled
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:140:13-36
+	android:label
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:144:13-45
+	android:exported
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:141:13-36
+	android:targetActivity
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:145:13-54
+	android:roundIcon
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:143:13-55
+	android:icon
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:142:13-50
+	android:name
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:139:13-42
+activity-alias#com.personal.timetracker.ui.LauncherH9
+ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:151:9-163:26
+	android:enabled
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:153:13-36
+	android:label
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:157:13-45
+	android:exported
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:154:13-36
+	android:targetActivity
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:158:13-54
+	android:roundIcon
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:156:13-55
+	android:icon
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:155:13-50
+	android:name
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:152:13-42
+activity-alias#com.personal.timetracker.ui.LauncherH10
+ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:164:9-176:26
+	android:enabled
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:166:13-36
+	android:label
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:170:13-45
+	android:exported
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:167:13-36
+	android:targetActivity
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:171:13-54
+	android:roundIcon
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:169:13-56
+	android:icon
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:168:13-51
+	android:name
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:165:13-43
+receiver#com.personal.timetracker.util.WorkEndReceiver
+ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:178:9-180:40
+	android:exported
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:180:13-37
+	android:name
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:179:13-49
+receiver#com.personal.timetracker.util.BootReceiver
+ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:182:9-189:20
+	android:exported
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:184:13-36
+	android:name
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:183:13-46
+intent-filter#action:name:android.intent.action.BOOT_COMPLETED+action:name:android.intent.action.MY_PACKAGE_REPLACED
+ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:185:13-188:29
+action#android.intent.action.BOOT_COMPLETED
+ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:186:17-79
+	android:name
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:186:25-76
+action#android.intent.action.MY_PACKAGE_REPLACED
+ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:187:17-84
+	android:name
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:187:25-81
+receiver#com.personal.timetracker.widget.WorkWidgetProvider
+ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:191:9-201:20
+	android:label
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:194:13-53
+	android:exported
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:193:13-36
+	android:name
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:192:13-54
 intent-filter#action:name:android.appwidget.action.APPWIDGET_UPDATE
-ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:42:13-44:29
+ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:195:13-197:29
 action#android.appwidget.action.APPWIDGET_UPDATE
-ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:43:17-84
+ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:196:17-84
 	android:name
-		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:43:25-81
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:196:25-81
 meta-data#android.appwidget.provider
-ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:45:13-47:60
+ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:198:13-200:60
 	android:resource
-		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:47:17-57
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:200:17-57
 	android:name
-		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:46:17-58
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:199:17-58
+receiver#com.personal.timetracker.widget.IconHoursWidgetProvider
+ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:203:9-213:20
+	android:label
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:206:13-54
+	android:exported
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:205:13-36
+	android:name
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:204:13-59
 meta-data#android.support.FILE_PROVIDER_PATHS
-ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:55:13-57:54
+ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:220:13-222:54
 	android:resource
-		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:57:17-51
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:222:17-51
 	android:name
-		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:56:17-67
+		ADDED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml:221:17-67
 uses-sdk
 INJECTED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml reason: use-sdk injection requested
 INJECTED from E:\Kotlin\PersonalTimeTracker\app\src\main\AndroidManifest.xml
@@ -569,10 +779,6 @@ ADDED from [androidx.work:work-runtime:2.9.0] C:\Users\o.parishani\.gradle\cache
 		ADDED from [androidx.work:work-runtime:2.9.0] C:\Users\o.parishani\.gradle\caches\transforms-4\366b2393d7b8d681510b125e24503721\transformed\work-runtime-2.9.0\AndroidManifest.xml:111:13-88
 intent-filter#action:name:android.intent.action.BOOT_COMPLETED+action:name:android.intent.action.TIMEZONE_CHANGED+action:name:android.intent.action.TIME_SET
 ADDED from [androidx.work:work-runtime:2.9.0] C:\Users\o.parishani\.gradle\caches\transforms-4\366b2393d7b8d681510b125e24503721\transformed\work-runtime-2.9.0\AndroidManifest.xml:116:13-120:29
-action#android.intent.action.BOOT_COMPLETED
-ADDED from [androidx.work:work-runtime:2.9.0] C:\Users\o.parishani\.gradle\caches\transforms-4\366b2393d7b8d681510b125e24503721\transformed\work-runtime-2.9.0\AndroidManifest.xml:117:17-79
-	android:name
-		ADDED from [androidx.work:work-runtime:2.9.0] C:\Users\o.parishani\.gradle\caches\transforms-4\366b2393d7b8d681510b125e24503721\transformed\work-runtime-2.9.0\AndroidManifest.xml:117:25-76
 action#android.intent.action.TIME_SET
 ADDED from [androidx.work:work-runtime:2.9.0] C:\Users\o.parishani\.gradle\caches\transforms-4\366b2393d7b8d681510b125e24503721\transformed\work-runtime-2.9.0\AndroidManifest.xml:118:17-73
 	android:name

@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.personal.timetracker"
-    android:versionCode="1"
-    android:versionName="1.0.0" >
+    android:versionCode="2"
+    android:versionName="1.1.0" >
 
     <uses-sdk
         android:minSdkVersion="26"
@@ -31,31 +31,193 @@
         android:name="com.personal.timetracker.App"
         android:allowBackup="true"
         android:appComponentFactory="androidx.core.app.CoreComponentFactory"
+        android:dataExtractionRules="@xml/data_extraction_rules"
         android:debuggable="true"
         android:extractNativeLibs="false"
-        android:icon="@drawable/ic_launcher"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
+        android:networkSecurityConfig="@xml/network_security_config"
         android:roundIcon="@mipmap/ic_launcher"
         android:supportsRtl="true"
-        android:theme="@style/Theme.PersonalTimeTracker" >
+        android:theme="@style/Theme.PersonalTimeTracker"
+        android:usesCleartextTraffic="false" >
         <activity
             android:name="com.personal.timetracker.ui.MainActivity"
             android:exported="true"
-            android:windowSoftInputMode="adjustResize" >
+            android:launchMode="singleTop"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity-alias
+            android:name="com.personal.timetracker.ui.LauncherH10"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_h10"
+            android:label="@string/app_name"
+            android:roundIcon="@mipmap/ic_launcher_h10"
+            android:targetActivity="com.personal.timetracker.ui.MainActivity" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-        </activity>
+        </activity-alias>
+        <activity-alias
+            android:name="com.personal.timetracker.ui.LauncherH9"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_h9"
+            android:label="@string/app_name"
+            android:roundIcon="@mipmap/ic_launcher_h9"
+            android:targetActivity="com.personal.timetracker.ui.MainActivity" >
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name="com.personal.timetracker.ui.LauncherH8"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_h8"
+            android:label="@string/app_name"
+            android:roundIcon="@mipmap/ic_launcher_h8"
+            android:targetActivity="com.personal.timetracker.ui.MainActivity" >
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name="com.personal.timetracker.ui.LauncherH7"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_h7"
+            android:label="@string/app_name"
+            android:roundIcon="@mipmap/ic_launcher_h7"
+            android:targetActivity="com.personal.timetracker.ui.MainActivity" >
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name="com.personal.timetracker.ui.LauncherH6"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_h6"
+            android:label="@string/app_name"
+            android:roundIcon="@mipmap/ic_launcher_h6"
+            android:targetActivity="com.personal.timetracker.ui.MainActivity" >
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name="com.personal.timetracker.ui.LauncherH5"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_h5"
+            android:label="@string/app_name"
+            android:roundIcon="@mipmap/ic_launcher_h5"
+            android:targetActivity="com.personal.timetracker.ui.MainActivity" >
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name="com.personal.timetracker.ui.LauncherH4"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_h4"
+            android:label="@string/app_name"
+            android:roundIcon="@mipmap/ic_launcher_h4"
+            android:targetActivity="com.personal.timetracker.ui.MainActivity" >
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name="com.personal.timetracker.ui.LauncherH3"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_h3"
+            android:label="@string/app_name"
+            android:roundIcon="@mipmap/ic_launcher_h3"
+            android:targetActivity="com.personal.timetracker.ui.MainActivity" >
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name="com.personal.timetracker.ui.LauncherH2"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_h2"
+            android:label="@string/app_name"
+            android:roundIcon="@mipmap/ic_launcher_h2"
+            android:targetActivity="com.personal.timetracker.ui.MainActivity" >
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name="com.personal.timetracker.ui.LauncherH1"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_h1"
+            android:label="@string/app_name"
+            android:roundIcon="@mipmap/ic_launcher_h1"
+            android:targetActivity="com.personal.timetracker.ui.MainActivity" >
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name="com.personal.timetracker.ui.LauncherH0"
+            android:enabled="true"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_h0"
+            android:label="@string/app_name"
+            android:roundIcon="@mipmap/ic_launcher_h0"
+            android:targetActivity="com.personal.timetracker.ui.MainActivity" >
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
 
         <receiver
             android:name="com.personal.timetracker.util.WorkEndReceiver"
             android:exported="false" />
         <receiver
+            android:name="com.personal.timetracker.util.BootReceiver"
+            android:exported="true" >
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+        <receiver
             android:name="com.personal.timetracker.widget.WorkWidgetProvider"
             android:exported="true"
-            android:label="ردیاب زمان" >
+            android:label="@string/widget_work_desc" >
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
@@ -63,6 +225,18 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/widget_work_info" />
+        </receiver>
+        <receiver
+            android:name="com.personal.timetracker.widget.IconHoursWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_hours_desc" >
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_icon_hours_info" />
         </receiver>
 
         <provider
