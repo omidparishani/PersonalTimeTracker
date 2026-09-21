@@ -8,17 +8,23 @@ import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
+import com.personal.timetracker.data.db.AppDatabase
+import java.io.File
 import java.util.concurrent.TimeUnit
 
 class AutoBackupWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, params) {
     override suspend fun doWork(): Result {
         return try {
             val file = BackupHelper.exportJson(applicationContext)
-            val destDir = java.io.File(applicationContext.getExternalFilesDir(null), "PTT_Backups")
-                .apply { mkdirs() }
-            val destFile = java.io.File(destDir, file.name)
+            val settings = AppDatabase.get(applicationContext).settingsDao().get()
+            val custom = settings?.autoBackupDir?.trim().orEmpty()
+            val destDir = if (custom.isNotBlank()) {
+                File(custom).apply { mkdirs() }
+            } else {
+                File(applicationContext.getExternalFilesDir(null), "PTT_Backups").apply { mkdirs() }
+            }
+            val destFile = File(destDir, file.name)
             file.copyTo(destFile, overwrite = true)
-            // اطلاع‌رسانی به کاربر
             NotifHelper.show(
                 applicationContext,
                 "پشتیبان‌گیری خودکار",
@@ -35,7 +41,6 @@ class AutoBackupWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker
     companion object {
         private const val WORK_NAME = "ptt_auto_backup"
 
-        /** Schedule or reschedule periodic backup. Pass intervalHours=0 or enabled=false to cancel. */
         fun schedule(ctx: Context, enabled: Boolean, intervalHours: Int) {
             val wm = WorkManager.getInstance(ctx)
             if (!enabled || intervalHours <= 0) {

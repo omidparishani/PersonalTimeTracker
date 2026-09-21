@@ -321,4 +321,61 @@ object ChartHelper {
         }
         return box
     }
+
+    /**
+     * پیشرفت Issue: زمان ثبت‌شده نسبت به تخمین.
+     * centerTitle = درصد، centerSubtitle = spent/estimate کوتاه
+     */
+    fun jiraProgressDonut(
+        ctx: Context,
+        spentMinutes: Int,
+        estimateMinutes: Int,
+        primary: Int,
+        dark: Boolean,
+        sizeDp: Int = 42
+    ): DonutChartView {
+        val density = ctx.resources.displayMetrics.density
+        val spent = spentMinutes.coerceAtLeast(0)
+        val est = estimateMinutes.coerceAtLeast(0)
+        val over = est > 0 && spent > est
+        val remaining = if (est > 0) (est - spent).coerceAtLeast(0) else 0
+        val pct = when {
+            est > 0 -> ((spent * 100f) / est).toInt().coerceAtMost(999)
+            spent > 0 -> 100
+            else -> 0
+        }
+        val spentColor = when {
+            over -> if (dark) 0xFFFF5252.toInt() else 0xFFE53935.toInt()
+            pct >= 100 -> if (dark) 0xFF00C853.toInt() else 0xFF2E7D32.toInt()
+            else -> primary
+        }
+        val trackPart = if (est > 0) remaining else (if (spent == 0) 1 else 0)
+        val parts = mutableListOf<DonutItem>()
+        if (spent > 0) parts.add(DonutItem("صرف‌شده", spent.coerceAtMost(if (est > 0) est else spent), spentColor))
+        if (trackPart > 0) {
+            parts.add(
+                DonutItem(
+                    "باقی",
+                    trackPart,
+                    ColorUtils.setAlphaComponent(primary, if (dark) 60 else 40)
+                )
+            )
+        }
+        if (parts.isEmpty()) {
+            parts.add(DonutItem("", 1, ColorUtils.setAlphaComponent(primary, 50)))
+        }
+        return DonutChartView(ctx).apply {
+            items = parts
+            centerTitle = "$pct%"
+            centerSubtitle = if (est > 0) "${spent}/${est}" else "$spent"
+            trackColor = ThemeHelper.outline(dark)
+            titleColor = ThemeHelper.textPrimary(dark)
+            subtitleColor = ThemeHelper.textSecondary(dark)
+            layoutParams = LinearLayout.LayoutParams(
+                (sizeDp * density).toInt(),
+                (sizeDp * density).toInt()
+            )
+        }
+    }
+
 }

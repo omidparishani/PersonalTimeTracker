@@ -14,6 +14,12 @@ import com.personal.timetracker.util.NotifHelper
 import com.personal.timetracker.util.TimeCalc
 import com.personal.timetracker.util.TimeUtils
 import com.personal.timetracker.util.DynamicAppIcon
+import com.personal.timetracker.data.entity.JiraFavoriteEntity
+import com.personal.timetracker.data.entity.JiraStatusEntity
+import com.personal.timetracker.data.entity.JiraWorklogCacheEntity
+import com.personal.timetracker.data.entity.JiraIssueCacheEntity
+import com.personal.timetracker.jira.JiraService
+import com.personal.timetracker.jira.toTaskEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
@@ -29,6 +35,10 @@ class AppRepository(context: Context) {
     private val taskLogDao = db.taskLogDao()
     private val settingsDao = db.settingsDao()
     private val holidayDao = db.holidayDao()
+    private val jiraFavoriteDao = db.jiraFavoriteDao()
+    private val jiraIssueDao = db.jiraIssueDao()
+    private val jiraWorklogDao = db.jiraWorklogDao()
+    private val jiraStatusDao = db.jiraStatusDao()
 
     fun observeSettings(): Flow<SettingsEntity?> = settingsDao.observe()
     suspend fun getSettings(): SettingsEntity =
@@ -427,6 +437,470 @@ class AppRepository(context: Context) {
     suspend fun projectSummary() = taskDao.projectSummary()
     suspend fun jiraSummary() = taskDao.jiraSummary()
 
+    // ==================== Jira ====================
+
+    fun observeJiraFavorites() = jiraFavoriteDao.observeAll()
+    suspend fun getJiraFavorites() = jiraFavoriteDao.getAllOnce()
+    suspend fun isJiraFavorite(key: String) = jiraFavoriteDao.exists(key.trim().uppercase()) > 0
+
+    suspend fun addJiraFavorite(
+        issueKey: String,
+        summary: String = "",
+        projectKey: String = "",
+        projectName: String = "",
+        note: String? = null
+    ) {
+        jiraFavoriteDao.upsert(
+            JiraFavoriteEntity(
+                issueKey = issueKey.trim().uppercase(),
+                summary = summary,
+                projectKey = projectKey,
+                projectName = projectName,
+                note = note,
+                addedAt = TimeUtils.nowDateTime()
+            )
+        )
+    }
+
+    suspend fun removeJiraFavorite(issueKey: String) {
+        jiraFavoriteDao.deleteByKey(issueKey.trim().uppercase())
+    }
+
+    /** سرویس جیرا از تنظیمات فعلی؛ null اگر پیکربندی نشده */
+    suspend fun jiraServiceOrNull(): JiraService? {
+        return JiraService.fromSettings(getSettings())
+    }
+
+    /** همگام‌سازی Issueهای assign‌شده به تسک‌های محلی */
+    suspend fun syncJiraIssues(openOnly: Boolean = true): Result<Int> = withContext(Dispatchers.IO) {
+        val service = jiraServiceOrNull()
+            ?: return@withContext Result.failure(Exception("جیرا در تنظیمات فعال/پیکربندی نشده"))
+        service.fetchAssigned(openOnly = openOnly).map { issues ->
+            var count = 0
+            val existing = taskDao.getAllOnce()
+            val byJira = existing.filter { !it.jiraNumber.isNullOrBlank() }
+                .associateBy { it.jiraNumber!!.trim().uppercase() }
+            for (issue in issues) {
+                val key = issue.key.trim().uppercase()
+                val prev = byJira[key]
+                val entity = issue.toTaskEntity(
+                    existingId = prev?.id ?: 0L,
+                    createdAt = prev?.createdAt ?: TimeUtils.nowDateTime()
+                ).copy(
+                    isRunning = prev?.isRunning ?: false,
+                    runStartedAt = prev?.runStartedAt
+                )
+                saveTask(entity)
+                count++
+            }
+            count
+        }
+    }
+
+    /**
+     * ارسال Worklog به جیرا.
+     * null = رد شد (بدون jiraNumber یا بدون پیکربندی)
+     */
+    suspend fun pushWorklogToJira(
+        task: TaskEntity,
+        durationMinutes: Int,
+        date: String,
+        note: String? = null
+    ): Result<String>? = withContext(Dispatchers.IO) {
+        val jiraKey = task.jiraNumber?.trim().orEmpty()
+        if (jiraKey.isEmpty()) return@withContext null
+        val service = jiraServiceOrNull() ?: return@withContext null
+        val started = JiraService.toJiraStarted(date)
+        service.addWorklog(jiraKey, durationMinutes, started, note).map { it.id ?: "" }
+    }
+
+    /** ثبت مستقیم Worklog روی هر Issue (assign یا علاقه‌مندی) */
+    suspend fun addJiraWorklog(
+        issueKey: String,
+        durationMinutes: Int,
+        date: String,
+        note: String? = null,
+        timeHHmm: String? = null
+    ): Result<String> = withContext(Dispatchers.IO) {
+        val service = jiraServiceOrNull()
+            ?: return@withContext Result.failure(Exception("جیرا پیکربندی نشده"))
+        val started = JiraService.toJiraStarted(date, timeHHmm)
+        service.addWorklog(issueKey, durationMinutes, started, note).map { it.id ?: "" }
+    }
+
+
+
+
+    // ---- Jira as Tasks (cache) ----
+
+    fun observeJiraIssues() = jiraIssueDao.observeAll()
+    suspend fun getDistinctJiraProjects(): List<String> {
+        return jiraIssueDao.getAllOnce()
+            .flatMap { listOf(it.projectKey, it.projectName) }
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+            .distinct()
+            .sorted()
+    }
+
+    fun observeJiraAssigned() = jiraIssueDao.observeAssigned()
+    fun observeJiraFavoritesIssues() = jiraIssueDao.observeFavorites()
+    fun observeJiraOpen() = jiraIssueDao.observeOpen()
+    fun searchJiraIssues(q: String) = jiraIssueDao.search(q)
+    fun observeJiraStatuses() = jiraStatusDao.observeAll()
+    suspend fun getJiraStatuses() = jiraStatusDao.getAllOnce()
+    fun observeJiraWorklogs(issueKey: String) = jiraWorklogDao.observeByIssue(issueKey.trim().uppercase())
+    suspend fun getJiraWorklogsOnce(issueKey: String) = jiraWorklogDao.getByIssueOnce(issueKey.trim().uppercase())
+    suspend fun jiraWorklogMinutesInRange(start: String, end: String) = jiraWorklogDao.sumMinutesInRange(start, end)
+
+    /** واکشی وضعیت‌های معتبر از API شرکت و ذخیره در کش */
+    suspend fun refreshJiraStatuses(): Result<Int> = withContext(Dispatchers.IO) {
+        val service = jiraServiceOrNull()
+            ?: return@withContext Result.failure(Exception("جیرا پیکربندی نشده"))
+        service.fetchStatuses().map { list ->
+            val now = TimeUtils.nowDateTime()
+            val entities = list.map {
+                JiraStatusEntity(
+                    id = it.id!!,
+                    name = it.name!!,
+                    categoryKey = it.statusCategory?.key.orEmpty(),
+                    categoryName = it.statusCategory?.name.orEmpty(),
+                    cachedAt = now
+                )
+            }
+            jiraStatusDao.clear()
+            jiraStatusDao.upsertAll(entities)
+            entities.size
+        }
+    }
+
+    /**
+     * همگام‌سازی Issueها از سرور به کش محلی.
+     * assigned + favorites keys را پوشش می‌دهد.
+     */
+
+    /**
+     * همگام‌سازی Issueها از سرور.
+     * @param projectKeys اگر خالی نباشد: همه Issueهای این پروژه‌ها (نه فقط اساین)
+     * @param append اگر true، به کش اضافه می‌کند؛ وگرنه فقط همان صفحه را upsert می‌کند
+     * @return Triple(تعداد دریافت‌شده، startAt بعدی، total سرور) یا failure
+     */
+    suspend fun refreshJiraIssues(
+        openOnly: Boolean = false,
+        projectKeys: List<String> = emptyList(),
+        textQuery: String? = null,
+        startAt: Int = 0,
+        pageSize: Int = 50,
+        append: Boolean = true,
+        assignedToMe: Boolean = false,
+        statusNames: List<String> = emptyList()
+    ): Result<Triple<Int, Int, Int>> = withContext(Dispatchers.IO) {
+        val service = jiraServiceOrNull()
+            ?: return@withContext Result.failure(Exception("جیرا پیکربندی نشده"))
+        val now = TimeUtils.nowDateTime()
+        val favKeys = jiraFavoriteDao.getAllOnce().map { it.issueKey.uppercase() }.toSet()
+        val me = service.testConnection().getOrNull()
+        val myNames = listOfNotNull(me?.name, me?.displayName, me?.emailAddress)
+            .map { n -> n.lowercase() }.toSet()
+
+        val pageResult = service.fetchIssues(
+            projectKeys = projectKeys,
+            assignedToMe = assignedToMe,
+            openOnly = openOnly && statusNames.isEmpty(),
+            statusNames = statusNames,
+            maxResults = pageSize,
+            startAt = startAt,
+            textQuery = textQuery
+        )
+        if (pageResult.isFailure) return@withContext Result.failure(pageResult.exceptionOrNull()!!)
+        val page = pageResult.getOrNull()!!
+
+        val entities = page.items.map { issue ->
+            val key = issue.key.uppercase()
+            val prev = jiraIssueDao.getByKey(key)
+            JiraIssueCacheEntity(
+                issueKey = key,
+                summary = issue.summary,
+                description = issue.description,
+                projectKey = issue.projectKey,
+                projectName = issue.projectName,
+                statusId = "",
+                statusName = issue.statusName,
+                statusCategory = issue.statusCategory,
+                priorityName = issue.priorityName,
+                issueTypeName = issue.issueTypeName,
+                assigneeName = issue.assigneeName,
+                labels = issue.labels.joinToString(","),
+                requiredMinutes = issue.requiredMinutes,
+                remainingMinutes = issue.remainingMinutes,
+                timeSpentMinutes = issue.timeSpentMinutes,
+                isFavorite = key in favKeys || (prev?.isFavorite == true),
+                isAssignedToMe = assignedToMe ||
+                    (issue.assigneeName?.lowercase()?.let { it in myNames } == true),
+                jiraUpdated = null,
+                cachedAt = now
+            )
+        }
+        jiraIssueDao.upsertAll(entities)
+
+        // favorites not in page
+        if (startAt == 0) {
+            for (fav in jiraFavoriteDao.getAllOnce()) {
+                val key = fav.issueKey.uppercase()
+                if (jiraIssueDao.getByKey(key) != null) continue
+                val remote = service.getIssue(key).getOrNull()
+                if (remote != null) {
+                    jiraIssueDao.upsert(
+                        JiraIssueCacheEntity(
+                            issueKey = key,
+                            summary = remote.summary,
+                            description = remote.description,
+                            projectKey = remote.projectKey,
+                            projectName = remote.projectName,
+                            statusName = remote.statusName,
+                            statusCategory = remote.statusCategory,
+                            priorityName = remote.priorityName,
+                            issueTypeName = remote.issueTypeName,
+                            assigneeName = remote.assigneeName,
+                            labels = remote.labels.joinToString(","),
+                            requiredMinutes = remote.requiredMinutes,
+                            remainingMinutes = remote.remainingMinutes,
+                            timeSpentMinutes = remote.timeSpentMinutes,
+                            isFavorite = true,
+                            isAssignedToMe = false,
+                            cachedAt = now
+                        )
+                    )
+                }
+            }
+        }
+
+        val nextStart = startAt + page.items.size
+        Result.success(Triple(page.items.size, nextStart, page.total))
+    }
+
+
+    suspend fun refreshJiraProjectsCatalog(): Result<Int> = withContext(Dispatchers.IO) {
+        val service = jiraServiceOrNull()
+            ?: return@withContext Result.failure(Exception("جیرا پیکربندی نشده"))
+        service.fetchProjects().map { list ->
+            val keys = list.mapNotNull { it.key?.trim()?.uppercase() }.filter { it.isNotEmpty() }
+            val s = getSettings()
+            saveSettings(s.copy(jiraProjectCatalog = keys.joinToString(",")))
+            keys.size
+        }
+    }
+
+    suspend fun getJiraProjectCatalog(): List<String> {
+        val s = getSettings()
+        return s.jiraProjectCatalog.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+    }
+
+    suspend fun saveJiraListFilters(projects: Set<String>, statuses: Set<String>) {
+        val s = getSettings()
+        saveSettings(
+            s.copy(
+                jiraFilterProjects = projects.joinToString(","),
+                jiraFilterStatuses = statuses.joinToString(",")
+            )
+        )
+    }
+
+
+    /** دریافت Worklogهای یک Issue از سرور و جایگزینی کش (به‌جز pendingهای محلی) */
+    suspend fun refreshJiraWorklogs(issueKey: String): Result<Int> = withContext(Dispatchers.IO) {
+        val key = issueKey.trim().uppercase()
+        val service = jiraServiceOrNull()
+            ?: return@withContext Result.failure(Exception("جیرا پیکربندی نشده"))
+        service.getWorklogs(key).map { remoteList ->
+            val pending = jiraWorklogDao.getByIssueOnce(key).filter { it.syncStatus != "synced" }
+            jiraWorklogDao.deleteSyncedForIssue(key)
+            val now = TimeUtils.nowDateTime()
+            val entities = remoteList.map { wl ->
+                val started = wl.started
+                val date = started?.take(10) ?: TimeUtils.today()
+                JiraWorklogCacheEntity(
+                    remoteId = wl.id,
+                    issueKey = key,
+                    date = date,
+                    started = started,
+                    durationMinutes = ((wl.timeSpentSeconds ?: 0) / 60).coerceAtLeast(0),
+                    comment = wl.comment,
+                    authorName = wl.author?.displayName ?: wl.author?.name,
+                    syncStatus = "synced",
+                    cachedAt = now
+                )
+            }
+            jiraWorklogDao.upsertAll(entities)
+            // re-upsert pending local ops
+            pending.forEach { jiraWorklogDao.upsert(it.copy(localId = 0)) }
+            entities.size
+        }
+    }
+
+    /** ثبت لاگ (= Worklog). آنلاین → سرور؛ آفلاین → صف pending_add */
+    suspend fun addJiraTaskLog(
+        issueKey: String,
+        durationMinutes: Int,
+        date: String,
+        comment: String? = null,
+        timeHHmm: String? = null
+    ): Result<JiraWorklogCacheEntity> = withContext(Dispatchers.IO) {
+        val key = issueKey.trim().uppercase()
+        if (durationMinutes <= 0) return@withContext Result.failure(Exception("مدت نامعتبر"))
+        val now = TimeUtils.nowDateTime()
+        val started = JiraService.toJiraStarted(date, timeHHmm)
+        val local = JiraWorklogCacheEntity(
+            issueKey = key,
+            date = date,
+            started = started,
+            durationMinutes = durationMinutes,
+            comment = comment,
+            syncStatus = "pending_add",
+            cachedAt = now
+        )
+        val localId = jiraWorklogDao.upsert(local)
+        val saved = jiraWorklogDao.getByLocalId(localId) ?: local.copy(localId = localId)
+        val service = jiraServiceOrNull()
+        if (service == null) {
+            return@withContext Result.success(saved) // offline queue
+        }
+        val remote = service.addWorklog(key, durationMinutes, started, comment)
+        if (remote.isSuccess) {
+            val wl = remote.getOrNull()!!
+            val synced = saved.copy(
+                remoteId = wl.id,
+                syncStatus = "synced",
+                authorName = wl.author?.displayName ?: wl.author?.name,
+                cachedAt = now
+            )
+            jiraWorklogDao.update(synced)
+            Result.success(synced)
+        } else {
+            // keep pending
+            Result.success(saved)
+        }
+    }
+
+    /** ویرایش Worklog — به سرور هم اعمال می‌شود */
+    suspend fun updateJiraTaskLog(
+        localId: Long,
+        durationMinutes: Int,
+        date: String,
+        comment: String?
+    ): Result<Unit> = withContext(Dispatchers.IO) {
+        val row = jiraWorklogDao.getByLocalId(localId)
+            ?: return@withContext Result.failure(Exception("لاگ یافت نشد"))
+        val updated = row.copy(
+            durationMinutes = durationMinutes,
+            date = date,
+            comment = comment,
+            syncStatus = if (row.remoteId != null) "pending_update" else "pending_add",
+            cachedAt = TimeUtils.nowDateTime()
+        )
+        jiraWorklogDao.update(updated)
+        val service = jiraServiceOrNull() ?: return@withContext Result.success(Unit)
+        if (updated.remoteId != null) {
+            service.updateWorklog(updated.issueKey, updated.remoteId, durationMinutes, comment).fold(
+                onSuccess = {
+                    jiraWorklogDao.update(updated.copy(syncStatus = "synced"))
+                    Result.success(Unit)
+                },
+                onFailure = { Result.success(Unit) } // stays pending
+            )
+        } else Result.success(Unit)
+    }
+
+    /** حذف Worklog — روی سرور هم */
+    suspend fun deleteJiraTaskLog(localId: Long): Result<Unit> = withContext(Dispatchers.IO) {
+        val row = jiraWorklogDao.getByLocalId(localId)
+            ?: return@withContext Result.failure(Exception("لاگ یافت نشد"))
+        if (row.remoteId == null) {
+            jiraWorklogDao.delete(row)
+            return@withContext Result.success(Unit)
+        }
+        jiraWorklogDao.update(row.copy(syncStatus = "pending_delete"))
+        val service = jiraServiceOrNull() ?: return@withContext Result.success(Unit)
+        service.deleteWorklog(row.issueKey, row.remoteId).fold(
+            onSuccess = {
+                jiraWorklogDao.delete(row)
+                Result.success(Unit)
+            },
+            onFailure = { Result.success(Unit) }
+        )
+    }
+
+    /** ارسال همه عملیات pending به سرور */
+    suspend fun flushPendingJiraWorklogs(): Result<Int> = withContext(Dispatchers.IO) {
+        val service = jiraServiceOrNull()
+            ?: return@withContext Result.failure(Exception("جیرا پیکربندی نشده"))
+        val pending = jiraWorklogDao.getPending()
+        var ok = 0
+        for (row in pending) {
+            when (row.syncStatus) {
+                "pending_add" -> {
+                    val r = service.addWorklog(row.issueKey, row.durationMinutes, row.started, row.comment)
+                    if (r.isSuccess) {
+                        jiraWorklogDao.update(row.copy(remoteId = r.getOrNull()?.id, syncStatus = "synced"))
+                        ok++
+                    }
+                }
+                "pending_update" -> {
+                    val rid = row.remoteId ?: continue
+                    val r = service.updateWorklog(row.issueKey, rid, row.durationMinutes, row.comment)
+                    if (r.isSuccess) {
+                        jiraWorklogDao.update(row.copy(syncStatus = "synced"))
+                        ok++
+                    }
+                }
+                "pending_delete" -> {
+                    val rid = row.remoteId
+                    if (rid == null) {
+                        jiraWorklogDao.delete(row)
+                        ok++
+                    } else {
+                        val r = service.deleteWorklog(row.issueKey, rid)
+                        if (r.isSuccess) {
+                            jiraWorklogDao.delete(row)
+                            ok++
+                        }
+                    }
+                }
+            }
+        }
+        Result.success(ok)
+    }
+
+    suspend fun toggleJiraFavorite(issueKey: String, summary: String = "", projectKey: String = "", projectName: String = ""): Boolean =
+        withContext(Dispatchers.IO) {
+            val key = issueKey.trim().uppercase()
+            val exists = jiraFavoriteDao.exists(key) > 0
+            if (exists) {
+                jiraFavoriteDao.deleteByKey(key)
+                jiraIssueDao.setFavorite(key, false)
+                false
+            } else {
+                addJiraFavorite(key, summary, projectKey, projectName)
+                val issue = jiraIssueDao.getByKey(key)
+                if (issue != null) jiraIssueDao.setFavorite(key, true)
+                else {
+                    // ensure row exists
+                    jiraIssueDao.upsert(
+                        JiraIssueCacheEntity(
+                            issueKey = key,
+                            summary = summary.ifBlank { key },
+                            projectKey = projectKey,
+                            projectName = projectName,
+                            isFavorite = true,
+                            cachedAt = TimeUtils.nowDateTime()
+                        )
+                    )
+                }
+                true
+            }
+        }
+
+
     /** Same as [projectSummary]/[jiraSummary] but scoped to a date range, based on actual
      *  logged time in that range rather than lifetime task totals — used by Reports so the
      *  bottom charts respect the daily/weekly/monthly filter above them. */
@@ -491,8 +965,10 @@ class AppRepository(context: Context) {
             }
         }
 
-        val logMinutes = taskLogDao.getByRange(start, end)
-            .sumOf { it.duration }
+        // زمان تسک از Worklogهای جیرا (کش)؛ در صورت خالی بودن، fallback به لاگ محلی قدیمی
+        val jiraMins = jiraWorklogDao.sumMinutesInRange(start, end)
+        val localMins = taskLogDao.getByRange(start, end).sumOf { it.duration }
+        val logMinutes = if (jiraMins > 0) jiraMins else localMins
 
         return ReportData(
             worked,
@@ -506,9 +982,15 @@ class AppRepository(context: Context) {
 
     suspend fun dayBreakdown(start: String, end: String): List<DayBreakdown> {
         val days = attendanceDao.getByRange(start, end)
-        val logs = taskLogDao.getByRange(start, end)
+        val jiraLogs = jiraWorklogDao.getByRange(start, end)
+        val localLogs = taskLogDao.getByRange(start, end)
+        val issues = jiraIssueDao.getAllOnce().associateBy { it.issueKey.uppercase() }
         val tasks = taskDao.getAllOnce().associateBy { it.id }
-        val byDate = (days.map { it.date } + logs.map { it.date }).toSet().sorted()
+        val byDate = (
+            days.map { it.date } +
+            jiraLogs.map { it.date } +
+            localLogs.map { it.date }
+        ).toSet().sorted()
         return byDate.map { date ->
             val att = days.filter { it.date == date }
             var dayWork = 0
@@ -523,18 +1005,34 @@ class AppRepository(context: Context) {
                     dayWork += TimeUtils.minutesBetween(r.entryTime, TimeUtils.nowTime()).coerceAtLeast(0)
                 }
             }
-            val dayLogs = logs.filter { it.date == date }
-            val taskLines = dayLogs.map { log ->
-                val t = tasks[log.taskId]
-                TaskLogLine(
-                    logId = log.id,
-                    taskId = log.taskId,
-                    taskTitle = t?.taskTitle ?: "تسک #${log.taskId}",
-                    jira = t?.jiraNumber,
-                    project = t?.projectName,
-                    duration = log.duration,
-                    note = log.note
-                )
+            // اولویت با Worklogهای جیرا
+            val dayJira = jiraLogs.filter { it.date == date && it.syncStatus != "pending_delete" }
+            val taskLines = if (dayJira.isNotEmpty()) {
+                dayJira.map { wl ->
+                    val issue = issues[wl.issueKey.uppercase()]
+                    TaskLogLine(
+                        logId = wl.localId,
+                        taskId = 0L,
+                        taskTitle = issue?.summary ?: wl.issueKey,
+                        jira = wl.issueKey,
+                        project = issue?.projectName ?: issue?.projectKey,
+                        duration = wl.durationMinutes,
+                        note = wl.comment
+                    )
+                }
+            } else {
+                localLogs.filter { it.date == date }.map { log ->
+                    val t = tasks[log.taskId]
+                    TaskLogLine(
+                        logId = log.id,
+                        taskId = log.taskId,
+                        taskTitle = t?.taskTitle ?: "تسک #${log.taskId}",
+                        jira = t?.jiraNumber,
+                        project = t?.projectName,
+                        duration = log.duration,
+                        note = log.note
+                    )
+                }
             }
             DayBreakdown(
                 date = date,
@@ -546,7 +1044,63 @@ class AppRepository(context: Context) {
             )
         }
     }
+
+    /** Worklogهای یک روز برای تقویم */
+    suspend fun getJiraWorklogsForDate(date: String) =
+        jiraWorklogDao.getByDateOnce(date).filter { it.syncStatus != "pending_delete" }
+
+    suspend fun transitionJiraIssue(issueKey: String, transitionId: String): Result<Unit> =
+        withContext(Dispatchers.IO) {
+            val service = jiraServiceOrNull()
+                ?: return@withContext Result.failure(Exception("جیرا پیکربندی نشده"))
+            service.transitionIssue(issueKey, transitionId).onSuccess {
+                // refresh single issue into cache
+                service.getIssue(issueKey).onSuccess { issue ->
+                    val prev = jiraIssueDao.getByKey(issue.key.uppercase())
+                    jiraIssueDao.upsert(
+                        JiraIssueCacheEntity(
+                            issueKey = issue.key.uppercase(),
+                            summary = issue.summary,
+                            description = issue.description,
+                            projectKey = issue.projectKey,
+                            projectName = issue.projectName,
+                            statusName = issue.statusName,
+                            statusCategory = issue.statusCategory,
+                            priorityName = issue.priorityName,
+                            issueTypeName = issue.issueTypeName,
+                            assigneeName = issue.assigneeName,
+                            labels = issue.labels.joinToString(","),
+                            requiredMinutes = issue.requiredMinutes,
+                            remainingMinutes = issue.remainingMinutes,
+                            timeSpentMinutes = issue.timeSpentMinutes,
+                            isFavorite = prev?.isFavorite == true,
+                            isAssignedToMe = prev?.isAssignedToMe == true,
+                            cachedAt = TimeUtils.nowDateTime()
+                        )
+                    )
+                }
+            }
+        }
+
+    suspend fun fetchJiraTransitions(issueKey: String) = withContext(Dispatchers.IO) {
+        val service = jiraServiceOrNull()
+            ?: return@withContext Result.failure(Exception("جیرا پیکربندی نشده"))
+        service.fetchTransitions(issueKey)
+    }
+
+    suspend fun addJiraComment(issueKey: String, body: String) = withContext(Dispatchers.IO) {
+        val service = jiraServiceOrNull()
+            ?: return@withContext Result.failure(Exception("جیرا پیکربندی نشده"))
+        service.addComment(issueKey, body)
+    }
+
+    suspend fun getJiraComments(issueKey: String) = withContext(Dispatchers.IO) {
+        val service = jiraServiceOrNull()
+            ?: return@withContext Result.failure(Exception("جیرا پیکربندی نشده"))
+        service.getComments(issueKey)
+    }
 }
+
 
 data class TaskLogLine(
     val logId: Long,

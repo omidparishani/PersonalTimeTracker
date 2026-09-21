@@ -66,6 +66,19 @@ class SettingsFragment : Fragment() {
     private lateinit var locationInfo: TextView
     private lateinit var autoBackupSwitch: Switch
     private lateinit var autoBackupIntervalEdit: TextInputEditText
+    // Jira
+    private lateinit var jiraEnabledSwitch: Switch
+    private lateinit var jiraUrlEdit: TextInputEditText
+    private lateinit var jiraTokenEdit: TextInputEditText
+    private lateinit var jiraTestBtn: MaterialButton
+    private lateinit var jiraStatusTv: TextView
+    private lateinit var jiraStatusesBtn: MaterialButton
+    private lateinit var jiraStatusesSummary: TextView
+    private val selectedJiraStatuses = linkedSetOf<String>()
+    private val selectedJiraProjects = linkedSetOf<String>()
+    private lateinit var jiraProjectsBtn: MaterialButton
+    private lateinit var jiraProjectsSummary: TextView
+    private lateinit var backupDirEdit: TextInputEditText
     private val projects = mutableListOf<String>()
     private var themeColor = -10983104
 
@@ -402,6 +415,93 @@ class SettingsFragment : Fragment() {
             setTextColor(ThemeHelper.textSecondary(dark()))
             setPadding(4, 4, 4, 8)
         })
+
+        val (bakDirL, bakDirE) = til("مسیر پوشه پشتیبان خودکار (خالی = پیش‌فرض)"); backupDirEdit = bakDirE
+        backupDirEdit.hint = "/storage/emulated/0/PTT_Backups"
+        content.addView(bakDirL)
+        content.addView(TextView(ctx).apply {
+            text = "اگر خالی باشد از پوشه PTT_Backups داخل حافظه اختصاصی اپ استفاده می‌شود."
+            textSize = 11.5f
+            setTextColor(ThemeHelper.textSecondary(dark()))
+            setPadding(4, 4, 4, 8)
+        })
+
+        // ---------- Jira ----------
+        content.addView(ThemeHelper.sectionTitle(ctx, "اتصال به جیرا", dark(), primary()))
+        jiraEnabledSwitch = Switch(ctx).apply { text = "فعال‌سازی همگام‌سازی جیرا" }
+        content.addView(jiraEnabledSwitch)
+        val (jiraUrlL, jiraUrlE) = til("آدرس سرور جیرا"); jiraUrlEdit = jiraUrlE
+        jiraUrlEdit.hint = "https://jira.demisco.com"
+        content.addView(jiraUrlL)
+        val (jiraTokL, jiraTokE) = til("Personal Access Token"); jiraTokenEdit = jiraTokE
+        jiraTokenEdit.inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+        content.addView(jiraTokL)
+        jiraTestBtn = MaterialButton(ctx).apply { text = "تست اتصال" }
+        ThemeHelper.applyButton(jiraTestBtn, primary(), false)
+        jiraTestBtn.setOnClickListener { testJiraConnection() }
+        content.addView(jiraTestBtn)
+        jiraStatusTv = TextView(ctx).apply {
+            textSize = 12.5f
+            setTextColor(ThemeHelper.textSecondary(dark()))
+            setPadding(4, 8, 4, 8)
+        }
+        content.addView(jiraStatusTv)
+        content.addView(TextView(ctx).apply {
+            text = "با فعال‌کردن، تسک‌ها از جیرای شرکت همگام می‌شوند و لاگ‌ها به‌صورت Worklog ارسال می‌گردند."
+            textSize = 11.5f
+            setTextColor(ThemeHelper.textSecondary(dark()))
+            setPadding(4, 4, 4, 8)
+        })
+        content.addView(ThemeHelper.sectionTitle(ctx, "وضعیت‌های فیلتر تسک‌ها", dark(), primary()))
+        content.addView(TextView(ctx).apply {
+            text = "فقط وضعیت‌هایی که اینجا انتخاب کنید در فیلتر صفحه تسک‌ها در دسترسند. خالی = همه وضعیت‌ها."
+            textSize = 11.5f
+            setTextColor(ThemeHelper.textSecondary(dark()))
+            setPadding(4, 0, 4, 6)
+        })
+        jiraStatusesBtn = MaterialButton(ctx).apply { text = "انتخاب وضعیت‌ها از جیرا" }
+        ThemeHelper.applyButton(jiraStatusesBtn, primary(), false)
+        jiraStatusesBtn.setOnClickListener { openJiraStatusPicker() }
+        content.addView(jiraStatusesBtn)
+        jiraStatusesSummary = TextView(ctx).apply {
+            textSize = 12.5f
+            setTextColor(ThemeHelper.textSecondary(dark()))
+            setPadding(4, 8, 4, 12)
+            text = "هنوز انتخاب نشده (همه وضعیت‌ها)"
+        }
+        content.addView(jiraStatusesSummary)
+        val jiraProjRefreshBtn = MaterialButton(ctx).apply { text = "↻ بروزرسانی لیست پروژه‌ها از جیرا" }
+        ThemeHelper.applyButton(jiraProjRefreshBtn, primary(), true)
+        jiraProjRefreshBtn.setOnClickListener {
+            lifecycleScope.launch {
+                jiraProjRefreshBtn.isEnabled = false
+                jiraProjRefreshBtn.text = "..."
+                val repo = (requireActivity().application as App).repository
+                repo.refreshJiraProjectsCatalog().fold(
+                    onSuccess = { n ->
+                        Toast.makeText(requireContext(), "$n پروژه دریافت شد", Toast.LENGTH_SHORT).show()
+                        jiraProjectsSummary.text = "کاتالوگ: $n پروژه — از «انتخاب پروژه‌های فیلتر» زیرمجموعه را مشخص کنید"
+                    },
+                    onFailure = { e ->
+                        Toast.makeText(requireContext(), e.message, Toast.LENGTH_LONG).show()
+                    }
+                )
+                jiraProjRefreshBtn.isEnabled = true
+                jiraProjRefreshBtn.text = "↻ بروزرسانی لیست پروژه‌ها از جیرا"
+            }
+        }
+        content.addView(jiraProjRefreshBtn)
+        jiraProjectsBtn = MaterialButton(ctx).apply { text = "انتخاب پروژه‌های فیلتر" }
+        ThemeHelper.applyButton(jiraProjectsBtn, primary(), false)
+        jiraProjectsBtn.setOnClickListener { openJiraProjectPicker() }
+        content.addView(jiraProjectsBtn)
+        jiraProjectsSummary = TextView(ctx).apply {
+            textSize = 12.5f
+            setTextColor(ThemeHelper.textSecondary(dark()))
+            setPadding(4, 8, 4, 12)
+            text = "همه پروژه‌ها"
+        }
+        content.addView(jiraProjectsSummary)
         content.addView(MaterialButton(ctx, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
             text = "اعمال زمانبندی پشتیبان‌گیری"
             ThemeHelper.applyButton(this, primary(), false)
@@ -690,6 +790,28 @@ class SettingsFragment : Fragment() {
             else "محل کار تنظیم نشده"
             autoBackupSwitch.isChecked = settings.autoBackupEnabled
             autoBackupIntervalEdit.setText(settings.autoBackupIntervalHours.toString())
+            jiraEnabledSwitch.isChecked = settings.jiraEnabled
+            jiraUrlEdit.setText(settings.jiraBaseUrl)
+            jiraTokenEdit.setText(settings.jiraToken)
+            jiraStatusTv.text = if (settings.jiraEnabled && settings.jiraToken.isNotBlank())
+                "جیرا پیکربندی شده است"
+            else
+                "جیرا هنوز پیکربندی نشده"
+            selectedJiraStatuses.clear()
+            settings.jiraFilterStatuses.split(",")
+                .map { it.trim() }
+                .filter { it.isNotEmpty() }
+                .forEach { selectedJiraStatuses.add(it) }
+            updateJiraStatusesSummary()
+            selectedJiraProjects.clear()
+            settings.jiraFilterProjects.split(",")
+                .map { it.trim() }
+                .filter { it.isNotEmpty() }
+                .forEach { selectedJiraProjects.add(it) }
+            updateJiraProjectsSummary()
+            if (::backupDirEdit.isInitialized) {
+                backupDirEdit.setText(settings.autoBackupDir)
+            }
         }
     }
 
@@ -721,8 +843,139 @@ class SettingsFragment : Fragment() {
             geoAlertOnly = geoAlertSwitch.isChecked,
             workRadiusMeters = (radiusEdit.text?.toString()?.toFloatOrNull() ?: settings.workRadiusMeters).coerceAtLeast(20f),
             autoBackupEnabled = autoBackupSwitch.isChecked,
-            autoBackupIntervalHours = (autoBackupIntervalEdit.text?.toString()?.toIntOrNull() ?: 24).coerceAtLeast(1)
+            autoBackupIntervalHours = (autoBackupIntervalEdit.text?.toString()?.toIntOrNull() ?: 24).coerceAtLeast(1),
+            jiraEnabled = jiraEnabledSwitch.isChecked,
+            jiraBaseUrl = jiraUrlEdit.text?.toString()?.trim()?.trimEnd('/') ?: "",
+            jiraToken = jiraTokenEdit.text?.toString()?.trim() ?: "",
+            jiraFilterStatuses = selectedJiraStatuses.joinToString(","),
+            jiraFilterProjects = selectedJiraProjects.joinToString(","),
+            autoBackupDir = if (::backupDirEdit.isInitialized)
+                backupDirEdit.text?.toString()?.trim().orEmpty() else settings.autoBackupDir
         )
+    }
+
+
+
+    private fun updateJiraProjectsSummary() {
+        if (!::jiraProjectsSummary.isInitialized) return
+        jiraProjectsSummary.text = when {
+            selectedJiraProjects.isEmpty() -> "همه پروژه‌ها"
+            else -> "${selectedJiraProjects.size} پروژه: " + selectedJiraProjects.take(6).joinToString("، ") +
+                if (selectedJiraProjects.size > 6) "…" else ""
+        }
+    }
+
+    private fun openJiraProjectPicker() {
+        val ctx = requireContext()
+        lifecycleScope.launch {
+            val repo = (requireActivity().application as App).repository
+            val options = repo.getJiraProjectCatalog().toMutableList()
+            if (options.isEmpty()) {
+                options.addAll(repo.getDistinctJiraProjects())
+            }
+            selectedJiraProjects.forEach { if (it !in options) options.add(it) }
+            options.sort()
+            if (options.isEmpty()) {
+                val input = android.widget.EditText(ctx).apply { hint = "کلید پروژه مثلاً PROJ" }
+                androidx.appcompat.app.AlertDialog.Builder(ctx)
+                    .setTitle("کلید پروژه")
+                    .setMessage("پروژه‌ای در کش نیست. کلید را وارد کنید یا از تسک‌ها همگام‌سازی کنید.")
+                    .setView(input)
+                    .setPositiveButton("افزودن") { _, _ ->
+                        val k = input.text?.toString()?.trim().orEmpty()
+                        if (k.isNotBlank()) {
+                            selectedJiraProjects.add(k.uppercase())
+                            updateJiraProjectsSummary()
+                        }
+                    }
+                    .setNegativeButton("انصراف", null)
+                    .show()
+                return@launch
+            }
+            val checked = BooleanArray(options.size) { options[it] in selectedJiraProjects }
+            androidx.appcompat.app.AlertDialog.Builder(ctx)
+                .setTitle("پروژه‌های فیلتر")
+                .setMultiChoiceItems(options.toTypedArray(), checked) { _, which, isChecked ->
+                    if (isChecked) selectedJiraProjects.add(options[which])
+                    else selectedJiraProjects.remove(options[which])
+                }
+                .setPositiveButton("تأیید") { _, _ -> updateJiraProjectsSummary() }
+                .setNeutralButton("پاک کردن") { _, _ ->
+                    selectedJiraProjects.clear()
+                    updateJiraProjectsSummary()
+                }
+                .setNegativeButton("انصراف", null)
+                .show()
+        }
+    }
+
+    private fun updateJiraStatusesSummary() {
+        if (!::jiraStatusesSummary.isInitialized) return
+        jiraStatusesSummary.text = when {
+            selectedJiraStatuses.isEmpty() -> "همه وضعیت‌ها (فیلتری محدود نشده)"
+            else -> "${selectedJiraStatuses.size} وضعیت: " + selectedJiraStatuses.take(6).joinToString("، ") +
+                if (selectedJiraStatuses.size > 6) "…" else ""
+        }
+    }
+
+    private fun openJiraStatusPicker() {
+        val ctx = requireContext()
+        lifecycleScope.launch {
+            val repo = (requireActivity().application as App).repository
+            if (repo.getJiraStatuses().isEmpty()) {
+                jiraStatusesSummary.text = "در حال دریافت وضعیت‌ها از جیرا…"
+                repo.refreshJiraStatuses()
+            }
+            val all = repo.getJiraStatuses()
+            if (all.isEmpty()) {
+                Toast.makeText(ctx, "وضعیتی دریافت نشد — اتصال جیرا را بررسی کنید", Toast.LENGTH_LONG).show()
+                return@launch
+            }
+            val names = all.map { it.name }.distinct().sorted()
+            val checked = BooleanArray(names.size) { names[it] in selectedJiraStatuses }
+            androidx.appcompat.app.AlertDialog.Builder(ctx)
+                .setTitle("وضعیت‌های فیلتر")
+                .setMultiChoiceItems(names.toTypedArray(), checked) { _, which, isChecked ->
+                    if (isChecked) selectedJiraStatuses.add(names[which])
+                    else selectedJiraStatuses.remove(names[which])
+                }
+                .setPositiveButton("تأیید") { _, _ -> updateJiraStatusesSummary() }
+                .setNeutralButton("پاک کردن") { _, _ ->
+                    selectedJiraStatuses.clear()
+                    updateJiraStatusesSummary()
+                }
+                .setNegativeButton("انصراف", null)
+                .show()
+        }
+    }
+
+    private fun testJiraConnection() {
+        val url = jiraUrlEdit.text?.toString()?.trim().orEmpty()
+        val token = jiraTokenEdit.text?.toString()?.trim().orEmpty()
+        if (url.isBlank() || token.isBlank()) {
+            Toast.makeText(requireContext(), "آدرس و توکن را وارد کنید", Toast.LENGTH_SHORT).show()
+            return
+        }
+        jiraTestBtn.isEnabled = false
+        jiraStatusTv.text = "در حال بررسی..."
+        lifecycleScope.launch {
+            try {
+                val service = com.personal.timetracker.jira.JiraService(url, token)
+                val result = service.testConnection()
+                result.fold(
+                    onSuccess = { user ->
+                        jiraStatusTv.text = "✓ متصل به عنوان: ${user.displayName ?: user.name ?: "کاربر"}"
+                        Toast.makeText(requireContext(), "اتصال موفق", Toast.LENGTH_SHORT).show()
+                    },
+                    onFailure = { e ->
+                        jiraStatusTv.text = "✗ خطا: ${e.message}"
+                        Toast.makeText(requireContext(), "اتصال ناموفق", Toast.LENGTH_SHORT).show()
+                    }
+                )
+            } finally {
+                jiraTestBtn.isEnabled = true
+            }
+        }
     }
 
     private fun save() {

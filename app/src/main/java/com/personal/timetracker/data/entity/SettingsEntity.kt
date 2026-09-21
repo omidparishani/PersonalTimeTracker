@@ -33,5 +33,17 @@ data class SettingsEntity(
     val thursdayMinutes: Int = 300, // used only when thursdayWorking = true
     // auto backup
     val autoBackupEnabled: Boolean = false,
-    val autoBackupIntervalHours: Int = 24 // 0 = disabled
+    val autoBackupIntervalHours: Int = 24, // 0 = disabled
+    // Jira integration
+    val jiraEnabled: Boolean = false,
+    val jiraBaseUrl: String = "https://jira.demisco.com",
+    val jiraToken: String = "",
+    /** نام وضعیت‌های انتخاب‌شده برای فیلتر (با کاما). خالی = همه */
+    val jiraFilterStatuses: String = "",
+    /** کلید/نام پروژه‌های انتخاب‌شده برای فیلتر (با کاما). خالی = همه */
+    val jiraFilterProjects: String = "",
+    /** کاتالوگ پروژه‌های سازمان (کلیدها با کاما) — از تنظیمات بروزرسانی می‌شود */
+    val jiraProjectCatalog: String = "",
+    /** مسیر پوشه پشتیبان خودکار؛ خالی = پیش‌فرض PTT_Backups در حافظه اپ */
+    val autoBackupDir: String = ""
 )

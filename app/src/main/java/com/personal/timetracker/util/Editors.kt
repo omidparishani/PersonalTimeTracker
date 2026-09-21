@@ -184,8 +184,19 @@ object TaskLogEditor {
                     false
                 } else {
                     scope.launch {
-                        repo.addLog(task, date, dur, note = note.text?.toString())
-                        Toast.makeText(ctx, "لاگ ثبت شد", Toast.LENGTH_SHORT).show()
+                        val noteText = note.text?.toString()
+                        repo.addLog(task, date, dur, note = noteText)
+                        // Push to Jira if configured + task has jira key
+                        val push = repo.pushWorklogToJira(task, dur, date, noteText)
+                        when {
+                            push == null -> Toast.makeText(ctx, "لاگ ثبت شد", Toast.LENGTH_SHORT).show()
+                            push.isSuccess -> Toast.makeText(ctx, "لاگ ثبت و به جیرا ارسال شد", Toast.LENGTH_SHORT).show()
+                            else -> Toast.makeText(
+                                ctx,
+                                "لاگ محلی ثبت شد؛ خطای جیرا: ${push.exceptionOrNull()?.message}",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
                         onDone()
                     }
                     true

@@ -9,6 +9,7 @@ import android.view.ViewGroup
 import android.widget.GridLayout
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.Toast
 import androidx.core.view.setPadding
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
@@ -18,7 +19,6 @@ import com.personal.timetracker.App
 import com.personal.timetracker.ui.MainActivity
 import com.personal.timetracker.util.AttendanceEditor
 import com.personal.timetracker.util.DialogHelper
-import com.personal.timetracker.util.TaskLogEditor
 import com.personal.timetracker.util.ThemeHelper
 import com.personal.timetracker.util.TimeUtils
 import kotlinx.coroutines.launch
@@ -284,7 +284,7 @@ class CalendarFragment : Fragment() {
         })
         lifecycleScope.launch {
             val att = repo.getByDateOnce(d)
-            val logs = repo.getLogsByDate(d)
+            val logs = repo.getJiraWorklogsForDate(d)
             val tasks = repo.getTasksByDateOnce(d)
 
             // Summary card
@@ -303,7 +303,7 @@ class CalendarFragment : Fragment() {
                 append("کار: "); append(TimeUtils.formatDuration(worked))
                 append("   ·   مرخصی: "); append(TimeUtils.formatDuration(leave))
                 append("   ·   اضافه‌کار: "); append(TimeUtils.formatDuration(ot))
-                append("   ·   لاگ تسک: "); append(TimeUtils.formatDuration(logs.sumOf { it.duration }))
+                append("   ·   لاگ تسک: "); append(TimeUtils.formatDuration(logs.sumOf { it.durationMinutes }))
             }))
 
             // Attendance card with inline edit/delete
@@ -371,19 +371,36 @@ class CalendarFragment : Fragment() {
                 })
             } else {
                 logs.forEach { log ->
-                    val t = tasks.find { it.id == log.taskId }
                     val label = buildString {
-                        append(t?.taskTitle ?: "تسک #${log.taskId}")
-                        if (!t?.jiraNumber.isNullOrBlank()) { append(" ["); append(t?.jiraNumber); append("]") }
-                        append("  ·  "); append(TimeUtils.formatDuration(log.duration))
+                        append(log.issueKey)
+                        if (!log.comment.isNullOrBlank()) {
+                            append(" — ")
+                            append(log.comment.take(40))
+                        }
+                        append("  ·  ")
+                        append(TimeUtils.formatDuration(log.durationMinutes))
+                        when (log.syncStatus) {
+                            "pending_add", "pending_update", "pending_delete" -> append(" ⏳")
+                        }
                     }
                     logBox.addView(rowWithActions(
                         ctx, label, primary, dark,
                         onEdit = {
-                            if (t != null) TaskLogEditor.openEdit(ctx, t, log, repo, lifecycleScope, primary, dark) { loadDay() }
+                            Toast.makeText(ctx, "ویرایش Worklog از صفحه تسک‌ها → جزئیات Issue", Toast.LENGTH_SHORT).show()
                         },
                         onDelete = {
-                            if (t != null) TaskLogEditor.confirmDelete(ctx, t, log, repo, lifecycleScope, primary, dark) { loadDay() }
+                            DialogHelper.confirm(
+                                ctx = ctx,
+                                title = "حذف Worklog",
+                                message = "${log.issueKey} — ${TimeUtils.formatDuration(log.durationMinutes)}",
+                                primary = primary,
+                                dark = dark
+                            ) {
+                                lifecycleScope.launch {
+                                    repo.deleteJiraTaskLog(log.localId)
+                                    loadDay()
+                                }
+                            }
                         }
                     ))
                 }

@@ -42,7 +42,7 @@ public final class SettingsDao_Impl implements SettingsDao {
       @Override
       @NonNull
       protected String createQuery() {
-        return "INSERT OR REPLACE INTO `settings` (`id`,`startWorkTime`,`endWorkTime`,`flexibleMinutes`,`minimumWorkMinutes`,`isDarkMode`,`themeColor`,`projects`,`notifEnabled`,`notifMinutesBefore`,`notifTitle`,`notifBody`,`biometricEnabled`,`workLat`,`workLng`,`workRadiusMeters`,`geoAutoCheckIn`,`geoAlertOnly`,`geoAutoCheckOut`,`weeklyRequiredMinutes`,`thursdayWorking`,`thursdayMinutes`,`autoBackupEnabled`,`autoBackupIntervalHours`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+        return "INSERT OR REPLACE INTO `settings` (`id`,`startWorkTime`,`endWorkTime`,`flexibleMinutes`,`minimumWorkMinutes`,`isDarkMode`,`themeColor`,`projects`,`notifEnabled`,`notifMinutesBefore`,`notifTitle`,`notifBody`,`biometricEnabled`,`workLat`,`workLng`,`workRadiusMeters`,`geoAutoCheckIn`,`geoAlertOnly`,`geoAutoCheckOut`,`weeklyRequiredMinutes`,`thursdayWorking`,`thursdayMinutes`,`autoBackupEnabled`,`autoBackupIntervalHours`,`jiraEnabled`,`jiraBaseUrl`,`jiraToken`,`jiraFilterStatuses`,`jiraFilterProjects`,`jiraProjectCatalog`,`autoBackupDir`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
       }
 
       @Override
@@ -80,6 +80,14 @@ public final class SettingsDao_Impl implements SettingsDao {
         final int _tmp_7 = entity.getAutoBackupEnabled() ? 1 : 0;
         statement.bindLong(23, _tmp_7);
         statement.bindLong(24, entity.getAutoBackupIntervalHours());
+        final int _tmp_8 = entity.getJiraEnabled() ? 1 : 0;
+        statement.bindLong(25, _tmp_8);
+        statement.bindString(26, entity.getJiraBaseUrl());
+        statement.bindString(27, entity.getJiraToken());
+        statement.bindString(28, entity.getJiraFilterStatuses());
+        statement.bindString(29, entity.getJiraFilterProjects());
+        statement.bindString(30, entity.getJiraProjectCatalog());
+        statement.bindString(31, entity.getAutoBackupDir());
       }
     };
     this.__preparedStmtOfDeleteAll = new SharedSQLiteStatement(__db) {
@@ -168,6 +176,13 @@ public final class SettingsDao_Impl implements SettingsDao {
           final int _cursorIndexOfThursdayMinutes = CursorUtil.getColumnIndexOrThrow(_cursor, "thursdayMinutes");
           final int _cursorIndexOfAutoBackupEnabled = CursorUtil.getColumnIndexOrThrow(_cursor, "autoBackupEnabled");
           final int _cursorIndexOfAutoBackupIntervalHours = CursorUtil.getColumnIndexOrThrow(_cursor, "autoBackupIntervalHours");
+          final int _cursorIndexOfJiraEnabled = CursorUtil.getColumnIndexOrThrow(_cursor, "jiraEnabled");
+          final int _cursorIndexOfJiraBaseUrl = CursorUtil.getColumnIndexOrThrow(_cursor, "jiraBaseUrl");
+          final int _cursorIndexOfJiraToken = CursorUtil.getColumnIndexOrThrow(_cursor, "jiraToken");
+          final int _cursorIndexOfJiraFilterStatuses = CursorUtil.getColumnIndexOrThrow(_cursor, "jiraFilterStatuses");
+          final int _cursorIndexOfJiraFilterProjects = CursorUtil.getColumnIndexOrThrow(_cursor, "jiraFilterProjects");
+          final int _cursorIndexOfJiraProjectCatalog = CursorUtil.getColumnIndexOrThrow(_cursor, "jiraProjectCatalog");
+          final int _cursorIndexOfAutoBackupDir = CursorUtil.getColumnIndexOrThrow(_cursor, "autoBackupDir");
           final SettingsEntity _result;
           if (_cursor.moveToFirst()) {
             final int _tmpId;
@@ -234,7 +249,23 @@ public final class SettingsDao_Impl implements SettingsDao {
             _tmpAutoBackupEnabled = _tmp_7 != 0;
             final int _tmpAutoBackupIntervalHours;
             _tmpAutoBackupIntervalHours = _cursor.getInt(_cursorIndexOfAutoBackupIntervalHours);
-            _result = new SettingsEntity(_tmpId,_tmpStartWorkTime,_tmpEndWorkTime,_tmpFlexibleMinutes,_tmpMinimumWorkMinutes,_tmpIsDarkMode,_tmpThemeColor,_tmpProjects,_tmpNotifEnabled,_tmpNotifMinutesBefore,_tmpNotifTitle,_tmpNotifBody,_tmpBiometricEnabled,_tmpWorkLat,_tmpWorkLng,_tmpWorkRadiusMeters,_tmpGeoAutoCheckIn,_tmpGeoAlertOnly,_tmpGeoAutoCheckOut,_tmpWeeklyRequiredMinutes,_tmpThursdayWorking,_tmpThursdayMinutes,_tmpAutoBackupEnabled,_tmpAutoBackupIntervalHours);
+            final boolean _tmpJiraEnabled;
+            final int _tmp_8;
+            _tmp_8 = _cursor.getInt(_cursorIndexOfJiraEnabled);
+            _tmpJiraEnabled = _tmp_8 != 0;
+            final String _tmpJiraBaseUrl;
+            _tmpJiraBaseUrl = _cursor.getString(_cursorIndexOfJiraBaseUrl);
+            final String _tmpJiraToken;
+            _tmpJiraToken = _cursor.getString(_cursorIndexOfJiraToken);
+            final String _tmpJiraFilterStatuses;
+            _tmpJiraFilterStatuses = _cursor.getString(_cursorIndexOfJiraFilterStatuses);
+            final String _tmpJiraFilterProjects;
+            _tmpJiraFilterProjects = _cursor.getString(_cursorIndexOfJiraFilterProjects);
+            final String _tmpJiraProjectCatalog;
+            _tmpJiraProjectCatalog = _cursor.getString(_cursorIndexOfJiraProjectCatalog);
+            final String _tmpAutoBackupDir;
+            _tmpAutoBackupDir = _cursor.getString(_cursorIndexOfAutoBackupDir);
+            _result = new SettingsEntity(_tmpId,_tmpStartWorkTime,_tmpEndWorkTime,_tmpFlexibleMinutes,_tmpMinimumWorkMinutes,_tmpIsDarkMode,_tmpThemeColor,_tmpProjects,_tmpNotifEnabled,_tmpNotifMinutesBefore,_tmpNotifTitle,_tmpNotifBody,_tmpBiometricEnabled,_tmpWorkLat,_tmpWorkLng,_tmpWorkRadiusMeters,_tmpGeoAutoCheckIn,_tmpGeoAlertOnly,_tmpGeoAutoCheckOut,_tmpWeeklyRequiredMinutes,_tmpThursdayWorking,_tmpThursdayMinutes,_tmpAutoBackupEnabled,_tmpAutoBackupIntervalHours,_tmpJiraEnabled,_tmpJiraBaseUrl,_tmpJiraToken,_tmpJiraFilterStatuses,_tmpJiraFilterProjects,_tmpJiraProjectCatalog,_tmpAutoBackupDir);
           } else {
             _result = null;
           }
@@ -286,6 +317,13 @@ public final class SettingsDao_Impl implements SettingsDao {
           final int _cursorIndexOfThursdayMinutes = CursorUtil.getColumnIndexOrThrow(_cursor, "thursdayMinutes");
           final int _cursorIndexOfAutoBackupEnabled = CursorUtil.getColumnIndexOrThrow(_cursor, "autoBackupEnabled");
           final int _cursorIndexOfAutoBackupIntervalHours = CursorUtil.getColumnIndexOrThrow(_cursor, "autoBackupIntervalHours");
+          final int _cursorIndexOfJiraEnabled = CursorUtil.getColumnIndexOrThrow(_cursor, "jiraEnabled");
+          final int _cursorIndexOfJiraBaseUrl = CursorUtil.getColumnIndexOrThrow(_cursor, "jiraBaseUrl");
+          final int _cursorIndexOfJiraToken = CursorUtil.getColumnIndexOrThrow(_cursor, "jiraToken");
+          final int _cursorIndexOfJiraFilterStatuses = CursorUtil.getColumnIndexOrThrow(_cursor, "jiraFilterStatuses");
+          final int _cursorIndexOfJiraFilterProjects = CursorUtil.getColumnIndexOrThrow(_cursor, "jiraFilterProjects");
+          final int _cursorIndexOfJiraProjectCatalog = CursorUtil.getColumnIndexOrThrow(_cursor, "jiraProjectCatalog");
+          final int _cursorIndexOfAutoBackupDir = CursorUtil.getColumnIndexOrThrow(_cursor, "autoBackupDir");
           final SettingsEntity _result;
           if (_cursor.moveToFirst()) {
             final int _tmpId;
@@ -352,7 +390,23 @@ public final class SettingsDao_Impl implements SettingsDao {
             _tmpAutoBackupEnabled = _tmp_7 != 0;
             final int _tmpAutoBackupIntervalHours;
             _tmpAutoBackupIntervalHours = _cursor.getInt(_cursorIndexOfAutoBackupIntervalHours);
-            _result = new SettingsEntity(_tmpId,_tmpStartWorkTime,_tmpEndWorkTime,_tmpFlexibleMinutes,_tmpMinimumWorkMinutes,_tmpIsDarkMode,_tmpThemeColor,_tmpProjects,_tmpNotifEnabled,_tmpNotifMinutesBefore,_tmpNotifTitle,_tmpNotifBody,_tmpBiometricEnabled,_tmpWorkLat,_tmpWorkLng,_tmpWorkRadiusMeters,_tmpGeoAutoCheckIn,_tmpGeoAlertOnly,_tmpGeoAutoCheckOut,_tmpWeeklyRequiredMinutes,_tmpThursdayWorking,_tmpThursdayMinutes,_tmpAutoBackupEnabled,_tmpAutoBackupIntervalHours);
+            final boolean _tmpJiraEnabled;
+            final int _tmp_8;
+            _tmp_8 = _cursor.getInt(_cursorIndexOfJiraEnabled);
+            _tmpJiraEnabled = _tmp_8 != 0;
+            final String _tmpJiraBaseUrl;
+            _tmpJiraBaseUrl = _cursor.getString(_cursorIndexOfJiraBaseUrl);
+            final String _tmpJiraToken;
+            _tmpJiraToken = _cursor.getString(_cursorIndexOfJiraToken);
+            final String _tmpJiraFilterStatuses;
+            _tmpJiraFilterStatuses = _cursor.getString(_cursorIndexOfJiraFilterStatuses);
+            final String _tmpJiraFilterProjects;
+            _tmpJiraFilterProjects = _cursor.getString(_cursorIndexOfJiraFilterProjects);
+            final String _tmpJiraProjectCatalog;
+            _tmpJiraProjectCatalog = _cursor.getString(_cursorIndexOfJiraProjectCatalog);
+            final String _tmpAutoBackupDir;
+            _tmpAutoBackupDir = _cursor.getString(_cursorIndexOfAutoBackupDir);
+            _result = new SettingsEntity(_tmpId,_tmpStartWorkTime,_tmpEndWorkTime,_tmpFlexibleMinutes,_tmpMinimumWorkMinutes,_tmpIsDarkMode,_tmpThemeColor,_tmpProjects,_tmpNotifEnabled,_tmpNotifMinutesBefore,_tmpNotifTitle,_tmpNotifBody,_tmpBiometricEnabled,_tmpWorkLat,_tmpWorkLng,_tmpWorkRadiusMeters,_tmpGeoAutoCheckIn,_tmpGeoAlertOnly,_tmpGeoAutoCheckOut,_tmpWeeklyRequiredMinutes,_tmpThursdayWorking,_tmpThursdayMinutes,_tmpAutoBackupEnabled,_tmpAutoBackupIntervalHours,_tmpJiraEnabled,_tmpJiraBaseUrl,_tmpJiraToken,_tmpJiraFilterStatuses,_tmpJiraFilterProjects,_tmpJiraProjectCatalog,_tmpAutoBackupDir);
           } else {
             _result = null;
           }
