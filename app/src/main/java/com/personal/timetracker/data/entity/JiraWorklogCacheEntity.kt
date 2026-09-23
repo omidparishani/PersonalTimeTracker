@@ -6,11 +6,16 @@ import androidx.room.PrimaryKey
 
 /**
  * کش Worklogهای جیرا (= لاگ تسک).
- * id محلی برای رکوردهای هنوز-سینک‌نشده منفی/موقت است؛ بعد از سینک با id سرور جایگزین می‌شود.
+ * remoteId یکتاست وقتی از سرور آمده؛ رکوردهای pending ممکن است remoteId=null داشته باشند.
  */
 @Entity(
     tableName = "jira_worklogs",
-    indices = [Index("issueKey"), Index("date"), Index("syncStatus")]
+    indices = [
+        Index("issueKey"),
+        Index("date"),
+        Index("syncStatus"),
+        Index(value = ["remoteId"], unique = true)
+    ]
 )
 data class JiraWorklogCacheEntity(
     @PrimaryKey(autoGenerate = true) val localId: Long = 0,

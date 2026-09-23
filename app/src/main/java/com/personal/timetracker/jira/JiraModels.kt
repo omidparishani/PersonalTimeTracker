@@ -70,7 +70,9 @@ data class JiraPriority(
 
 data class JiraIssueType(
     val name: String? = null,
-    val id: String? = null
+    val id: String? = null,
+    val subtask: Boolean? = null,
+    val description: String? = null
 )
 
 data class JiraProject(
@@ -145,6 +147,10 @@ data class JiraCreateIssueRequest(
     val fields: JiraCreateFields
 )
 
+data class JiraCreateIssueRequestRaw(
+    val fields: Map<String, Any?>
+)
+
 data class JiraCreateFields(
     val project: JiraProjectKey,
     val summary: String,
@@ -214,3 +220,138 @@ data class JiraProjectDto(
     val name: String? = null,
     val projectTypeKey: String? = null
 )
+
+
+// ---------- Create / Edit Meta ----------
+
+data class JiraCreateMetaResponse(
+    val projects: List<JiraCreateMetaProject> = emptyList()
+)
+
+data class JiraCreateMetaProject(
+    val id: String? = null,
+    val key: String? = null,
+    val name: String? = null,
+    val issuetypes: List<JiraCreateMetaIssueType> = emptyList()
+)
+
+data class JiraCreateMetaIssueType(
+    val id: String? = null,
+    val name: String? = null,
+    val description: String? = null,
+    val subtask: Boolean? = null,
+    val fields: Map<String, JiraMetaField>? = null
+)
+
+data class JiraMetaField(
+    val required: Boolean = false,
+    val name: String? = null,
+    val hasDefaultValue: Boolean = false,
+    val schema: JiraFieldSchema? = null,
+    val allowedValues: List<JiraAllowedValue>? = null,
+    val operations: List<String>? = null
+)
+
+data class JiraFieldSchema(
+    val type: String? = null,
+    val system: String? = null,
+    val items: String? = null,
+    val custom: String? = null,
+    val customId: Int? = null
+)
+
+data class JiraAllowedValue(
+    val id: String? = null,
+    val name: String? = null,
+    val value: String? = null,
+    val key: String? = null
+)
+
+data class JiraEditMetaResponse(
+    val fields: Map<String, JiraMetaField> = emptyMap()
+)
+
+
+data class JiraProjectDetailDto(
+    val id: String? = null,
+    val key: String? = null,
+    val name: String? = null,
+    val issueTypes: List<JiraIssueType>? = null
+)
+
+data class JiraCreateMetaIssueTypesPage(
+    val maxResults: Int = 0,
+    val startAt: Int = 0,
+    val total: Int = 0,
+    val values: List<JiraCreateMetaIssueType> = emptyList()
+)
+
+data class JiraCreateMetaFieldsPage(
+    val maxResults: Int = 0,
+    val startAt: Int = 0,
+    val total: Int = 0,
+    /** بعضی نسخه‌ها آرایه fields می‌دهند */
+    val fields: List<JiraMetaFieldWithId>? = null,
+    /** بعضی نسخه‌ها map می‌دهند */
+    val values: List<JiraMetaFieldWithId>? = null
+)
+
+data class JiraMetaFieldWithId(
+    val fieldId: String? = null,
+    val required: Boolean = false,
+    val name: String? = null,
+    val hasDefaultValue: Boolean = false,
+    val schema: JiraFieldSchema? = null,
+    val allowedValues: List<JiraAllowedValue>? = null,
+    val operations: List<String>? = null
+)
+
+
+data class JiraIssuePickerResult(
+    val sections: List<JiraIssuePickerSection> = emptyList()
+)
+
+data class JiraIssuePickerSection(
+    val label: String? = null,
+    val sub: String? = null,
+    val id: String? = null,
+    val issues: List<JiraIssuePickerItem> = emptyList()
+)
+
+data class JiraIssuePickerItem(
+    val key: String? = null,
+    val keyHtml: String? = null,
+    val img: String? = null,
+    val summary: String? = null,
+    val summaryText: String? = null
+)
+
+
+/** گزینه ScriptRunner generic-picker */
+data class ScriptRunnerPickerItem(
+    val id: String,
+    val label: String,
+    val value: String = id
+)
+
+/**
+ * شناسه پیکربندی فیلدهای ScriptRunner DB Picker شرکت (از فرم ایجاد Issue).
+ * fcsId = field configuration script id در ScriptRunner
+ */
+data class ScriptRunnerFieldMeta(
+    val customFieldId: String,
+    val fcsId: String,
+    val multiple: Boolean,
+    val labelHint: String = ""
+)
+
+object DemiscoScriptRunnerFields {
+    /** نگاشت فیلدهای شناخته‌شده شرکت — در صورت نبودن در createmeta */
+    val known: List<ScriptRunnerFieldMeta> = listOf(
+        ScriptRunnerFieldMeta("customfield_12900", "15901", multiple = false, labelHint = "ActivityType"),
+        ScriptRunnerFieldMeta("customfield_13600", "16900", multiple = true, labelHint = "DemisCustomer"),
+        ScriptRunnerFieldMeta("customfield_13601", "16901", multiple = false, labelHint = "BudgetType")
+    )
+    fun byFieldId(id: String): ScriptRunnerFieldMeta? =
+        known.firstOrNull { it.customFieldId.equals(id, ignoreCase = true) }
+}

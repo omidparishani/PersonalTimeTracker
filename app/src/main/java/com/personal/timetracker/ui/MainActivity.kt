@@ -105,6 +105,15 @@ class MainActivity : AppCompatActivity() {
 
                     try { NotifHelper.scheduleGeoBackgroundCheck(this@MainActivity) } catch (_: Exception) {}
                     try { com.personal.timetracker.util.DynamicAppIcon.sync(this@MainActivity) } catch (_: Exception) {}
+                    // سینک خودکار Worklog هفته جاری هنگام ورود به اپ
+                    try {
+                        val repo = (application as App).repository
+                        val today = com.personal.timetracker.util.TimeUtils.today()
+                        val weekStart = com.personal.timetracker.util.TimeUtils.startOfWeek(
+                            com.personal.timetracker.util.TimeUtils.parseDate(today)
+                        )
+                        repo.syncWorklogsForDateRange(weekStart, today)
+                    } catch (_: Exception) {}
 
                     if (settings.biometricEnabled && !unlocked) {
                         binding.root.visibility = View.INVISIBLE

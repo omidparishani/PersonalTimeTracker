@@ -511,7 +511,26 @@ class AppRepository(context: Context) {
         if (jiraKey.isEmpty()) return@withContext null
         val service = jiraServiceOrNull() ?: return@withContext null
         val started = JiraService.toJiraStarted(date)
-        service.addWorklog(jiraKey, durationMinutes, started, note).map { it.id ?: "" }
+        service.addWorklog(jiraKey, durationMinutes, started, note).map { wl ->
+            val rid = wl.id
+            if (!rid.isNullOrBlank()) {
+                val existing = jiraWorklogDao.getByRemoteId(rid)
+                val entity = JiraWorklogCacheEntity(
+                    localId = existing?.localId ?: 0,
+                    remoteId = rid,
+                    issueKey = jiraKey.uppercase(),
+                    date = date,
+                    started = started,
+                    durationMinutes = durationMinutes,
+                    comment = note,
+                    authorName = wl.author?.displayName ?: wl.author?.name,
+                    syncStatus = "synced",
+                    cachedAt = TimeUtils.nowDateTime()
+                )
+                if (existing != null) jiraWorklogDao.update(entity) else jiraWorklogDao.upsert(entity)
+            }
+            rid ?: ""
+        }
     }
 
     /** ثبت مستقیم Worklog روی هر Issue (assign یا علاقه‌مندی) */
@@ -524,8 +543,28 @@ class AppRepository(context: Context) {
     ): Result<String> = withContext(Dispatchers.IO) {
         val service = jiraServiceOrNull()
             ?: return@withContext Result.failure(Exception("جیرا پیکربندی نشده"))
+        val key = issueKey.trim().uppercase()
         val started = JiraService.toJiraStarted(date, timeHHmm)
-        service.addWorklog(issueKey, durationMinutes, started, note).map { it.id ?: "" }
+        service.addWorklog(key, durationMinutes, started, note).map { wl ->
+            val rid = wl.id
+            if (!rid.isNullOrBlank()) {
+                val existing = jiraWorklogDao.getByRemoteId(rid)
+                val entity = JiraWorklogCacheEntity(
+                    localId = existing?.localId ?: 0,
+                    remoteId = rid,
+                    issueKey = key,
+                    date = date,
+                    started = started,
+                    durationMinutes = durationMinutes,
+                    comment = note,
+                    authorName = wl.author?.displayName ?: wl.author?.name,
+                    syncStatus = "synced",
+                    cachedAt = TimeUtils.nowDateTime()
+                )
+                if (existing != null) jiraWorklogDao.update(entity) else jiraWorklogDao.upsert(entity)
+            }
+            rid ?: ""
+        }
     }
 
 
@@ -716,11 +755,15 @@ class AppRepository(context: Context) {
             val pending = jiraWorklogDao.getByIssueOnce(key).filter { it.syncStatus != "synced" }
             jiraWorklogDao.deleteSyncedForIssue(key)
             val now = TimeUtils.nowDateTime()
-            val entities = remoteList.map { wl ->
+            val seenRemote = mutableSetOf<String>()
+            val entities = remoteList.mapNotNull { wl ->
+                val rid = wl.id?.trim().orEmpty()
+                if (rid.isEmpty() || rid in seenRemote) return@mapNotNull null
+                seenRemote.add(rid)
                 val started = wl.started
                 val date = started?.take(10) ?: TimeUtils.today()
                 JiraWorklogCacheEntity(
-                    remoteId = wl.id,
+                    remoteId = rid,
                     issueKey = key,
                     date = date,
                     started = started,
@@ -731,9 +774,21 @@ class AppRepository(context: Context) {
                     cachedAt = now
                 )
             }
-            jiraWorklogDao.upsertAll(entities)
-            // re-upsert pending local ops
-            pending.forEach { jiraWorklogDao.upsert(it.copy(localId = 0)) }
+            // upsert one-by-one by remoteId to avoid duplicates
+            entities.forEach { entity ->
+                val existing = jiraWorklogDao.getByRemoteId(entity.remoteId!!)
+                if (existing != null) {
+                    jiraWorklogDao.update(entity.copy(localId = existing.localId))
+                } else {
+                    jiraWorklogDao.upsert(entity)
+                }
+            }
+            // re-upsert pending local ops (بدون remoteId تکراری)
+            pending.forEach { p ->
+                if (p.remoteId != null && jiraWorklogDao.getByRemoteId(p.remoteId) != null) return@forEach
+                jiraWorklogDao.upsert(p.copy(localId = 0))
+            }
+            jiraWorklogDao.dedupeByRemoteId()
             entities.size
         }
     }
@@ -914,6 +969,24 @@ class AppRepository(context: Context) {
     }
 
     suspend fun jiraSummaryRange(start: String, end: String): List<JiraSum> {
+        jiraWorklogDao.dedupeByRemoteId()
+        val jiraRows = dedupeWorklogs(
+            jiraWorklogDao.getByRange(start, end).filter { it.syncStatus != "pending_delete" }
+        )
+        if (jiraRows.isNotEmpty()) {
+            val issues = jiraIssueDao.getAllOnce().associateBy { it.issueKey.uppercase() }
+            return jiraRows
+                .groupBy { it.issueKey.uppercase() }
+                .map { (key, list) ->
+                    val title = issues[key]?.summary
+                        ?: taskDao.getAllOnce().firstOrNull { it.jiraNumber?.uppercase() == key }?.taskTitle
+                        ?: ""
+                    JiraSum(key, list.sumOf { it.durationMinutes }, title)
+                }
+                .filter { it.total > 0 }
+                .sortedByDescending { it.total }
+        }
+        // fallback به لاگ محلی قدیمی وقتی کش جیرا خالی است
         val logs = taskLogDao.getByRange(start, end)
         val tasks = taskDao.getAllOnce().associateBy { it.id }
         return logs.mapNotNull { log ->
@@ -982,6 +1055,7 @@ class AppRepository(context: Context) {
 
     suspend fun dayBreakdown(start: String, end: String): List<DayBreakdown> {
         val days = attendanceDao.getByRange(start, end)
+        jiraWorklogDao.dedupeByRemoteId()
         val jiraLogs = jiraWorklogDao.getByRange(start, end)
         val localLogs = taskLogDao.getByRange(start, end)
         val issues = jiraIssueDao.getAllOnce().associateBy { it.issueKey.uppercase() }
@@ -1005,11 +1079,18 @@ class AppRepository(context: Context) {
                     dayWork += TimeUtils.minutesBetween(r.entryTime, TimeUtils.nowTime()).coerceAtLeast(0)
                 }
             }
-            // اولویت با Worklogهای جیرا
-            val dayJira = jiraLogs.filter { it.date == date && it.syncStatus != "pending_delete" }
+            // اولویت با Worklogهای جیرا (بدون تکرار)
+            val dayJira = dedupeWorklogs(
+                jiraLogs.filter { it.date == date && it.syncStatus != "pending_delete" }
+            )
             val taskLines = if (dayJira.isNotEmpty()) {
                 dayJira.map { wl ->
                     val issue = issues[wl.issueKey.uppercase()]
+                    val startedShort = wl.started?.take(16)?.replace("T", " ")
+                    val noteParts = listOfNotNull(
+                        startedShort?.let { "شروع: $it" },
+                        wl.comment?.takeIf { it.isNotBlank() }
+                    )
                     TaskLogLine(
                         logId = wl.localId,
                         taskId = 0L,
@@ -1017,7 +1098,7 @@ class AppRepository(context: Context) {
                         jira = wl.issueKey,
                         project = issue?.projectName ?: issue?.projectKey,
                         duration = wl.durationMinutes,
-                        note = wl.comment
+                        note = noteParts.joinToString(" · ").ifBlank { null }
                     )
                 }
             } else {
@@ -1045,9 +1126,127 @@ class AppRepository(context: Context) {
         }
     }
 
-    /** Worklogهای یک روز برای تقویم */
-    suspend fun getJiraWorklogsForDate(date: String) =
-        jiraWorklogDao.getByDateOnce(date).filter { it.syncStatus != "pending_delete" }
+
+    /**
+     * سینک Worklogهای کاربر فعلی برای یک بازه تاریخ از سرور جیرا.
+     * با JQL: worklogAuthor = currentUser() AND worklogDate >= start AND worklogDate <= end
+     * سپس برای هر Issue، worklogها را می‌گیرد و فقط موارد همان بازه/نویسنده را در کش می‌نویسد.
+     */
+    suspend fun syncWorklogsForDateRange(start: String, end: String): Result<Int> = withContext(Dispatchers.IO) {
+        val service = jiraServiceOrNull()
+            ?: return@withContext Result.failure(Exception("جیرا پیکربندی نشده"))
+        val me = service.myself().getOrElse {
+            return@withContext Result.failure(it)
+        }
+        val myNames = listOfNotNull(me.name, me.key, me.displayName)
+            .map { it.trim().lowercase() }
+            .filter { it.isNotEmpty() }
+            .toSet()
+
+        val jql = """worklogAuthor = currentUser() AND worklogDate >= "$start" AND worklogDate <= "$end" ORDER BY updated DESC"""
+        val page = service.search(jql, maxResults = 50).getOrElse {
+            // fallback بدون worklogDate (بعضی نسخه‌ها)
+            val jql2 = "worklogAuthor = currentUser() ORDER BY updated DESC"
+            service.search(jql2, maxResults = 50).getOrElse { e ->
+                return@withContext Result.failure(e)
+            }
+        }
+        var count = 0
+        val now = TimeUtils.nowDateTime()
+        for (issue in page.items) {
+            val key = issue.key.uppercase()
+            val remoteList = service.getWorklogs(key).getOrElse { emptyList() }
+            for (wl in remoteList) {
+                val rid = wl.id?.trim().orEmpty()
+                if (rid.isEmpty()) continue
+                val started = wl.started
+                val date = started?.take(10) ?: continue
+                if (date < start || date > end) continue
+                // فقط worklog خود کاربر
+                val author = (wl.author?.name ?: wl.author?.displayName ?: "").trim().lowercase()
+                if (myNames.isNotEmpty() && author.isNotEmpty() && author !in myNames) {
+                    // اگر displayName متفاوت بود، باز هم اگر worklogAuthor JQL آورده احتمالاً مال ماست — نگه می‌داریم وقتی author خالی است
+                    val dn = (wl.author?.displayName ?: "").trim().lowercase()
+                    if (dn.isNotEmpty() && dn !in myNames && author !in myNames) continue
+                }
+                val entity = JiraWorklogCacheEntity(
+                    remoteId = rid,
+                    issueKey = key,
+                    date = date,
+                    started = started,
+                    durationMinutes = ((wl.timeSpentSeconds ?: 0) / 60).coerceAtLeast(0),
+                    comment = wl.comment,
+                    authorName = wl.author?.displayName ?: wl.author?.name,
+                    syncStatus = "synced",
+                    cachedAt = now
+                )
+                val existing = jiraWorklogDao.getByRemoteId(rid)
+                if (existing != null) {
+                    jiraWorklogDao.update(entity.copy(localId = existing.localId))
+                } else {
+                    jiraWorklogDao.upsert(entity)
+                }
+                // کش خلاصه issue
+                val prev = jiraIssueDao.getByKey(key)
+                if (prev == null) {
+                    jiraIssueDao.upsert(
+                        JiraIssueCacheEntity(
+                            issueKey = key,
+                            summary = issue.summary,
+                            description = issue.description,
+                            projectKey = issue.projectKey,
+                            projectName = issue.projectName,
+                            statusName = issue.statusName,
+                            statusCategory = issue.statusCategory,
+                            priorityName = issue.priorityName,
+                            issueTypeName = issue.issueTypeName,
+                            assigneeName = issue.assigneeName,
+                            requiredMinutes = issue.requiredMinutes,
+                            remainingMinutes = issue.remainingMinutes,
+                            timeSpentMinutes = issue.timeSpentMinutes,
+                            cachedAt = now
+                        )
+                    )
+                }
+                count++
+            }
+        }
+        jiraWorklogDao.dedupeByRemoteId()
+        Result.success(count)
+    }
+
+    suspend fun syncWorklogsForDate(date: String): Result<Int> =
+        syncWorklogsForDateRange(date, date)
+
+    /** Worklogهای یک روز برای تقویم — بدون تکرار بر اساس remoteId */
+    suspend fun getJiraWorklogsForDate(date: String): List<JiraWorklogCacheEntity> {
+        jiraWorklogDao.dedupeByRemoteId()
+        val rows = jiraWorklogDao.getByDateOnce(date).filter { it.syncStatus != "pending_delete" }
+        return dedupeWorklogs(rows)
+    }
+
+    /** حذف تکراری در حافظه: اولویت با remoteId، سپس issueKey+started+duration */
+    private fun dedupeWorklogs(rows: List<JiraWorklogCacheEntity>): List<JiraWorklogCacheEntity> {
+        val byRemote = linkedMapOf<String, JiraWorklogCacheEntity>()
+        val withoutRemote = mutableListOf<JiraWorklogCacheEntity>()
+        for (r in rows) {
+            val rid = r.remoteId?.trim()
+            if (!rid.isNullOrEmpty()) {
+                byRemote.putIfAbsent(rid, r)
+            } else {
+                withoutRemote.add(r)
+            }
+        }
+        val pendingKeys = mutableSetOf<String>()
+        val pendingUnique = withoutRemote.filter { p ->
+            val k = "${p.issueKey}|${p.started}|${p.durationMinutes}|${p.comment}"
+            if (k in pendingKeys) false else { pendingKeys.add(k); true }
+        }
+        return (byRemote.values + pendingUnique).sortedWith(
+            compareByDescending<JiraWorklogCacheEntity> { it.started ?: "" }
+                .thenByDescending { it.localId }
+        )
+    }
 
     suspend fun transitionJiraIssue(issueKey: String, transitionId: String): Result<Unit> =
         withContext(Dispatchers.IO) {

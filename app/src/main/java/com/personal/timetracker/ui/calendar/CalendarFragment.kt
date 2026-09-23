@@ -283,6 +283,10 @@ class CalendarFragment : Fragment() {
             setPadding(4, 4, 4, 12)
         })
         lifecycleScope.launch {
+            // سینک Worklogهای همین روز از سرور (بدون نیاز به باز کردن تک‌تک Issue)
+            try {
+                repo.syncWorklogsForDate(d)
+            } catch (_: Exception) { }
             val att = repo.getByDateOnce(d)
             val logs = repo.getJiraWorklogsForDate(d)
             val tasks = repo.getTasksByDateOnce(d)
@@ -373,12 +377,17 @@ class CalendarFragment : Fragment() {
                 logs.forEach { log ->
                     val label = buildString {
                         append(log.issueKey)
+                        val started = log.started?.take(16)?.replace("T", " ")
+                        if (!started.isNullOrBlank()) {
+                            append("  ·  ")
+                            append(started)
+                        }
+                        append("  ·  ")
+                        append(TimeUtils.formatDuration(log.durationMinutes))
                         if (!log.comment.isNullOrBlank()) {
                             append(" — ")
                             append(log.comment.take(40))
                         }
-                        append("  ·  ")
-                        append(TimeUtils.formatDuration(log.durationMinutes))
                         when (log.syncStatus) {
                             "pending_add", "pending_update", "pending_delete" -> append(" ⏳")
                         }

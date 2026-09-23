@@ -66,7 +66,7 @@ public final class AppDatabase_Impl extends AppDatabase {
   @Override
   @NonNull
   protected SupportSQLiteOpenHelper createOpenHelper(@NonNull final DatabaseConfiguration config) {
-    final SupportSQLiteOpenHelper.Callback _openCallback = new RoomOpenHelper(config, new RoomOpenHelper.Delegate(13) {
+    final SupportSQLiteOpenHelper.Callback _openCallback = new RoomOpenHelper(config, new RoomOpenHelper.Delegate(14) {
       @Override
       public void createAllTables(@NonNull final SupportSQLiteDatabase db) {
         db.execSQL("CREATE TABLE IF NOT EXISTS `attendance` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `date` TEXT NOT NULL, `entryTime` TEXT NOT NULL, `exitTime` TEXT, `duration` INTEGER NOT NULL, `leaveDuration` INTEGER NOT NULL, `overtimeDuration` INTEGER NOT NULL, `status` TEXT NOT NULL)");
@@ -80,9 +80,10 @@ public final class AppDatabase_Impl extends AppDatabase {
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_jira_worklogs_issueKey` ON `jira_worklogs` (`issueKey`)");
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_jira_worklogs_date` ON `jira_worklogs` (`date`)");
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_jira_worklogs_syncStatus` ON `jira_worklogs` (`syncStatus`)");
+        db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_jira_worklogs_remoteId` ON `jira_worklogs` (`remoteId`)");
         db.execSQL("CREATE TABLE IF NOT EXISTS `jira_statuses` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `categoryKey` TEXT NOT NULL, `categoryName` TEXT NOT NULL, `cachedAt` TEXT NOT NULL, PRIMARY KEY(`id`))");
         db.execSQL("CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)");
-        db.execSQL("INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '13693ea1b8c2d77d8c340a07ef90d8df')");
+        db.execSQL("INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'dad5d216ee618c0a491473116b2a2e98')");
       }
 
       @Override
@@ -307,10 +308,11 @@ public final class AppDatabase_Impl extends AppDatabase {
         _columnsJiraWorklogs.put("syncStatus", new TableInfo.Column("syncStatus", "TEXT", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
         _columnsJiraWorklogs.put("cachedAt", new TableInfo.Column("cachedAt", "TEXT", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
         final HashSet<TableInfo.ForeignKey> _foreignKeysJiraWorklogs = new HashSet<TableInfo.ForeignKey>(0);
-        final HashSet<TableInfo.Index> _indicesJiraWorklogs = new HashSet<TableInfo.Index>(3);
+        final HashSet<TableInfo.Index> _indicesJiraWorklogs = new HashSet<TableInfo.Index>(4);
         _indicesJiraWorklogs.add(new TableInfo.Index("index_jira_worklogs_issueKey", false, Arrays.asList("issueKey"), Arrays.asList("ASC")));
         _indicesJiraWorklogs.add(new TableInfo.Index("index_jira_worklogs_date", false, Arrays.asList("date"), Arrays.asList("ASC")));
         _indicesJiraWorklogs.add(new TableInfo.Index("index_jira_worklogs_syncStatus", false, Arrays.asList("syncStatus"), Arrays.asList("ASC")));
+        _indicesJiraWorklogs.add(new TableInfo.Index("index_jira_worklogs_remoteId", true, Arrays.asList("remoteId"), Arrays.asList("ASC")));
         final TableInfo _infoJiraWorklogs = new TableInfo("jira_worklogs", _columnsJiraWorklogs, _foreignKeysJiraWorklogs, _indicesJiraWorklogs);
         final TableInfo _existingJiraWorklogs = TableInfo.read(db, "jira_worklogs");
         if (!_infoJiraWorklogs.equals(_existingJiraWorklogs)) {
@@ -335,7 +337,7 @@ public final class AppDatabase_Impl extends AppDatabase {
         }
         return new RoomOpenHelper.ValidationResult(true, null);
       }
-    }, "13693ea1b8c2d77d8c340a07ef90d8df", "0281bccc65ee3f6c13193be30c7b5fe4");
+    }, "dad5d216ee618c0a491473116b2a2e98", "fbc246943608ee241a3e2168fd44076a");
     final SupportSQLiteOpenHelper.Configuration _sqliteConfig = SupportSQLiteOpenHelper.Configuration.builder(config.context).name(config.name).callback(_openCallback).build();
     final SupportSQLiteOpenHelper _helper = config.sqliteOpenHelperFactory.create(_sqliteConfig);
     return _helper;

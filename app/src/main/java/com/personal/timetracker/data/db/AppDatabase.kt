@@ -30,7 +30,7 @@ import com.personal.timetracker.data.entity.TaskLogEntity
         AttendanceEntity::class, TaskEntity::class, TaskLogEntity::class, SettingsEntity::class, HolidayEntity::class,
         JiraFavoriteEntity::class, JiraIssueCacheEntity::class, JiraWorklogCacheEntity::class, JiraStatusEntity::class
     ],
-    version = 13,
+    version = 14,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -147,6 +147,25 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_13_14 = object : Migration(13, 14) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // حذف تکراری‌های worklog بر اساس remoteId (نگه‌داشتن کوچک‌ترین localId)
+                try {
+                    db.execSQL("""
+                        DELETE FROM jira_worklogs WHERE localId IN (
+                            SELECT a.localId FROM jira_worklogs a
+                            INNER JOIN jira_worklogs b
+                              ON a.remoteId IS NOT NULL AND a.remoteId = b.remoteId
+                             AND a.localId > b.localId
+                        )
+                    """.trimIndent())
+                } catch (_: Exception) {}
+                try {
+                    db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_jira_worklogs_remoteId ON jira_worklogs(remoteId)")
+                } catch (_: Exception) {}
+            }
+        }
+
         private val MIGRATION_11_12 = object : Migration(11, 12) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 try {
@@ -258,7 +277,7 @@ abstract class AppDatabase : RoomDatabase() {
 
         private fun build(context: Context): AppDatabase {
             return Room.databaseBuilder(context, AppDatabase::class.java, "personal_time_tracker.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14)
                 .fallbackToDestructiveMigration()
                 .allowMainThreadQueries()
                 .addCallback(object : Callback() {

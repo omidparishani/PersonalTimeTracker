@@ -1,5 +1,14 @@
 package com.personal.timetracker.ui.tasks
 
+import com.personal.timetracker.jira.JiraIssueFormHelper
+
+import com.personal.timetracker.jira.JiraService
+
+import com.personal.timetracker.jira.JiraMetaField
+import com.personal.timetracker.jira.JiraAllowedValue
+
+import com.personal.timetracker.jira.JiraCreateMetaIssueType
+
 import android.graphics.Typeface
 import android.os.Bundle
 import android.view.Gravity
@@ -77,6 +86,15 @@ class TasksFragment : Fragment() {
     ): View {
         val ctx = requireContext()
         repo = (requireActivity().application as App).repository
+
+        // سینک خودکار Worklog هنگام ورود به تب تسک‌ها
+        viewLifecycleOwner.lifecycleScope.launch {
+            try {
+                val today = TimeUtils.today()
+                val weekStart = TimeUtils.startOfWeek(TimeUtils.parseDate(today))
+                repo.syncWorklogsForDateRange(weekStart, today)
+            } catch (_: Exception) { }
+        }
 
         val root = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
@@ -163,6 +181,10 @@ class TasksFragment : Fragment() {
                 try {
                     repo.flushPendingJiraWorklogs()
                     repo.refreshJiraStatuses()
+                    // سینک Worklog هفته جاری تا تقویم/گزارش پر شود
+                    val today = TimeUtils.today()
+                    val weekStart = TimeUtils.startOfWeek(TimeUtils.parseDate(today))
+                    repo.syncWorklogsForDateRange(weekStart, today)
                     loadPage(reset = true)
                 } finally {
                     refreshBtn.isEnabled = true
@@ -172,11 +194,11 @@ class TasksFragment : Fragment() {
         }
         btnRow.addView(refreshBtn)
 
-        val addFavBtn = MaterialButton(ctx).apply { text = "＋ کلید Issue" }
-        ThemeHelper.applyButton(addFavBtn, primary(), false)
-        addFavBtn.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-        addFavBtn.setOnClickListener { showAddByKeyDialog() }
-        btnRow.addView(addFavBtn)
+        val createIssueBtn = MaterialButton(ctx).apply { text = "＋ ایجاد Issue" }
+        ThemeHelper.applyButton(createIssueBtn, primary(), false)
+        createIssueBtn.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        createIssueBtn.setOnClickListener { showCreateIssueDialog() }
+        btnRow.addView(createIssueBtn)
         root.addView(btnRow)
 
         statusTv = TextView(ctx).apply {
@@ -835,6 +857,10 @@ class TasksFragment : Fragment() {
         btnRow.addView(smallBtn("＋ کامنت", false) { showAddComment(issue.issueKey) })
         btnRow.addView(smallBtn("⏱ لاگ", true) { showAddLog(issue) })
         body.addView(btnRow)
+        val btnRow2 = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL }
+        btnRow2.addView(smallBtn("✎ ویرایش", false) { showEditIssueDialog(issue) })
+        btnRow2.addView(smallBtn("🗑 حذف Issue", false) { confirmDeleteIssue(issue.issueKey) })
+        body.addView(btnRow2)
 
         DialogHelper.show(
             ctx = ctx, icon = "📋", title = issue.issueKey,
@@ -958,6 +984,332 @@ class TasksFragment : Fragment() {
                 true
             }
         )
+    }
+
+
+
+
+    /**
+     * ایجاد Issue — دو مرحله‌ای برای UX بهتر:
+     * ۱) انتخاب پروژه و نوع Issue
+     * ۲) واکشی فیلدهای createmeta همان نوع و نمایش فرم
+     */
+    private fun showCreateIssueDialog() {
+        val ctx = requireContext()
+        viewLifecycleOwner.lifecycleScope.launch {
+            val service = repo.jiraServiceOrNull()
+            if (service == null) {
+                Toast.makeText(ctx, "جیرا پیکربندی نشده", Toast.LENGTH_SHORT).show()
+                return@launch
+            }
+            val projects = service.fetchProjects().getOrElse {
+                Toast.makeText(ctx, "خطا در دریافت پروژه‌ها: ${it.message}", Toast.LENGTH_LONG).show()
+                return@launch
+            }
+            if (projects.isEmpty()) {
+                Toast.makeText(ctx, "پروژه‌ای یافت نشد", Toast.LENGTH_SHORT).show()
+                return@launch
+            }
+            val projectKeys = projects.map { it.key.orEmpty() }.filter { it.isNotEmpty() }
+            val projectLabels = projects.map { "${it.key} — ${it.name ?: ""}" }
+
+            // ---- مرحله ۱: پروژه + نوع ----
+            val step1 = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL }
+            val projectSpinner = android.widget.Spinner(ctx)
+            projectSpinner.adapter = android.widget.ArrayAdapter(
+                ctx, android.R.layout.simple_spinner_dropdown_item, projectLabels
+            )
+            step1.addView(TextView(ctx).apply {
+                text = "پروژه *"; setTextColor(primary()); textSize = 13f
+                setTypeface(null, Typeface.BOLD)
+            })
+            step1.addView(projectSpinner)
+
+            val typeSpinner = android.widget.Spinner(ctx)
+            step1.addView(TextView(ctx).apply {
+                text = "نوع Issue *"; setTextColor(primary()); textSize = 13f
+                setTypeface(null, Typeface.BOLD); setPadding(0, 16, 0, 0)
+            })
+            step1.addView(typeSpinner)
+
+            val statusStep = TextView(ctx).apply {
+                textSize = 12f; setTextColor(ThemeHelper.textSecondary(dark()))
+                setPadding(0, 12, 0, 0)
+            }
+            step1.addView(statusStep)
+
+            var issueTypes: List<JiraCreateMetaIssueType> = emptyList()
+
+            suspend fun loadTypes(projectKey: String) {
+                statusStep.text = "در حال دریافت انواع Issue…"
+                service.fetchCreateMeta(projectKey).fold(
+                    onSuccess = { project ->
+                        issueTypes = project.issuetypes.filter { it.subtask != true }
+                        val names = issueTypes.map { it.name ?: it.id ?: "?" }
+                        typeSpinner.adapter = android.widget.ArrayAdapter(
+                            ctx, android.R.layout.simple_spinner_dropdown_item, names
+                        )
+                        statusStep.text = if (issueTypes.isEmpty()) "نوعی یافت نشد" else "${issueTypes.size} نوع"
+                    },
+                    onFailure = { e ->
+                        statusStep.text = "خطا: ${e.message}"
+                        Toast.makeText(ctx, e.message, Toast.LENGTH_LONG).show()
+                    }
+                )
+            }
+
+            projectSpinner.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: android.view.View?, position: Int, id: Long) {
+                    val pk = projectKeys.getOrNull(position) ?: return
+                    viewLifecycleOwner.lifecycleScope.launch { loadTypes(pk) }
+                }
+                override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
+            }
+            loadTypes(projectKeys.first())
+
+            DialogHelper.show(
+                ctx = ctx,
+                icon = "＋",
+                title = "ایجاد Issue — مرحله ۱",
+                subtitle = "پروژه و نوع را انتخاب کنید",
+                primary = primary(),
+                dark = dark(),
+                body = step1,
+                positiveText = "ادامه ←",
+                onPositive = {
+                    val pIdx = projectSpinner.selectedItemPosition
+                    val projectKey = projectKeys.getOrNull(pIdx)
+                    if (projectKey.isNullOrBlank()) {
+                        Toast.makeText(ctx, "پروژه را انتخاب کنید", Toast.LENGTH_SHORT).show()
+                        return@show false
+                    }
+                    val tIdx = typeSpinner.selectedItemPosition
+                    val issueType = issueTypes.getOrNull(tIdx)
+                    if (issueType == null) {
+                        Toast.makeText(ctx, "نوع Issue را انتخاب کنید", Toast.LENGTH_SHORT).show()
+                        return@show false
+                    }
+                    // مرحله ۲ را بعد از بستن این دیالوگ باز کن
+                    viewLifecycleOwner.lifecycleScope.launch {
+                        showCreateIssueStep2(service, projectKey, issueType)
+                    }
+                    true
+                }
+            )
+        }
+    }
+
+    private suspend fun showCreateIssueStep2(
+        service: com.personal.timetracker.jira.JiraService,
+        projectKey: String,
+        issueType: JiraCreateMetaIssueType
+    ) {
+        val ctx = requireContext()
+        val me = service.myself().getOrNull()
+        Toast.makeText(ctx, "در حال دریافت فیلدهای ${issueType.name}…", Toast.LENGTH_SHORT).show()
+
+        val fields = service.fetchFieldsForIssueType(
+            projectKey = projectKey,
+            issueTypeId = issueType.id,
+            issueTypeName = issueType.name
+        ).getOrElse {
+            Toast.makeText(ctx, "خطا در دریافت فیلدها: ${it.message}", Toast.LENGTH_LONG).show()
+            emptyMap()
+        }
+
+        if (fields.isEmpty()) {
+            Toast.makeText(ctx, "فیلدی از سرور دریافت نشد", Toast.LENGTH_LONG).show()
+        }
+
+        val layout = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL }
+        layout.addView(TextView(ctx).apply {
+            text = "$projectKey · ${issueType.name}"
+            setTextColor(ThemeHelper.textSecondary(dark()))
+            textSize = 12.5f
+            setPadding(0, 0, 0, 8)
+        })
+        // شمارش فیلدهای دارای لیست
+        val withOptions = fields.count { !it.value.allowedValues.isNullOrEmpty() }
+        layout.addView(TextView(ctx).apply {
+            text = "${fields.size} فیلد · $withOptions با مقادیر آماده"
+            setTextColor(ThemeHelper.textSecondary(dark()))
+            textSize = 11.5f
+            setPadding(0, 0, 0, 8)
+        })
+
+        val fieldsBox = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL }
+        layout.addView(ScrollView(ctx).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                (ctx.resources.displayMetrics.density * 420).toInt()
+            )
+            addView(fieldsBox)
+        })
+
+        val projectNumericId = service.resolveProjectId(projectKey).getOrNull()
+        val helper = JiraIssueFormHelper(
+            ctx = ctx,
+            primary = primary(),
+            dark = dark(),
+            scope = viewLifecycleOwner.lifecycleScope,
+            service = service,
+            projectKey = projectKey,
+            projectId = projectNumericId,
+            issueTypeId = issueType.id,
+            currentUserName = me?.name ?: me?.key,
+            currentUserDisplay = me?.displayName
+        )
+        helper.build(fieldsBox, fields)
+
+        DialogHelper.show(
+            ctx = ctx,
+            icon = "＋",
+            title = "ایجاد Issue — مرحله ۲",
+            subtitle = "فیلدهای اجباری با * مشخص شده‌اند",
+            primary = primary(),
+            dark = dark(),
+            body = layout,
+            positiveText = "ایجاد",
+            onPositive = {
+                val collected = helper.collect() ?: return@show false
+                val body = collected.toMutableMap()
+                body["project"] = mapOf("key" to projectKey.uppercase())
+                val typeMap = mutableMapOf<String, String>()
+                if (!issueType.id.isNullOrBlank()) typeMap["id"] = issueType.id!!
+                if (!issueType.name.isNullOrBlank()) typeMap["name"] = issueType.name!!
+                body["issuetype"] = typeMap
+                if (body["summary"] == null || body["summary"].toString().isBlank()) {
+                    Toast.makeText(ctx, "عنوان (Summary) الزامی است", Toast.LENGTH_SHORT).show()
+                    return@show false
+                }
+                viewLifecycleOwner.lifecycleScope.launch {
+                    service.createIssueWithFields(body).fold(
+                        onSuccess = { created ->
+                            Toast.makeText(ctx, "ایجاد شد: ${created.key}", Toast.LENGTH_LONG).show()
+                            loadPage(reset = true)
+                        },
+                        onFailure = { e ->
+                            Toast.makeText(ctx, "خطا: ${e.message}", Toast.LENGTH_LONG).show()
+                        }
+                    )
+                }
+                true
+            }
+        )
+    }
+
+    private fun showEditIssueDialog(issue: JiraIssueCacheEntity) {
+        val ctx = requireContext()
+        viewLifecycleOwner.lifecycleScope.launch {
+            val service = repo.jiraServiceOrNull()
+            if (service == null) {
+                Toast.makeText(ctx, "جیرا پیکربندی نشده", Toast.LENGTH_SHORT).show()
+                return@launch
+            }
+            val me = service.myself().getOrNull()
+            val editFields = service.fetchEditFields(issue.issueKey).getOrElse {
+                Toast.makeText(ctx, "editmeta: ${it.message}", Toast.LENGTH_LONG).show()
+                emptyMap()
+            }
+            val full = service.getIssue(issue.issueKey).getOrNull()
+            val existing = mutableMapOf<String, Any?>(
+                "summary" to (full?.summary ?: issue.summary),
+                "description" to (full?.description ?: issue.description)
+            )
+            val layout = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL }
+            val fieldsBox = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL }
+            layout.addView(ScrollView(ctx).apply {
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    (ctx.resources.displayMetrics.density * 420).toInt()
+                )
+                addView(fieldsBox)
+            })
+            val pk = issue.projectKey.ifBlank { full?.projectKey.orEmpty() }
+            val helper = JiraIssueFormHelper(
+                ctx = ctx,
+                primary = primary(),
+                dark = dark(),
+                scope = viewLifecycleOwner.lifecycleScope,
+                service = service,
+                projectKey = pk,
+                currentUserName = me?.name ?: me?.key,
+                currentUserDisplay = me?.displayName
+            )
+            // اگر editmeta خالی بود، از createmeta نوع فعلی استفاده کن
+            val fieldsToShow = if (editFields.isNotEmpty()) editFields else {
+                val meta = service.fetchCreateMeta(pk).getOrNull()
+                meta?.issuetypes?.firstOrNull {
+                    it.name.equals(issue.issueTypeName, true) || it.name.equals(full?.issueTypeName, true)
+                }?.fields.orEmpty().ifEmpty { meta?.issuetypes?.firstOrNull()?.fields.orEmpty() }
+            }
+            helper.build(fieldsBox, fieldsToShow, existing)
+
+            DialogHelper.show(
+                ctx = ctx,
+                icon = "✎",
+                title = "ویرایش Issue",
+                subtitle = issue.issueKey,
+                primary = primary(),
+                dark = dark(),
+                body = layout,
+                positiveText = "ذخیره",
+                onPositive = {
+                    val collected = helper.collect()?.toMutableMap() ?: return@show false
+                    // project و issuetype معمولاً در ویرایش فرستاده نمی‌شوند
+                    collected.remove("project")
+                    collected.remove("issuetype")
+                    if (collected.isEmpty()) {
+                        Toast.makeText(ctx, "تغییری نیست", Toast.LENGTH_SHORT).show()
+                        return@show false
+                    }
+                    viewLifecycleOwner.lifecycleScope.launch {
+                        service.updateIssueFields(issue.issueKey, collected).fold(
+                            onSuccess = {
+                                Toast.makeText(ctx, "ذخیره شد", Toast.LENGTH_SHORT).show()
+                                loadPage(reset = true)
+                            },
+                            onFailure = { e ->
+                                Toast.makeText(ctx, "خطا: ${e.message}", Toast.LENGTH_LONG).show()
+                            }
+                        )
+                    }
+                    true
+                }
+            )
+        }
+    }
+
+    private fun confirmDeleteIssue(issueKey: String) {
+        val ctx = requireContext()
+        DialogHelper.confirm(
+            ctx = ctx,
+            title = "حذف Issue",
+            message = "آیا از حذف دائمی «$issueKey» از سرور جیرا مطمئن هستید؟ این عمل معمولاً غیرقابل‌بازگشت است.",
+            primary = primary(),
+            dark = dark()
+        ) {
+            viewLifecycleOwner.lifecycleScope.launch {
+                val service = repo.jiraServiceOrNull()
+                if (service == null) {
+                    Toast.makeText(ctx, "جیرا پیکربندی نشده", Toast.LENGTH_SHORT).show()
+                    return@launch
+                }
+                service.deleteIssue(issueKey).fold(
+                    onSuccess = {
+                        Toast.makeText(ctx, "Issue حذف شد", Toast.LENGTH_SHORT).show()
+                        loadPage(reset = true)
+                    },
+                    onFailure = { e ->
+                        Toast.makeText(
+                            ctx,
+                            "خطا در حذف (ممکن است دسترسی نداشته باشید): ${e.message}",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                )
+            }
+        }
     }
 
     private fun fmt(m: Int): String {

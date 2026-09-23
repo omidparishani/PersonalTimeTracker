@@ -404,6 +404,7 @@ class ReportsFragment : Fragment() {
         val end = range.end
         content.removeAllViews()
         lifecycleScope.launch {
+            try { repo.syncWorklogsForDateRange(start, end) } catch (_: Exception) {}
             val r = repo.report(start, end)
             val projects = repo.projectSummaryRange(start, end)
             val jiras = repo.jiraSummaryRange(start, end)

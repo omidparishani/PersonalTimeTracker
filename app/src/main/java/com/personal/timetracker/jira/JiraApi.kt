@@ -82,6 +82,11 @@ interface JiraApi {
         @Body body: JiraCreateIssueRequest
     ): Response<JiraCreateIssueResponse>
 
+    @POST("rest/api/2/issue")
+    suspend fun createIssueRaw(
+        @Body body: JiraCreateIssueRequestRaw
+    ): Response<JiraCreateIssueResponse>
+
     @PUT("rest/api/2/issue/{issueKey}")
     suspend fun updateIssue(
         @Path("issueKey") issueKey: String,
@@ -100,4 +105,109 @@ interface JiraApi {
         @Path("issueKey") issueKey: String,
         @Body body: JiraDoTransitionRequest
     ): Response<Unit>
+
+    /** نسخه قدیمی createmeta (ممکن است در بعضی سرورها 404 بدهد) */
+    @GET("rest/api/2/issue/createmeta")
+    suspend fun getCreateMeta(
+        @Query("projectKeys") projectKeys: String,
+        @Query("expand") expand: String = "projects.issuetypes.fields"
+    ): Response<JiraCreateMetaResponse>
+
+    /** جزئیات پروژه + لیست issue typeها */
+    @GET("rest/api/2/project/{projectIdOrKey}")
+    suspend fun getProject(
+        @Path("projectIdOrKey") projectIdOrKey: String,
+        @Query("expand") expand: String = "issueTypes"
+    ): Response<JiraProjectDetailDto>
+
+    /** لیست issue typeهای قابل ایجاد در پروژه (API جدیدتر) */
+    @GET("rest/api/2/issue/createmeta/{projectIdOrKey}/issuetypes")
+    suspend fun getCreateMetaIssueTypes(
+        @Path("projectIdOrKey") projectIdOrKey: String
+    ): Response<JiraCreateMetaIssueTypesPage>
+
+    /** فیلدهای createmeta برای یک نوع Issue */
+    @GET("rest/api/2/issue/createmeta/{projectIdOrKey}/issuetypes/{issueTypeId}")
+    suspend fun getCreateMetaFields(
+        @Path("projectIdOrKey") projectIdOrKey: String,
+        @Path("issueTypeId") issueTypeId: String,
+        @Query("startAt") startAt: Int = 0,
+        @Query("maxResults") maxResults: Int = 200
+    ): Response<JiraCreateMetaFieldsPage>
+
+    @DELETE("rest/api/2/issue/{issueKey}")
+    suspend fun deleteIssue(
+        @Path("issueKey") issueKey: String,
+        @Query("deleteSubtasks") deleteSubtasks: Boolean = true
+    ): Response<Unit>
+
+    @GET("rest/api/2/issue/{issueKey}/editmeta")
+    suspend fun getEditMeta(
+        @Path("issueKey") issueKey: String
+    ): Response<JiraEditMetaResponse>
+
+    /** Jira Server/DC: پارامتر username */
+    @GET("rest/api/2/user/assignable/search")
+    suspend fun searchAssignableUsers(
+        @Query("project") project: String,
+        @Query("username") username: String = "",
+        @Query("maxResults") maxResults: Int = 50
+    ): Response<List<JiraUser>>
+
+    /** بعضی نسخه‌ها query می‌پذیرند */
+    @GET("rest/api/2/user/assignable/search")
+    suspend fun searchAssignableUsersQuery(
+        @Query("project") project: String,
+        @Query("query") query: String = "",
+        @Query("maxResults") maxResults: Int = 50
+    ): Response<List<JiraUser>>
+
+    @GET("rest/api/2/issue/createmeta/{projectIdOrKey}/issuetypes/{issueTypeId}")
+    suspend fun getCreateMetaFieldsRaw(
+        @Path("projectIdOrKey") projectIdOrKey: String,
+        @Path("issueTypeId") issueTypeId: String,
+        @Query("startAt") startAt: Int = 0,
+        @Query("maxResults") maxResults: Int = 200
+    ): Response<okhttp3.ResponseBody>
+
+    @GET("rest/api/2/issue/createmeta")
+    suspend fun getCreateMetaRaw(
+        @Query("projectKeys") projectKeys: String,
+        @Query("issuetypeIds") issuetypeIds: String? = null,
+        @Query("issuetypeNames") issuetypeNames: String? = null,
+        @Query("expand") expand: String = "projects.issuetypes.fields"
+    ): Response<okhttp3.ResponseBody>
+
+    @GET("rest/api/2/user/search")
+    suspend fun searchUsers(
+        @Query("username") username: String,
+        @Query("maxResults") maxResults: Int = 20
+    ): Response<List<JiraUser>>
+
+    @GET("rest/api/2/issue/picker")
+    suspend fun issuePicker(
+        @Query("query") query: String,
+        @Query("currentProjectId") currentProjectId: String? = null,
+        @Query("showSubTasks") showSubTasks: Boolean = false
+    ): Response<JiraIssuePickerResult>
+
+    /**
+     * ScriptRunner Database / Configurable Object Picker
+     * مثال: ActivityType, BudgetType, DemisCustomer در شرکت
+     */
+    @POST("rest/scriptrunner-jira/latest/generic-picker/search")
+    suspend fun scriptRunnerPickerSearch(
+        @Query("inputValue") inputValue: String = "",
+        @Query("userData") userData: String = "{}",
+        @Query("fcsId") fcsId: String,
+        @Query("pid") pid: String,
+        @Query("issueTypeId") issueTypeId: String,
+        @Body body: okhttp3.RequestBody
+    ): Response<okhttp3.ResponseBody>
+
+    @GET("rest/api/2/project/{projectIdOrKey}")
+    suspend fun getProjectRaw(
+        @Path("projectIdOrKey") projectIdOrKey: String,
+        @Query("expand") expand: String = "issueTypes"
+    ): Response<okhttp3.ResponseBody>
 }
