@@ -1,9 +1,20 @@
 package com.personal.timetracker.data.entity
 
+/**
+ * توضیح فایل: Entity دیتابیس: SettingsEntity.kt
+ * بسته: com.personal.timetracker.data.entity
+ * زبان توضیحات: فارسی — برای توسعه‌دهنده جاواکار.
+ */
+
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
 @Entity(tableName = "settings")
+/**
+ * تنظیمات سراسری اپ (معمولاً یک ردیف).
+ * شامل: ساعت کاری، شناوری، تم، بیومتریک، مختصات محل کار،
+ * قوانین پنج‌شنبه، بکاپ خودکار، و پیکربندی جیرا (URL/توکن/فیلترها).
+ */
 data class SettingsEntity(
     @PrimaryKey val id: Int = 1,
     val startWorkTime: String = "09:00",

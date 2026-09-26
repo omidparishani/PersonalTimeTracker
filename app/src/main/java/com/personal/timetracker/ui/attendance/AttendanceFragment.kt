@@ -1,5 +1,11 @@
 package com.personal.timetracker.ui.attendance
 
+/**
+ * توضیح فایل: ثبت و مدیریت ورود/خروج تردد.
+ * بسته: com.personal.timetracker.ui.attendance
+ * زبان توضیحات: فارسی — برای توسعه‌دهنده جاواکار.
+ */
+
 import android.app.TimePickerDialog
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -26,6 +32,9 @@ import com.personal.timetracker.ui.MainActivity
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
+/**
+ * ثبت و مدیریت ورود/خروج تردد.
+ */
 class AttendanceFragment : Fragment() {
     private lateinit var listContainer: LinearLayout
     private lateinit var titleText: TextView
@@ -33,6 +42,9 @@ class AttendanceFragment : Fragment() {
 
     private fun primary() = (activity as? MainActivity)?.primaryColor ?: 0xFF1565C0.toInt()
 
+    /**
+     * ساخت و برگرداندن View ریشه این Fragment.
+     */
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,

@@ -1,5 +1,11 @@
 package com.personal.timetracker.data.repository
 
+/**
+ * توضیح فایل: لایه منطق کسب‌وکار؛ تنها درگاه بین UI و دیتابیس/جیرا.
+ * بسته: com.personal.timetracker.data.repository
+ * زبان توضیحات: فارسی — برای توسعه‌دهنده جاواکار.
+ */
+
 import android.content.Context
 import android.util.Log
 import com.personal.timetracker.data.db.AppDatabase
@@ -27,6 +33,19 @@ import org.json.JSONArray
 import java.net.HttpURLConnection
 import java.net.URL
 
+/**
+ * لایه منطق کسب‌وکار؛ تنها درگاه بین UI و دیتابیس/جیرا.
+ *
+ * گروه‌های متد:
+ * - تنظیمات و تردد (checkIn/Out، attendance)
+ * - تسک محلی و تایمر
+ * - کش و سینک Issue / Status / Project
+ * - Worklog (سینک، pending، فیلتر کاربر)
+ * - گزارش (report، dayBreakdown، summary)
+ * - علاقه‌مندی و transition/کامنت
+ *
+ * Fragmentها نباید DAO یا JiraApi را مستقیم صدا بزنند.
+ */
 class AppRepository(context: Context) {
     private val appContext = context.applicationContext
     private val db = AppDatabase.get(context)
@@ -40,17 +59,32 @@ class AppRepository(context: Context) {
     private val jiraWorklogDao = db.jiraWorklogDao()
     private val jiraStatusDao = db.jiraStatusDao()
 
+    /**
+     * مشاهده زنده تنظیمات.
+     */
     fun observeSettings(): Flow<SettingsEntity?> = settingsDao.observe()
+    /**
+     * خواندن تنظیمات فعلی.
+     */
     suspend fun getSettings(): SettingsEntity =
         settingsDao.get() ?: SettingsEntity().also { settingsDao.upsert(it) }
+    /**
+     * ذخیره تنظیمات.
+     */
     suspend fun saveSettings(s: SettingsEntity) = settingsDao.upsert(s)
 
+    /**
+     * مشاهده رکورد فعال (مثلاً ورود بدون خروج).
+     */
     fun observeActive(): Flow<AttendanceEntity?> = attendanceDao.observeActive()
     fun observeToday(): Flow<List<AttendanceEntity>> =
         attendanceDao.observeByDate(TimeUtils.today())
 
     fun observeAttendance(date: String): Flow<List<AttendanceEntity>> =
         attendanceDao.observeByDate(date)
+    /**
+     * خواندن یک‌باره رکوردهای یک روز.
+     */
     suspend fun getByDateOnce(date: String) = attendanceDao.getByDateOnce(date)
 
     // ---- Holidays ----
@@ -185,6 +219,9 @@ class AppRepository(context: Context) {
         return added
     }
 
+    /**
+     * ثبت ورود به محل کار.
+     */
     suspend fun checkIn(date: String = TimeUtils.today(), entryTime: String = TimeUtils.nowTime()) {
         val active = attendanceDao.getActive()
         if (active != null && active.date == date) return
@@ -203,6 +240,9 @@ class AppRepository(context: Context) {
         try { DynamicAppIcon.syncNow(appContext) } catch (_: Exception) {}
     }
 
+    /**
+     * ثبت خروج و محاسبه مدت.
+     */
     suspend fun checkOut(exitTime: String = TimeUtils.nowTime()) {
         val active = attendanceDao.getActive() ?: return
         val settings = getSettings()
@@ -926,6 +966,9 @@ class AppRepository(context: Context) {
         Result.success(ok)
     }
 
+    /**
+     * روشن/خاموش کردن ستاره Issue.
+     */
     suspend fun toggleJiraFavorite(issueKey: String, summary: String = "", projectKey: String = "", projectName: String = ""): Boolean =
         withContext(Dispatchers.IO) {
             val key = issueKey.trim().uppercase()
@@ -968,6 +1011,9 @@ class AppRepository(context: Context) {
             .sortedByDescending { it.total }
     }
 
+    /**
+     * جمع Worklog بر اساس Issue در بازه.
+     */
     suspend fun jiraSummaryRange(start: String, end: String): List<JiraSum> {
         jiraWorklogDao.dedupeByRemoteId()
         val jiraRows = dedupeWorklogs(
@@ -1003,6 +1049,9 @@ class AppRepository(context: Context) {
             .sortedByDescending { it.total }
     }
 
+    /**
+     * جمع آماری کارکرد و مرخصی بازه.
+     */
     suspend fun report(start: String, end: String): ReportData {
         val settings = getSettings()
         val days = attendanceDao.getByRange(start, end)
@@ -1057,6 +1106,9 @@ class AppRepository(context: Context) {
         )
     }
 
+    /**
+     * جزئیات روزبه‌روز گزارش.
+     */
     suspend fun dayBreakdown(start: String, end: String): List<DayBreakdown> {
         val days = attendanceDao.getByRange(start, end)
         jiraWorklogDao.dedupeByRemoteId()
@@ -1221,6 +1273,9 @@ class AppRepository(context: Context) {
         Result.success(count)
     }
 
+    /**
+     * سینک Worklogهای کاربر برای یک روز.
+     */
     suspend fun syncWorklogsForDate(date: String): Result<Int> =
         syncWorklogsForDateRange(date, date)
 

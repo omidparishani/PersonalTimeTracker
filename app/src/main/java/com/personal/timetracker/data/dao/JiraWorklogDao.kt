@@ -1,9 +1,18 @@
 package com.personal.timetracker.data.dao
 
+/**
+ * توضیح فایل: DAO اتاق: JiraWorklogDao.kt
+ * بسته: com.personal.timetracker.data.dao
+ * زبان توضیحات: فارسی — برای توسعه‌دهنده جاواکار.
+ */
+
 import androidx.room.*
 import com.personal.timetracker.data.entity.JiraWorklogCacheEntity
 import kotlinx.coroutines.flow.Flow
 
+/**
+ * کش Worklogها؛ dedupe و pending.
+ */
 @Dao
 interface JiraWorklogDao {
     @Query("SELECT * FROM jira_worklogs WHERE issueKey = :key AND syncStatus != 'pending_delete' ORDER BY date DESC, started DESC")
@@ -12,12 +21,21 @@ interface JiraWorklogDao {
     @Query("SELECT * FROM jira_worklogs WHERE issueKey = :key AND syncStatus != 'pending_delete' ORDER BY date DESC, started DESC")
     suspend fun getByIssueOnce(key: String): List<JiraWorklogCacheEntity>
 
+    /**
+     * خواندن یک‌باره رکوردهای یک روز.
+     */
     @Query("SELECT * FROM jira_worklogs WHERE date = :date AND syncStatus != 'pending_delete' ORDER BY started DESC, localId DESC")
     suspend fun getByDateOnce(date: String): List<JiraWorklogCacheEntity>
 
+    /**
+     * خواندن رکوردها در بازه تاریخ.
+     */
     @Query("SELECT * FROM jira_worklogs WHERE date BETWEEN :start AND :end AND syncStatus != 'pending_delete' ORDER BY date ASC, started ASC")
     suspend fun getByRange(start: String, end: String): List<JiraWorklogCacheEntity>
 
+    /**
+     * ردیف‌های در صف سینک.
+     */
     @Query("SELECT * FROM jira_worklogs WHERE syncStatus != 'synced' ORDER BY localId ASC")
     suspend fun getPending(): List<JiraWorklogCacheEntity>
 
@@ -27,15 +45,27 @@ interface JiraWorklogDao {
     @Query("SELECT * FROM jira_worklogs WHERE remoteId = :remoteId LIMIT 1")
     suspend fun getByRemoteId(remoteId: String): JiraWorklogCacheEntity?
 
+    /**
+     * درج یا جایگزینی در صورت تعارض.
+     */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(item: JiraWorklogCacheEntity): Long
 
+    /**
+     * upsert دسته‌ای.
+     */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(items: List<JiraWorklogCacheEntity>)
 
+    /**
+     * به‌روزرسانی ردیف.
+     */
     @Update
     suspend fun update(item: JiraWorklogCacheEntity)
 
+    /**
+     * حذف ردیف.
+     */
     @Delete
     suspend fun delete(item: JiraWorklogCacheEntity)
 
@@ -45,6 +75,9 @@ interface JiraWorklogDao {
     @Query("DELETE FROM jira_worklogs WHERE remoteId = :remoteId")
     suspend fun deleteByRemoteId(remoteId: String)
 
+    /**
+     * جمع دقایق Worklog در بازه (خام، بدون فیلتر نویسنده).
+     */
     @Query("SELECT COALESCE(SUM(durationMinutes), 0) FROM jira_worklogs WHERE date BETWEEN :start AND :end AND syncStatus != 'pending_delete'")
     suspend fun sumMinutesInRange(start: String, end: String): Int
 
@@ -57,5 +90,8 @@ interface JiraWorklogDao {
              AND a.localId > b.localId
         )
     """)
+    /**
+     * حذف ردیف‌های تکراری با remoteId یکسان.
+     */
     suspend fun dedupeByRemoteId(): Int
 }

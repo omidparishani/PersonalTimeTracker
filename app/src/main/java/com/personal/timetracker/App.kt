@@ -1,5 +1,11 @@
 package com.personal.timetracker
 
+/**
+ * توضیح فایل: نقطه ورود سراسری اپلیکیشن؛ ساخت Repository و زمان‌بندی کارهای پس‌زمینه.
+ * بسته: com.personal.timetracker
+ * زبان توضیحات: فارسی — برای توسعه‌دهنده جاواکار.
+ */
+
 import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -8,10 +14,16 @@ import android.util.Log
 import com.personal.timetracker.data.repository.AppRepository
 import com.personal.timetracker.util.NotifHelper
 
+/**
+ * نقطه ورود سراسری اپلیکیشن؛ ساخت Repository و زمان‌بندی کارهای پس‌زمینه.
+ */
 class App : Application() {
     lateinit var repository: AppRepository
         private set
 
+    /**
+     * راه‌اندازی اولیه هنگام ساخت شیء.
+     */
     override fun onCreate() {
         super.onCreate()
         try {

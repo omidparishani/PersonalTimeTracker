@@ -1,5 +1,11 @@
 package com.personal.timetracker.widget
 
+/**
+ * توضیح فایل: ویجت نمایش مرتبط با ساعت کار.
+ * بسته: com.personal.timetracker.widget
+ * زبان توضیحات: فارسی — برای توسعه‌دهنده جاواکار.
+ */
+
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
@@ -30,6 +36,9 @@ class IconHoursWidgetProvider : AppWidgetProvider() {
         }
     }
 
+    /**
+     * به‌روزرسانی ویجت(ها) روی صفحه اصلی.
+     */
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
         CoroutineScope(Dispatchers.IO).launch {
             val minutes = try {

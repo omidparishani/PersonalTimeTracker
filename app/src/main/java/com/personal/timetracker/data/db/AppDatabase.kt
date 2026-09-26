@@ -1,5 +1,11 @@
 package com.personal.timetracker.data.db
 
+/**
+ * توضیح فایل: تعریف دیتابیس Room (SQLite) و نسخه schema و DAOها.
+ * بسته: com.personal.timetracker.data.db
+ * زبان توضیحات: فارسی — برای توسعه‌دهنده جاواکار.
+ */
+
 import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
@@ -25,6 +31,9 @@ import com.personal.timetracker.data.entity.SettingsEntity
 import com.personal.timetracker.data.entity.TaskEntity
 import com.personal.timetracker.data.entity.TaskLogEntity
 
+/**
+ * تعریف دیتابیس Room (SQLite) و نسخه schema و DAOها.
+ */
 @Database(
     entities = [
         AttendanceEntity::class, TaskEntity::class, TaskLogEntity::class, SettingsEntity::class, HolidayEntity::class,
@@ -275,12 +284,18 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * ساخت کنترل‌های فرم داخل container.
+         */
         private fun build(context: Context): AppDatabase {
             return Room.databaseBuilder(context, AppDatabase::class.java, "personal_time_tracker.db")
                 .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14)
                 .fallbackToDestructiveMigration()
                 .allowMainThreadQueries()
                 .addCallback(object : Callback() {
+                    /**
+                     * راه‌اندازی اولیه هنگام ساخت شیء.
+                     */
                     override fun onCreate(db: SupportSQLiteDatabase) {
                         db.execSQL(
                             "INSERT OR IGNORE INTO settings (id, startWorkTime, endWorkTime, flexibleMinutes, minimumWorkMinutes, isDarkMode, themeColor, projects) VALUES (1,'09:00','17:00',30,480,0,-10983104,'')"

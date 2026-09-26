@@ -1,5 +1,11 @@
 package com.personal.timetracker.util
 
+/**
+ * توضیح فایل: Worker بکاپ خودکار دوره‌ای.
+ * بسته: com.personal.timetracker.util
+ * زبان توضیحات: فارسی — برای توسعه‌دهنده جاواکار.
+ */
+
 import android.content.Context
 import android.util.Log
 import androidx.work.Constraints
@@ -12,6 +18,9 @@ import com.personal.timetracker.data.db.AppDatabase
 import java.io.File
 import java.util.concurrent.TimeUnit
 
+/**
+ * Worker بکاپ خودکار دوره‌ای.
+ */
 class AutoBackupWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, params) {
     override suspend fun doWork(): Result {
         return try {

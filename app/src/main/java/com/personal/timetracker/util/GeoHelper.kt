@@ -1,5 +1,11 @@
 package com.personal.timetracker.util
 
+/**
+ * توضیح فایل: ورود/خروج خودکار بر اساس موقعیت.
+ * بسته: com.personal.timetracker.util
+ * زبان توضیحات: فارسی — برای توسعه‌دهنده جاواکار.
+ */
+
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
@@ -23,6 +29,9 @@ import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.math.sqrt
 
+/**
+ * ورود/خروج خودکار بر اساس موقعیت.
+ */
 object GeoHelper {
     private var lastAlertAt = 0L
     private const val ALERT_COOLDOWN_MS = 10 * 60 * 1000L // 10 min

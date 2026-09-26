@@ -1,5 +1,11 @@
 package com.personal.timetracker.jira
 
+/**
+ * توضیح فایل: تعریف endpointهای REST API جیرا (Server/DC).
+ * بسته: com.personal.timetracker.jira
+ * زبان توضیحات: فارسی — برای توسعه‌دهنده جاواکار.
+ */
+
 import retrofit2.Response
 import retrofit2.http.*
 
@@ -15,12 +21,18 @@ interface JiraApi {
     @GET("rest/api/2/project")
     suspend fun getProjects(): Response<List<JiraProjectDto>>
 
+    /**
+     * اطلاعات کاربر جاری توکن.
+     */
     @GET("rest/api/2/myself")
     suspend fun myself(): Response<JiraUser>
 
     @GET("rest/api/2/serverInfo")
     suspend fun serverInfo(): Response<JiraServerInfo>
 
+    /**
+     * جستجو با متن.
+     */
     @GET("rest/api/2/search")
     suspend fun search(
         @Query("jql") jql: String,
@@ -36,14 +48,21 @@ interface JiraApi {
         @Query("expand") expand: String = "renderedFields"
     ): Response<JiraIssue>
 
+    /** بخش Worklog: ثبت و مدیریت زمان روی Issue */
     // ---- Worklog ----
 
+    /**
+     * افزودن Worklog روی سرور.
+     */
     @POST("rest/api/2/issue/{issueKey}/worklog")
     suspend fun addWorklog(
         @Path("issueKey") issueKey: String,
         @Body body: JiraWorklogRequest
     ): Response<JiraWorklog>
 
+    /**
+     * لیست Worklog یک Issue از سرور.
+     */
     @GET("rest/api/2/issue/{issueKey}/worklog")
     suspend fun getWorklogs(
         @Path("issueKey") issueKey: String
@@ -62,6 +81,7 @@ interface JiraApi {
         @Path("worklogId") worklogId: String
     ): Response<Unit>
 
+    /** بخش کامنت */
     // ---- Comments ----
 
     @GET("rest/api/2/issue/{issueKey}/comment")
@@ -75,6 +95,7 @@ interface JiraApi {
         @Body body: JiraCommentRequest
     ): Response<JiraComment>
 
+    /** بخش ایجاد و ویرایش Issue */
     // ---- Create / Update ----
 
     @POST("rest/api/2/issue")
@@ -93,6 +114,7 @@ interface JiraApi {
         @Body body: JiraUpdateIssueRequest
     ): Response<Unit>
 
+    /** بخش تغییر وضعیت workflow */
     // ---- Transitions (workflow) ----
 
     @GET("rest/api/2/issue/{issueKey}/transitions")
@@ -135,6 +157,9 @@ interface JiraApi {
         @Query("maxResults") maxResults: Int = 200
     ): Response<JiraCreateMetaFieldsPage>
 
+    /**
+     * حذف Issue از سرور.
+     */
     @DELETE("rest/api/2/issue/{issueKey}")
     suspend fun deleteIssue(
         @Path("issueKey") issueKey: String,
@@ -147,6 +172,9 @@ interface JiraApi {
     ): Response<JiraEditMetaResponse>
 
     /** Jira Server/DC: پارامتر username */
+    /**
+     * جستجوی کاربران قابل‌اساین در پروژه.
+     */
     @GET("rest/api/2/user/assignable/search")
     suspend fun searchAssignableUsers(
         @Query("project") project: String,

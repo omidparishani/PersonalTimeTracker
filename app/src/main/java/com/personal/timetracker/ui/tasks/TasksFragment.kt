@@ -1,5 +1,11 @@
 package com.personal.timetracker.ui.tasks
 
+/**
+ * توضیح فایل: مرکز مدیریت Issue و Worklog جیرا در UI.
+ * بسته: com.personal.timetracker.ui.tasks
+ * زبان توضیحات: فارسی — برای توسعه‌دهنده جاواکار.
+ */
+
 import com.personal.timetracker.jira.JiraIssueFormHelper
 
 import com.personal.timetracker.jira.JiraService
@@ -79,6 +85,9 @@ class TasksFragment : Fragment() {
     private fun primary() = (activity as? MainActivity)?.primaryColor ?: 0xFF1565C0.toInt()
     private fun dark() = (activity as? MainActivity)?.isDark == true
 
+    /**
+     * ساخت و برگرداندن View ریشه این Fragment.
+     */
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -663,6 +672,9 @@ class TasksFragment : Fragment() {
 
 
 
+    /**
+     * بارگذاری/ریفرش صفحه لیست Issue.
+     */
     private suspend fun loadPage(reset: Boolean) {
         if (isLoadingPage) return
         isLoadingPage = true
@@ -1099,6 +1111,9 @@ class TasksFragment : Fragment() {
         }
     }
 
+    /**
+     * فرم فیلدها پس از انتخاب پروژه و نوع.
+     */
     private suspend fun showCreateIssueStep2(
         service: com.personal.timetracker.jira.JiraService,
         projectKey: String,
@@ -1222,6 +1237,9 @@ class TasksFragment : Fragment() {
         )
     }
 
+    /**
+     * ویرایش Issue با editmeta.
+     */
     private fun showEditIssueDialog(issue: JiraIssueCacheEntity) {
         val ctx = requireContext()
         viewLifecycleOwner.lifecycleScope.launch {
@@ -1325,6 +1343,9 @@ class TasksFragment : Fragment() {
         }
     }
 
+    /**
+     * تأیید و حذف Issue.
+     */
     private fun confirmDeleteIssue(issueKey: String) {
         val ctx = requireContext()
         DialogHelper.confirm(

@@ -1,5 +1,11 @@
 package com.personal.timetracker.util
 
+/**
+ * توضیح فایل: نوتیفیکیشن و زمان‌بندی یادآوری/geo.
+ * بسته: com.personal.timetracker.util
+ * زبان توضیحات: فارسی — برای توسعه‌دهنده جاواکار.
+ */
+
 import android.app.AlarmManager
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -24,6 +30,9 @@ import com.personal.timetracker.ui.MainActivity
 import java.util.Calendar
 import java.util.concurrent.TimeUnit
 
+/**
+ * نوتیفیکیشن و زمان‌بندی یادآوری/geo.
+ */
 object NotifHelper {
     const val CHANNEL_ID = "work_reminders"
     const val NOTIF_ID = 1001
@@ -49,6 +58,9 @@ object NotifHelper {
         return NotificationManagerCompat.from(context).areNotificationsEnabled()
     }
 
+    /**
+     * نمایش دیالوگ؛ onPositive با false دیالوگ را باز نگه می‌دارد.
+     */
     fun show(context: Context, title: String, body: String, id: Int = NOTIF_ID) {
         ensureChannel(context)
         if (!canPost(context)) {
@@ -173,6 +185,9 @@ object NotifHelper {
 }
 
 class WorkEndReceiver : BroadcastReceiver() {
+    /**
+     * دریافت Intent (کلیک ویجت یا broadcast).
+     */
     override fun onReceive(context: Context, intent: Intent?) {
         val title = intent?.getStringExtra("title") ?: "یادآوری پایان کار"
         val body = intent?.getStringExtra("body") ?: "زمان پایان کار نزدیک است"

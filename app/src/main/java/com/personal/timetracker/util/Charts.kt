@@ -1,5 +1,11 @@
 package com.personal.timetracker.util
 
+/**
+ * توضیح فایل: نمودار میله‌ای ساده برای گزارش.
+ * بسته: com.personal.timetracker.util
+ * زبان توضیحات: فارسی — برای توسعه‌دهنده جاواکار.
+ */
+
 import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.Canvas
@@ -14,6 +20,9 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.graphics.ColorUtils
 
+/**
+ * نمودار میله‌ای ساده برای گزارش.
+ */
 data class BarItem(val label: String, val value: Int, val color: Int)
 data class DonutItem(val label: String, val value: Int, val color: Int)
 

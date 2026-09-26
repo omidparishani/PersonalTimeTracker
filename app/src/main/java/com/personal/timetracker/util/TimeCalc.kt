@@ -1,5 +1,11 @@
 package com.personal.timetracker.util
 
+/**
+ * توضیح فایل: محاسبه موظفی، شناوری، اضافه‌کار و مرخصی.
+ * بسته: com.personal.timetracker.util
+ * زبان توضیحات: فارسی — برای توسعه‌دهنده جاواکار.
+ */
+
 /** Outcome of applying the flexible-hours (شناوری) policy to a check-in time. */
 data class FlexOutcome(
     /** Recommended check-out time to complete the required duration for this day. */

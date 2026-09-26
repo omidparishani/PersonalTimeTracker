@@ -1,5 +1,11 @@
 package com.personal.timetracker.ui.calendar
 
+/**
+ * توضیح فایل: تقویم شمسی؛ تردد روز و Worklogهای کاربر جاری.
+ * بسته: com.personal.timetracker.ui.calendar
+ * زبان توضیحات: فارسی — برای توسعه‌دهنده جاواکار.
+ */
+
 import android.graphics.Typeface
 import android.os.Bundle
 import android.view.Gravity
@@ -38,6 +44,9 @@ class CalendarFragment : Fragment() {
     private fun primary() = (activity as? MainActivity)?.primaryColor ?: 0xFF1565C0.toInt()
     private fun dark() = (activity as? MainActivity)?.isDark == true
 
+    /**
+     * ساخت و برگرداندن View ریشه این Fragment.
+     */
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -254,6 +263,9 @@ class CalendarFragment : Fragment() {
         return TimeUtils.formatDate(date)
     }
 
+    /**
+     * بارگذاری داده‌های روز انتخاب‌شده در تقویم.
+     */
     private fun loadDay() {
         val d = selectedIso()
         val repo = (requireActivity().application as App).repository

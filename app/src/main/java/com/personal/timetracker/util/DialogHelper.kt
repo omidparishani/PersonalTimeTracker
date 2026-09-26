@@ -1,5 +1,11 @@
 package com.personal.timetracker.util
 
+/**
+ * توضیح فایل: دیالوگ‌های یک‌شکل با کنترل بستن.
+ * بسته: com.personal.timetracker.util
+ * زبان توضیحات: فارسی — برای توسعه‌دهنده جاواکار.
+ */
+
 import android.content.Context
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable

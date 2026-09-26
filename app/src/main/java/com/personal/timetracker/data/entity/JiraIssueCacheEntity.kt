@@ -1,10 +1,19 @@
 package com.personal.timetracker.data.entity
 
+/**
+ * توضیح فایل: Entity دیتابیس: JiraIssueCacheEntity.kt
+ * بسته: com.personal.timetracker.data.entity
+ * زبان توضیحات: فارسی — برای توسعه‌دهنده جاواکار.
+ */
+
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
 /** کش محلی Issueهای جیرا — منبع اصلی «تسک» در اپ */
 @Entity(tableName = "jira_issues")
+/**
+ * کش محلی یک Issue جیرا.
+ */
 data class JiraIssueCacheEntity(
     @PrimaryKey val issueKey: String,
     val summary: String = "",

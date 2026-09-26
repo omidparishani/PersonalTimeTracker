@@ -1,5 +1,11 @@
 package com.personal.timetracker.ui.dashboard
 
+/**
+ * توضیح فایل: داشبورد خلاصه وضعیت امروز.
+ * بسته: com.personal.timetracker.ui.dashboard
+ * زبان توضیحات: فارسی — برای توسعه‌دهنده جاواکار.
+ */
+
 import android.graphics.Typeface
 import android.os.Bundle
 import android.view.Gravity
@@ -27,6 +33,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
+/**
+ * داشبورد خلاصه وضعیت امروز.
+ */
 class DashboardFragment : Fragment() {
     private lateinit var statusTitle: TextView
     private lateinit var statusSub: TextView
@@ -48,6 +57,9 @@ class DashboardFragment : Fragment() {
     private fun primary() = (activity as? MainActivity)?.primaryColor ?: 0xFF1565C0.toInt()
     private fun dark() = (activity as? MainActivity)?.isDark ?: false
 
+    /**
+     * ساخت و برگرداندن View ریشه این Fragment.
+     */
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         val ctx = requireContext()
         val dark = dark()

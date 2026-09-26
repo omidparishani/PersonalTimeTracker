@@ -1,5 +1,11 @@
 package com.personal.timetracker.jira
 
+/**
+ * توضیح فایل: ساخت کلاینت Retrofit/OkHttp با توکن Bearer و پارس خطای فارسی.
+ * بسته: com.personal.timetracker.jira
+ * زبان توضیحات: فارسی — برای توسعه‌دهنده جاواکار.
+ */
+
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import okhttp3.Interceptor
@@ -19,6 +25,9 @@ object JiraClient {
         .setLenient()
         .create()
 
+    /**
+     * ساخت نمونه کلاینت یا موجودیت.
+     */
     fun create(baseUrl: String, token: String): JiraApi {
         val normalized = baseUrl.trim().trimEnd('/') + "/"
 

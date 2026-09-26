@@ -1,5 +1,11 @@
 package com.personal.timetracker.ui.reports
 
+/**
+ * توضیح فایل: گزارش بازه‌ای کارکرد، مرخصی و لاگ جیرا.
+ * بسته: com.personal.timetracker.ui.reports
+ * زبان توضیحات: فارسی — برای توسعه‌دهنده جاواکار.
+ */
+
 import android.graphics.Typeface
 import android.os.Bundle
 import android.view.Gravity
@@ -29,6 +35,9 @@ import com.personal.timetracker.util.ThemeHelper
 import com.personal.timetracker.util.TimeUtils
 import kotlinx.coroutines.launch
 
+/**
+ * گزارش بازه‌ای کارکرد، مرخصی و لاگ جیرا.
+ */
 class ReportsFragment : Fragment() {
     private lateinit var content: LinearLayout
     private lateinit var navRow: LinearLayout
@@ -44,6 +53,9 @@ class ReportsFragment : Fragment() {
     private fun primary() = (activity as? MainActivity)?.primaryColor ?: 0xFF1565C0.toInt()
     private fun dark() = (activity as? MainActivity)?.isDark == true
 
+    /**
+     * ساخت و برگرداندن View ریشه این Fragment.
+     */
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         val ctx = requireContext()
         val root = LinearLayout(ctx).apply {

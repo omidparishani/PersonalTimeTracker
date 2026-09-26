@@ -1,10 +1,19 @@
 package com.personal.timetracker.data.entity
 
+/**
+ * توضیح فایل: Entity دیتابیس: TaskLogEntity.kt
+ * بسته: com.personal.timetracker.data.entity
+ * زبان توضیحات: فارسی — برای توسعه‌دهنده جاواکار.
+ */
+
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
 /** One work log entry for a task on a specific day */
 @Entity(tableName = "task_logs")
+/**
+ * لاگ زمانی محلی روی تسک.
+ */
 data class TaskLogEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val taskId: Long,

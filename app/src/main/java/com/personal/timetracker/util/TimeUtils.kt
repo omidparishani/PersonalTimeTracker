@@ -1,10 +1,19 @@
 package com.personal.timetracker.util
 
+/**
+ * توضیح فایل: ابزار تاریخ/ساعت، شمسی، بازه و فرمت نمایش.
+ * بسته: com.personal.timetracker.util
+ * زبان توضیحات: فارسی — برای توسعه‌دهنده جاواکار.
+ */
+
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
+/**
+ * ابزار تاریخ/ساعت، شمسی، بازه و فرمت نمایش.
+ */
 object TimeUtils {
     private val dateFmt = SimpleDateFormat("yyyy-MM-dd", Locale.US)
     private val timeFmt = SimpleDateFormat("HH:mm", Locale.US)
@@ -17,12 +26,21 @@ object TimeUtils {
         "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند"
     )
 
+    /**
+     * تاریخ امروز yyyy-MM-dd.
+     */
     fun today(): String = dateFmt.format(Date())
+    /**
+     * ساعت فعلی HH:mm.
+     */
     fun nowTime(): String = timeFmt.format(Date())
     fun nowDateTime(): String = dateTimeFmt.format(Date())
     fun formatDate(date: Date): String = dateFmt.format(date)
     fun parseDate(s: String): Date = dateFmt.parse(s) ?: Date()
 
+    /**
+     * اختلاف دقیقه دو ساعت.
+     */
     fun minutesBetween(start: String, end: String): Int {
         val sp = start.split(":").map { it.toIntOrNull() ?: 0 }
         val ep = end.split(":").map { it.toIntOrNull() ?: 0 }
@@ -41,6 +59,9 @@ object TimeUtils {
         return "%02d:%02d".format(h, m)
     }
 
+    /**
+     * نمایش خوانای دقایق.
+     */
     fun formatDuration(minutes: Int): String {
         val m = minutes.coerceAtLeast(0)
         val h = m / 60
@@ -90,6 +111,9 @@ object TimeUtils {
         return "${faNum(j[2])} ${months[j[1] - 1]} ${faNum(j[0])}"
     }
 
+    /**
+     * نمایش تاریخ شمسی از رشته میلادی.
+     */
     fun toJalaliDisplay(dateStr: String): String {
         return try {
             val d = parseDate(dateStr)

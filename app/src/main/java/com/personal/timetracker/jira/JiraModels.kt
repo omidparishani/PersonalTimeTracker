@@ -1,7 +1,16 @@
 package com.personal.timetracker.jira
 
+/**
+ * توضیح فایل: مدل‌های داده (DTO) برای JSON جیرا و ScriptRunner.
+ * بسته: com.personal.timetracker.jira
+ * زبان توضیحات: فارسی — برای توسعه‌دهنده جاواکار.
+ */
+
 // ---------- Auth / User ----------
 
+/**
+ * مدل‌های داده (DTO) برای JSON جیرا و ScriptRunner.
+ */
 data class JiraUser(
     val self: String? = null,
     val key: String? = null,

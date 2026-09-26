@@ -1,5 +1,11 @@
 package com.personal.timetracker.jira
 
+/**
+ * توضیح فایل: سرویس سطح بالا برای عملیات جیرا با Result و مدیریت خطا.
+ * بسته: com.personal.timetracker.jira
+ * زبان توضیحات: فارسی — برای توسعه‌دهنده جاواکار.
+ */
+
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
 
@@ -38,6 +44,9 @@ class JiraService(
         val labels: List<String>
     )
 
+    /**
+     * اطلاعات کاربر جاری توکن.
+     */
     suspend fun myself(): Result<JiraUser> = testConnection()
 
     suspend fun testConnection(): Result<JiraUser> = runCatching {
@@ -184,6 +193,9 @@ class JiraService(
 
     // ---- Worklogs ----
 
+    /**
+     * لیست Worklog یک Issue از سرور.
+     */
     suspend fun getWorklogs(issueKey: String): Result<List<JiraWorklog>> = runCatching {
         val resp = api.getWorklogs(issueKey.trim().uppercase())
         if (!resp.isSuccessful || resp.body() == null) {
@@ -192,6 +204,9 @@ class JiraService(
         resp.body()!!.worklogs.sortedByDescending { it.started ?: it.created ?: "" }
     }
 
+    /**
+     * افزودن Worklog روی سرور.
+     */
     suspend fun addWorklog(
         issueKey: String,
         durationMinutes: Int,
@@ -543,6 +558,9 @@ class JiraService(
         resp.body()!!.fields
     }
 
+    /**
+     * به‌روزرسانی فیلدهای Issue.
+     */
     suspend fun updateIssueFields(
         issueKey: String,
         fields: Map<String, Any?>
@@ -559,6 +577,9 @@ class JiraService(
         summary: String
     ): Result<Unit> = updateIssueFields(issueKey, mapOf("summary" to summary))
 
+    /**
+     * حذف Issue از سرور.
+     */
     suspend fun deleteIssue(issueKey: String, deleteSubtasks: Boolean = true): Result<Unit> = runCatching {
         val resp = api.deleteIssue(issueKey.trim().uppercase(), deleteSubtasks)
         if (!resp.isSuccessful) {
@@ -604,6 +625,9 @@ class JiraService(
     }
 
 
+    /**
+     * جستجوی کاربران قابل‌اساین در پروژه.
+     */
     suspend fun searchAssignableUsers(projectKey: String, query: String): Result<List<JiraUser>> = runCatching {
         val pk = projectKey.trim().uppercase()
         val q = query.trim()
@@ -762,6 +786,9 @@ class JiraService(
             return sdf.format(Date())
         }
 
+        /**
+         * تبدیل تاریخ/ساعت به فرمت datetime مورد قبول جیرا.
+         */
         fun toJiraStarted(dateIso: String, timeHHmm: String? = null): String {
             val time = timeHHmm?.takeIf { it.matches(Regex("\\d{1,2}:\\d{2}")) } ?: "09:00"
             val raw = "${dateIso}T${time}:00.000"

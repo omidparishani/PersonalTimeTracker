@@ -1,5 +1,11 @@
 package com.personal.timetracker.ui
 
+/**
+ * توضیح فایل: Activity اصلی؛ ناوبری تب‌ها، تم، بیومتریک و سینک اولیه.
+ * بسته: com.personal.timetracker.ui
+ * زبان توضیحات: فارسی — برای توسعه‌دهنده جاواکار.
+ */
+
 import android.Manifest
 import android.content.pm.PackageManager
 import android.graphics.Color
@@ -60,6 +66,9 @@ class MainActivity : AppCompatActivity() {
     var isDark: Boolean = false
         private set
 
+    /**
+     * راه‌اندازی اولیه هنگام ساخت شیء.
+     */
     override fun onCreate(savedInstanceState: Bundle?) {
         // Night mode must be set BEFORE super/onCreate content for proper theme
         val prefs = getSharedPreferences("theme_prefs", MODE_PRIVATE)
@@ -166,6 +175,9 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * وقتی صفحه دوباره دیده می‌شود.
+     */
     override fun onResume() {
         super.onResume()
         try { com.personal.timetracker.util.DynamicAppIcon.sync(this) } catch (_: Exception) {}

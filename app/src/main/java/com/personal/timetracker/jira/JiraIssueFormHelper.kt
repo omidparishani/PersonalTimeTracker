@@ -1,5 +1,11 @@
 package com.personal.timetracker.jira
 
+/**
+ * توضیح فایل: ساخت فرم پویای ایجاد/ویرایش Issue بر اساس createmeta.
+ * بسته: com.personal.timetracker.jira
+ * زبان توضیحات: فارسی — برای توسعه‌دهنده جاواکار.
+ */
+
 import android.app.DatePickerDialog
 import android.content.Context
 import android.graphics.Typeface
@@ -60,6 +66,9 @@ class JiraIssueFormHelper(
 
     private val widgets = linkedMapOf<String, FieldWidgets>()
 
+    /**
+     * ساخت کنترل‌های فرم داخل container.
+     */
     fun build(container: LinearLayout, fields: Map<String, JiraMetaField>, existing: Map<String, Any?> = emptyMap()) {
         container.removeAllViews()
         widgets.clear()

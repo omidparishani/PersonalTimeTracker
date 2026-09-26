@@ -1,5 +1,11 @@
 package com.personal.timetracker.util
 
+/**
+ * توضیح فایل: دیالوگ‌های ویرایش سریع رکوردها.
+ * بسته: com.personal.timetracker.util
+ * زبان توضیحات: فارسی — برای توسعه‌دهنده جاواکار.
+ */
+
 import android.app.TimePickerDialog
 import android.content.Context
 import android.widget.LinearLayout

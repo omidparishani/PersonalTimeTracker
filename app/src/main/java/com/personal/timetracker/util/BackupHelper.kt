@@ -1,5 +1,11 @@
 package com.personal.timetracker.util
 
+/**
+ * توضیح فایل: پشتیبان‌گیری و بازیابی داده.
+ * بسته: com.personal.timetracker.util
+ * زبان توضیحات: فارسی — برای توسعه‌دهنده جاواکار.
+ */
+
 import android.content.Context
 import android.content.Intent
 import androidx.core.content.FileProvider
@@ -12,6 +18,9 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 
+/**
+ * پشتیبان‌گیری و بازیابی داده.
+ */
 object BackupHelper {
     suspend fun exportJson(context: Context): File {
         val db = AppDatabase.get(context)

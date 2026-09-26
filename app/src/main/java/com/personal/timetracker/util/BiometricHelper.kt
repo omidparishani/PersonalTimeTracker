@@ -1,10 +1,19 @@
 package com.personal.timetracker.util
 
+/**
+ * توضیح فایل: احراز هویت بیومتریک.
+ * بسته: com.personal.timetracker.util
+ * زبان توضیحات: فارسی — برای توسعه‌دهنده جاواکار.
+ */
+
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
 
+/**
+ * احراز هویت بیومتریک.
+ */
 object BiometricHelper {
     fun canAuthenticate(activity: FragmentActivity): Boolean {
         val bm = BiometricManager.from(activity)

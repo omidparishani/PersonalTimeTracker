@@ -1,9 +1,18 @@
 package com.personal.timetracker.data.entity
 
+/**
+ * توضیح فایل: Entity دیتابیس: AttendanceEntity.kt
+ * بسته: com.personal.timetracker.data.entity
+ * زبان توضیحات: فارسی — برای توسعه‌دهنده جاواکار.
+ */
+
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
 @Entity(tableName = "attendance")
+/**
+ * تردد روزانه یک بازه ورود/خروج.
+ */
 data class AttendanceEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val date: String,          // yyyy-MM-dd Gregorian for sorting

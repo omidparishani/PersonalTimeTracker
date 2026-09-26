@@ -1,5 +1,11 @@
 package com.personal.timetracker.util
 
+/**
+ * توضیح فایل: تغییر آیکون لانچر بر اساس ساعات کار.
+ * بسته: com.personal.timetracker.util
+ * زبان توضیحات: فارسی — برای توسعه‌دهنده جاواکار.
+ */
+
 import android.content.ComponentName
 import android.content.Context
 import android.content.pm.PackageManager

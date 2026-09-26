@@ -1,5 +1,11 @@
 package com.personal.timetracker.ui.jira
 
+/**
+ * توضیح فایل: مسیر قدیمی UI جیرا (مسیر اصلی: TasksFragment).
+ * بسته: com.personal.timetracker.ui.jira
+ * زبان توضیحات: فارسی — برای توسعه‌دهنده جاواکار.
+ */
+
 import com.personal.timetracker.jira.JiraMetaField
 
 import com.personal.timetracker.jira.JiraCreateMetaIssueType
@@ -61,6 +67,9 @@ class JiraFragment : Fragment() {
     private fun primary() = (activity as? MainActivity)?.primaryColor ?: 0xFF1565C0.toInt()
     private fun dark() = (activity as? MainActivity)?.isDark == true
 
+    /**
+     * ساخت و برگرداندن View ریشه این Fragment.
+     */
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -835,6 +844,9 @@ class JiraFragment : Fragment() {
     ) { /* no-op placeholder */ }
 
 
+    /**
+     * شروع جریان دو مرحله‌ای ایجاد Issue.
+     */
     private fun showCreateIssueDialog() {
         val ctx = requireContext()
         viewLifecycleOwner.lifecycleScope.launch {
@@ -1057,6 +1069,9 @@ class JiraFragment : Fragment() {
         }
     }
 
+    /**
+     * ویرایش Issue با editmeta.
+     */
     private fun showEditIssueDialog(issueKey: String) {
         val ctx = requireContext()
         viewLifecycleOwner.lifecycleScope.launch {
@@ -1113,6 +1128,9 @@ class JiraFragment : Fragment() {
         }
     }
 
+    /**
+     * تأیید و حذف Issue.
+     */
     private fun confirmDeleteIssue(issueKey: String) {
         val ctx = requireContext()
         DialogHelper.confirm(

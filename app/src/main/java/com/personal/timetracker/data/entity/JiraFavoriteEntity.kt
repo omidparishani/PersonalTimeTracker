@@ -1,5 +1,11 @@
 package com.personal.timetracker.data.entity
 
+/**
+ * توضیح فایل: Entity دیتابیس: JiraFavoriteEntity.kt
+ * بسته: com.personal.timetracker.data.entity
+ * زبان توضیحات: فارسی — برای توسعه‌دهنده جاواکار.
+ */
+
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
@@ -8,6 +14,9 @@ import androidx.room.PrimaryKey
  * (مثلاً Daily، جلسات، پشتیبانی و ...).
  */
 @Entity(tableName = "jira_favorites")
+/**
+ * کلاس JiraFavoriteEntity
+ */
 data class JiraFavoriteEntity(
     @PrimaryKey val issueKey: String,
     val summary: String = "",

@@ -1,5 +1,11 @@
 package com.personal.timetracker.util
 
+/**
+ * توضیح فایل: انتخاب‌گر تاریخ شمسی.
+ * بسته: com.personal.timetracker.util
+ * زبان توضیحات: فارسی — برای توسعه‌دهنده جاواکار.
+ */
+
 import android.content.Context
 import android.graphics.Typeface
 import android.view.Gravity
@@ -21,6 +27,9 @@ object JalaliDatePickerDialog {
         "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند"
     )
 
+    /**
+     * نمایش دیالوگ؛ onPositive با false دیالوگ را باز نگه می‌دارد.
+     */
     fun show(
         ctx: Context,
         primary: Int,

@@ -1,5 +1,11 @@
 package com.personal.timetracker.data.entity
 
+/**
+ * توضیح فایل: Entity دیتابیس: JiraWorklogCacheEntity.kt
+ * بسته: com.personal.timetracker.data.entity
+ * زبان توضیحات: فارسی — برای توسعه‌دهنده جاواکار.
+ */
+
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
@@ -17,6 +23,9 @@ import androidx.room.PrimaryKey
         Index(value = ["remoteId"], unique = true)
     ]
 )
+/**
+ * کش محلی یک Worklog جیرا.
+ */
 data class JiraWorklogCacheEntity(
     @PrimaryKey(autoGenerate = true) val localId: Long = 0,
     /** شناسه Worklog روی سرور؛ null تا وقتی سینک نشده */

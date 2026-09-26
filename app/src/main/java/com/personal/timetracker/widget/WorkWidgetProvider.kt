@@ -1,5 +1,11 @@
 package com.personal.timetracker.widget
 
+/**
+ * توضیح فایل: ویجت میانبر تردد/کار.
+ * بسته: com.personal.timetracker.widget
+ * زبان توضیحات: فارسی — برای توسعه‌دهنده جاواکار.
+ */
+
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
@@ -41,6 +47,9 @@ class WorkWidgetProvider : AppWidgetProvider() {
         }
     }
 
+    /**
+     * دریافت Intent (کلیک ویجت یا broadcast).
+     */
     override fun onReceive(context: Context, intent: Intent) {
         when (intent.action) {
             ACTION_CHECK_IN, ACTION_CHECK_OUT -> {
@@ -59,6 +68,9 @@ class WorkWidgetProvider : AppWidgetProvider() {
         }
     }
 
+    /**
+     * به‌روزرسانی ویجت(ها) روی صفحه اصلی.
+     */
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
         CoroutineScope(Dispatchers.IO).launch {
             val db = AppDatabase.get(context)

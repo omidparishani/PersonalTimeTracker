@@ -1,5 +1,11 @@
 package com.personal.timetracker.ui.settings
 
+/**
+ * توضیح فایل: تنظیمات اپ، جیرا، بکاپ و موقعیت.
+ * بسته: com.personal.timetracker.ui.settings
+ * زبان توضیحات: فارسی — برای توسعه‌دهنده جاواکار.
+ */
+
 import android.Manifest
 import android.app.TimePickerDialog
 import android.graphics.Color
@@ -36,6 +42,9 @@ import com.personal.timetracker.util.ThemeHelper
 import com.personal.timetracker.util.TimeUtils
 import kotlinx.coroutines.launch
 
+/**
+ * تنظیمات اپ، جیرا، بکاپ و موقعیت.
+ */
 class SettingsFragment : Fragment() {
     private var settings = SettingsEntity()
     private lateinit var startBtn: MaterialButton
@@ -115,6 +124,9 @@ class SettingsFragment : Fragment() {
             else Toast.makeText(requireContext(), "مجوز موقعیت لازم است", Toast.LENGTH_SHORT).show()
         }
 
+    /**
+     * ساخت و برگرداندن View ریشه این Fragment.
+     */
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,

@@ -1,5 +1,11 @@
 package com.personal.timetracker.util
 
+/**
+ * توضیح فایل: رنگ‌ها و استایل یکدست روشن/تیره.
+ * بسته: com.personal.timetracker.util
+ * زبان توضیحات: فارسی — برای توسعه‌دهنده جاواکار.
+ */
+
 import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.Color
@@ -12,6 +18,9 @@ import com.google.android.material.card.MaterialCardView
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 
+/**
+ * رنگ‌ها و استایل یکدست روشن/تیره.
+ */
 object ThemeHelper {
     /** Perceived brightness 0..1 */
     fun luminance(color: Int): Float {
