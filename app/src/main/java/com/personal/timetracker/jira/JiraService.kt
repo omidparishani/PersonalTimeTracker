@@ -1,9 +1,10 @@
 package com.personal.timetracker.jira
 
-import com.personal.timetracker.data.entity.SettingsEntity
-import com.personal.timetracker.data.entity.TaskEntity
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
+
+import com.personal.timetracker.data.entity.SettingsEntity
+import com.personal.timetracker.data.entity.TaskEntity
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -283,7 +284,13 @@ class JiraService(
     suspend fun createIssueWithFields(fields: Map<String, Any?>): Result<JiraCreateIssueResponse> = runCatching {
         val resp = api.createIssueRaw(JiraCreateIssueRequestRaw(fields))
         if (!resp.isSuccessful || resp.body() == null) {
-            throw Exception(JiraClient.parseError(resp.errorBody()?.string()))
+            val parsed = JiraClient.parseError(resp.errorBody()?.string())
+            val msg = if (parsed.isBlank() || parsed == "خطای ناشناخته از سرور جیرا") {
+                "خطای سرور (${resp.code()}): امکان ایجاد Issue نیست. فیلدهای اجباری یا مقادیر را بررسی کنید."
+            } else {
+                parsed
+            }
+            throw Exception(msg)
         }
         resp.body()!!
     }

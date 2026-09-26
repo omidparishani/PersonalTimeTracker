@@ -63,20 +63,8 @@ class JiraIssueFormHelper(
     fun build(container: LinearLayout, fields: Map<String, JiraMetaField>, existing: Map<String, Any?> = emptyMap()) {
         container.removeAllViews()
         widgets.clear()
-        val merged = fields.toMutableMap()
-        DemiscoScriptRunnerFields.known.forEach { sr ->
-            if (sr.customFieldId !in merged) {
-                merged[sr.customFieldId] = JiraMetaField(
-                    required = true,
-                    name = sr.labelHint.ifBlank { sr.customFieldId },
-                    schema = JiraFieldSchema(
-                        type = if (sr.multiple) "array" else "string",
-                        custom = "com.onresolve.scriptrunner.canned.jira.fields.editable.database.DbPickerCannedField"
-                    )
-                )
-            }
-        }
-        val entries = merged.entries
+        // فقط فیلدهایی که createmeta برای همین نوع Issue برگردانده — بدون تزریق اجباری ScriptRunner
+        val entries = fields.entries
             .filter { (k, _) -> k !in skip }
             .sortedWith(
                 compareByDescending<Map.Entry<String, JiraMetaField>> { it.value.required }
@@ -90,6 +78,7 @@ class JiraIssueFormHelper(
                             else -> 10
                         }
                     }
+                    .thenBy { dateFieldSortKey(it.key, it.value.name) }
                     .thenBy { it.value.name ?: it.key }
             )
         // ensure estimate fields appear even if nested under timetracking-only
@@ -299,6 +288,23 @@ class JiraIssueFormHelper(
         }
         if (t == "number") return Kind.NUMBER
         return Kind.TEXT
+    }
+
+    /** شروع قبل از پایان در ترتیب نمایش فیلدهای تاریخ */
+    private fun dateFieldSortKey(key: String, name: String?): Int {
+        when (key) {
+            "customfield_10815" -> return 1 // شروع
+            "customfield_10816" -> return 2 // پایان
+        }
+        val n = ((name ?: "") + " " + key).lowercase()
+        return when {
+            n.contains("start") || n.contains("begin") || n.contains("from") ||
+                n.contains("شروع") || n.contains("آغاز") -> 1
+            n.contains("end") || n.contains("finish") || n.contains("until") ||
+                n.contains("پایان") || n.contains("خاتمه") -> 2
+            n.contains("due") || n.contains("سررسید") -> 3
+            else -> 5
+        }
     }
 
     private fun displayAv(av: JiraAllowedValue): String =
@@ -584,7 +590,7 @@ class JiraIssueFormHelper(
                     }
                     out[key] = encodeAv(key, meta, selected, multi = true)
                 }
-                Kind.USER, Kind.DATE, Kind.ISSUE_LINK -> {
+                Kind.USER, Kind.ISSUE_LINK -> {
                     val v = fw.pickedValue
                     if (v == null) {
                         if (meta.required || (key == "assignee" && meta.required)) {
@@ -594,6 +600,31 @@ class JiraIssueFormHelper(
                         continue
                     }
                     out[key] = v
+                }
+                Kind.DATE -> {
+                    val v = fw.pickedValue as? String
+                    if (v.isNullOrBlank()) {
+                        if (meta.required) {
+                            Toast.makeText(ctx, "${meta.name ?: key} الزامی است", Toast.LENGTH_SHORT).show()
+                            return null
+                        }
+                        continue
+                    }
+                    // date: yyyy-MM-dd | datetime: ISO با ساعت (جیرا «Error parsing time» روی فقط تاریخ)
+                    val schemaType = meta.schema?.type.orEmpty().lowercase()
+                    val knownEventDates = setOf("customfield_10815", "customfield_10816")
+                    // فیلدهای تاریخ/زمان رویداد شرکت حتماً datetime می‌خواهند
+                    val forceDateTime = key in knownEventDates ||
+                        schemaType == "datetime" || schemaType == "date-time" ||
+                        schemaType.contains("time")
+                    val pureDate = !forceDateTime && (schemaType == "date" || key == "duedate")
+                    out[key] = if (pureDate) {
+                        v.take(10)
+                    } else {
+                        val isEnd = key == "customfield_10816" || dateFieldSortKey(key, meta.name) == 2
+                        val time = if (isEnd) "23:59" else "00:00"
+                        JiraService.toJiraStarted(v.take(10), time)
+                    }
                 }
                 Kind.SCRIPT_RUNNER -> {
                     val v = fw.pickedValue

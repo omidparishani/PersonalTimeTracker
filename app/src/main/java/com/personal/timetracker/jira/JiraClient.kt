@@ -57,13 +57,41 @@ object JiraClient {
         if (body.isNullOrBlank()) return "خطای ناشناخته از سرور جیرا"
         return try {
             val err = gson.fromJson(body, JiraError::class.java)
-            val msgs = buildList {
-                err.errorMessages?.let { addAll(it) }
-                err.errors?.values?.let { addAll(it) }
+            val fieldNames = mapOf(
+                "summary" to "عنوان (Summary)",
+                "description" to "توضیحات",
+                "assignee" to "اساینی",
+                "priority" to "اولویت",
+                "components" to "Component",
+                "duedate" to "تاریخ سررسید",
+                "issuetype" to "نوع Issue",
+                "project" to "پروژه",
+                "customfield_12900" to "ActivityType",
+                "customfield_13600" to "DemisCustomer",
+                "customfield_13601" to "BudgetType",
+                "customfield_10815" to "تاریخ شروع",
+                "customfield_10816" to "تاریخ پایان",
+                "timetracking" to "تخمین زمان",
+                "labels" to "برچسب‌ها"
+            )
+            val parts = mutableListOf<String>()
+            err.errorMessages?.forEach { parts.add(it) }
+            err.errors?.forEach { (field, msg) ->
+                val label = fieldNames[field] ?: field
+                val tip = when {
+                    msg.contains("is required", true) || msg.contains("required", true) ->
+                        "«$label» الزامی است — مقدار را وارد یا انتخاب کنید."
+                    msg.contains("is invalid", true) || msg.contains("invalid", true) ->
+                        "مقدار «$label» نامعتبر است: $msg"
+                    msg.contains("does not exist", true) ->
+                        "«$label» در این پروژه/نوع تعریف نشده."
+                    else -> "$label: $msg"
+                }
+                parts.add(tip)
             }
-            msgs.joinToString("\n").ifBlank { body.take(300) }
+            parts.joinToString("\n").ifBlank { body.take(400) }
         } catch (_: Exception) {
-            body.take(300)
+            body.take(400)
         }
     }
 }

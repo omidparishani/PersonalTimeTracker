@@ -1161,7 +1161,16 @@ class TasksFragment : Fragment() {
         )
         helper.build(fieldsBox, fields)
 
-        DialogHelper.show(
+        val errorTv = TextView(ctx).apply {
+            setTextColor(0xFFE53935.toInt())
+            textSize = 13f
+            setPadding(0, 10, 0, 4)
+            visibility = android.view.View.GONE
+        }
+        layout.addView(errorTv, 0)
+
+        var dialogRef: androidx.appcompat.app.AlertDialog? = null
+        dialogRef = DialogHelper.show(
             ctx = ctx,
             icon = "＋",
             title = "ایجاد Issue — مرحله ۲",
@@ -1171,6 +1180,8 @@ class TasksFragment : Fragment() {
             body = layout,
             positiveText = "ایجاد",
             onPositive = {
+                errorTv.visibility = android.view.View.GONE
+                errorTv.text = ""
                 val collected = helper.collect() ?: return@show false
                 val body = collected.toMutableMap()
                 body["project"] = mapOf("key" to projectKey.uppercase())
@@ -1179,21 +1190,34 @@ class TasksFragment : Fragment() {
                 if (!issueType.name.isNullOrBlank()) typeMap["name"] = issueType.name!!
                 body["issuetype"] = typeMap
                 if (body["summary"] == null || body["summary"].toString().isBlank()) {
+                    errorTv.text = "عنوان (Summary) الزامی است"
+                    errorTv.visibility = android.view.View.VISIBLE
                     Toast.makeText(ctx, "عنوان (Summary) الزامی است", Toast.LENGTH_SHORT).show()
                     return@show false
                 }
+                // دکمه را غیرفعال نکنیم تا کاربر بتواند دوباره بزند؛ دیالوگ باز می‌ماند تا نتیجه بیاید
+                val positiveBtn = dialogRef?.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE)
+                positiveBtn?.isEnabled = false
+                positiveBtn?.text = "در حال ارسال…"
                 viewLifecycleOwner.lifecycleScope.launch {
                     service.createIssueWithFields(body).fold(
                         onSuccess = { created ->
                             Toast.makeText(ctx, "ایجاد شد: ${created.key}", Toast.LENGTH_LONG).show()
+                            dialogRef?.dismiss()
                             loadPage(reset = true)
                         },
                         onFailure = { e ->
-                            Toast.makeText(ctx, "خطا: ${e.message}", Toast.LENGTH_LONG).show()
+                            val msg = e.message?.takeIf { it.isNotBlank() } ?: "خطای ناشناخته از سرور"
+                            errorTv.text = msg
+                            errorTv.visibility = android.view.View.VISIBLE
+                            Toast.makeText(ctx, msg, Toast.LENGTH_LONG).show()
+                            positiveBtn?.isEnabled = true
+                            positiveBtn?.text = "ایجاد"
                         }
                     )
                 }
-                true
+                // مهم: false = دیالوگ بسته نشود تا موفقیت یا انصراف کاربر
+                false
             }
         )
     }
@@ -1245,7 +1269,16 @@ class TasksFragment : Fragment() {
             }
             helper.build(fieldsBox, fieldsToShow, existing)
 
-            DialogHelper.show(
+            val errorTv = TextView(ctx).apply {
+                setTextColor(0xFFE53935.toInt())
+                textSize = 13f
+                setPadding(0, 10, 0, 4)
+                visibility = android.view.View.GONE
+            }
+            layout.addView(errorTv, 0)
+
+            var dialogRef: androidx.appcompat.app.AlertDialog? = null
+            dialogRef = DialogHelper.show(
                 ctx = ctx,
                 icon = "✎",
                 title = "ویرایش Issue",
@@ -1255,26 +1288,38 @@ class TasksFragment : Fragment() {
                 body = layout,
                 positiveText = "ذخیره",
                 onPositive = {
+                    errorTv.visibility = android.view.View.GONE
+                    errorTv.text = ""
                     val collected = helper.collect()?.toMutableMap() ?: return@show false
-                    // project و issuetype معمولاً در ویرایش فرستاده نمی‌شوند
                     collected.remove("project")
                     collected.remove("issuetype")
                     if (collected.isEmpty()) {
+                        errorTv.text = "تغییری برای ذخیره نیست"
+                        errorTv.visibility = android.view.View.VISIBLE
                         Toast.makeText(ctx, "تغییری نیست", Toast.LENGTH_SHORT).show()
                         return@show false
                     }
+                    val positiveBtn = dialogRef?.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE)
+                    positiveBtn?.isEnabled = false
+                    positiveBtn?.text = "در حال ذخیره…"
                     viewLifecycleOwner.lifecycleScope.launch {
                         service.updateIssueFields(issue.issueKey, collected).fold(
                             onSuccess = {
                                 Toast.makeText(ctx, "ذخیره شد", Toast.LENGTH_SHORT).show()
+                                dialogRef?.dismiss()
                                 loadPage(reset = true)
                             },
                             onFailure = { e ->
-                                Toast.makeText(ctx, "خطا: ${e.message}", Toast.LENGTH_LONG).show()
+                                val msg = e.message?.takeIf { it.isNotBlank() } ?: "خطای ناشناخته از سرور"
+                                errorTv.text = msg
+                                errorTv.visibility = android.view.View.VISIBLE
+                                Toast.makeText(ctx, msg, Toast.LENGTH_LONG).show()
+                                positiveBtn?.isEnabled = true
+                                positiveBtn?.text = "ذخیره"
                             }
                         )
                     }
-                    true
+                    false
                 }
             )
         }

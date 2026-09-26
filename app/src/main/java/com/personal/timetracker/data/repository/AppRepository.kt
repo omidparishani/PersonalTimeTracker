@@ -971,7 +971,9 @@ class AppRepository(context: Context) {
     suspend fun jiraSummaryRange(start: String, end: String): List<JiraSum> {
         jiraWorklogDao.dedupeByRemoteId()
         val jiraRows = dedupeWorklogs(
-            jiraWorklogDao.getByRange(start, end).filter { it.syncStatus != "pending_delete" }
+            filterOwnWorklogs(
+                jiraWorklogDao.getByRange(start, end).filter { it.syncStatus != "pending_delete" }
+            )
         )
         if (jiraRows.isNotEmpty()) {
             val issues = jiraIssueDao.getAllOnce().associateBy { it.issueKey.uppercase() }
@@ -1038,8 +1040,10 @@ class AppRepository(context: Context) {
             }
         }
 
-        // زمان تسک از Worklogهای جیرا (کش)؛ در صورت خالی بودن، fallback به لاگ محلی قدیمی
-        val jiraMins = jiraWorklogDao.sumMinutesInRange(start, end)
+        // زمان تسک از Worklogهای جیرا فقط کاربر فعلی؛ در صورت خالی بودن، fallback به لاگ محلی
+        val jiraMins = filterOwnWorklogs(
+            jiraWorklogDao.getByRange(start, end).filter { it.syncStatus != "pending_delete" }
+        ).sumOf { it.durationMinutes }
         val localMins = taskLogDao.getByRange(start, end).sumOf { it.duration }
         val logMinutes = if (jiraMins > 0) jiraMins else localMins
 
@@ -1056,7 +1060,9 @@ class AppRepository(context: Context) {
     suspend fun dayBreakdown(start: String, end: String): List<DayBreakdown> {
         val days = attendanceDao.getByRange(start, end)
         jiraWorklogDao.dedupeByRemoteId()
-        val jiraLogs = jiraWorklogDao.getByRange(start, end)
+        val jiraLogs = filterOwnWorklogs(
+            jiraWorklogDao.getByRange(start, end).filter { it.syncStatus != "pending_delete" }
+        )
         val localLogs = taskLogDao.getByRange(start, end)
         val issues = jiraIssueDao.getAllOnce().associateBy { it.issueKey.uppercase() }
         val tasks = taskDao.getAllOnce().associateBy { it.id }
@@ -1218,11 +1224,28 @@ class AppRepository(context: Context) {
     suspend fun syncWorklogsForDate(date: String): Result<Int> =
         syncWorklogsForDateRange(date, date)
 
+
+    /** فقط Worklogهای کاربر فعلی (تقویم/گزارش). pending بدون author حفظ می‌شود. */
+    private suspend fun filterOwnWorklogs(rows: List<JiraWorklogCacheEntity>): List<JiraWorklogCacheEntity> {
+        val me = try {
+            jiraServiceOrNull()?.myself()?.getOrNull()
+        } catch (_: Exception) { null } ?: return rows
+        val myNames = listOfNotNull(me.name, me.key, me.displayName)
+            .map { it.trim().lowercase() }
+            .filter { it.isNotEmpty() }
+            .toSet()
+        if (myNames.isEmpty()) return rows
+        return rows.filter { wl ->
+            val a = wl.authorName?.trim()?.lowercase().orEmpty()
+            a.isEmpty() || a in myNames
+        }
+    }
+
     /** Worklogهای یک روز برای تقویم — بدون تکرار بر اساس remoteId */
     suspend fun getJiraWorklogsForDate(date: String): List<JiraWorklogCacheEntity> {
         jiraWorklogDao.dedupeByRemoteId()
         val rows = jiraWorklogDao.getByDateOnce(date).filter { it.syncStatus != "pending_delete" }
-        return dedupeWorklogs(rows)
+        return dedupeWorklogs(filterOwnWorklogs(rows))
     }
 
     /** حذف تکراری در حافظه: اولویت با remoteId، سپس issueKey+started+duration */
