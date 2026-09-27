@@ -143,15 +143,29 @@ class JiraIssueFormHelper(
                 names.addAll(allowed.map { displayAv(it) })
                 val sp = Spinner(ctx).apply {
                     adapter = ArrayAdapter(ctx, android.R.layout.simple_spinner_dropdown_item, names)
+                    // پیش‌انتخاب از مقدار فعلی Issue
+                    val matchIdx = findAllowedIndex(allowed, existing)
+                    if (matchIdx >= 0) {
+                        setSelection(if (!meta.required) matchIdx + 1 else matchIdx)
+                    }
                 }
-                // preselect existing
                 fw.singleSpinner = sp
                 container.addView(sp)
             }
             Kind.MULTI -> {
                 val allowed = meta.allowedValues.orEmpty()
+                // پیش‌انتخاب از مقادیر فعلی
+                if (existing is Collection<*>) {
+                    existing.forEach { item ->
+                        val idx = findAllowedIndex(allowed, item)
+                        if (idx >= 0) fw.multiSelected.add(idx)
+                    }
+                } else if (existing != null) {
+                    val idx = findAllowedIndex(allowed, existing)
+                    if (idx >= 0) fw.multiSelected.add(idx)
+                }
                 val btn = MaterialButton(ctx).apply {
-                    text = "انتخاب… (۰)"
+                    text = "انتخاب… (${fw.multiSelected.size})"
                     ThemeHelper.applyButton(this, primary, false)
                     setOnClickListener {
                         val labels = allowed.map { displayAv(it) }.toTypedArray()
@@ -173,13 +187,26 @@ class JiraIssueFormHelper(
             }
             Kind.USER -> {
                 val initial = when {
+                    existing is Map<*, *> ->
+                        existing["displayName"]?.toString()
+                            ?: existing["name"]?.toString()
                     existing != null -> existing.toString()
                     key == "assignee" && !currentUserDisplay.isNullOrBlank() -> currentUserDisplay
                     key == "assignee" && !currentUserName.isNullOrBlank() -> currentUserName
                     else -> null
                 }
-                if (key == "assignee" && !currentUserName.isNullOrBlank()) {
-                    fw.pickedValue = mapOf("name" to currentUserName)
+                when {
+                    existing is Map<*, *> -> {
+                        val name = existing["name"]?.toString().orEmpty()
+                        fw.pickedValue = if (name.isNotBlank()) mapOf("name" to name) else existing
+                    }
+                    existing != null -> {
+                        val s = existing.toString()
+                        fw.pickedValue = mapOf("name" to s)
+                    }
+                    key == "assignee" && !currentUserName.isNullOrBlank() -> {
+                        fw.pickedValue = mapOf("name" to currentUserName)
+                    }
                 }
                 val btn = MaterialButton(ctx).apply {
                     text = initial?.let { "اساین: $it" } ?: "انتخاب کاربر…"
@@ -190,11 +217,21 @@ class JiraIssueFormHelper(
                 container.addView(btn)
             }
             Kind.DATE -> {
+                val existingDate = existing?.toString()?.take(10)
+                if (!existingDate.isNullOrBlank() && existingDate.length == 10 && existingDate[4] == '-' && existingDate[7] == '-') {
+                    fw.pickedValue = existingDate
+                }
                 val btn = MaterialButton(ctx).apply {
-                    text = existing?.toString()?.take(10) ?: "انتخاب تاریخ…"
+                    text = existingDate ?: "انتخاب تاریخ…"
                     ThemeHelper.applyButton(this, primary, false)
                     setOnClickListener {
                         val cal = Calendar.getInstance()
+                        try {
+                            val parts = (fw.pickedValue as? String)?.split("-")
+                            if (parts != null && parts.size == 3) {
+                                cal.set(parts[0].toInt(), parts[1].toInt() - 1, parts[2].toInt())
+                            }
+                        } catch (_: Exception) { }
                         DatePickerDialog(
                             ctx,
                             { _, y, m, d ->
@@ -224,8 +261,10 @@ class JiraIssueFormHelper(
                 val sr = DemiscoScriptRunnerFields.byFieldId(key)
                     ?: ScriptRunnerFieldMeta(key, "", multiple = false, labelHint = meta.name ?: key)
                 fw.srMeta = sr
+                // پیش‌پر از مقدار فعلی Issue
+                val prefillLabel = applyScriptRunnerExisting(fw, existing, sr.multiple)
                 val btn = MaterialButton(ctx).apply {
-                    text = "انتخاب ${meta.name ?: key}…"
+                    text = prefillLabel ?: "انتخاب ${meta.name ?: key}…"
                     ThemeHelper.applyButton(this, primary, false)
                     setOnClickListener { openScriptRunnerPicker(key, fw, this) }
                 }
@@ -316,6 +355,72 @@ class JiraIssueFormHelper(
         }
     }
 
+
+    /** مقدار فعلی ScriptRunner را در pickedValue می‌گذارد و برچسب نمایش برمی‌گرداند */
+    private fun applyScriptRunnerExisting(fw: FieldWidgets, existing: Any?, multiple: Boolean): String? {
+        if (existing == null) return null
+        when (existing) {
+            is Map<*, *> -> {
+                val id = existing["id"]?.toString() ?: existing["value"]?.toString()
+                val label = existing["label"]?.toString()
+                    ?: existing["value"]?.toString()
+                    ?: existing["name"]?.toString()
+                    ?: id
+                if (id.isNullOrBlank()) return null
+                fw.pickedValue = if (multiple) listOf(id) else id
+                return "✓ $label"
+            }
+            is Collection<*> -> {
+                val ids = mutableListOf<String>()
+                val labels = mutableListOf<String>()
+                existing.forEach { item ->
+                    when (item) {
+                        is Map<*, *> -> {
+                            val id = item["id"]?.toString() ?: item["value"]?.toString()
+                            val label = item["label"]?.toString() ?: item["value"]?.toString()
+                                ?: item["name"]?.toString() ?: id
+                            if (!id.isNullOrBlank()) {
+                                ids.add(id)
+                                labels.add(label ?: id)
+                            }
+                        }
+                        else -> {
+                            val s = item?.toString().orEmpty()
+                            if (s.isNotBlank()) {
+                                ids.add(s)
+                                labels.add(s)
+                            }
+                        }
+                    }
+                }
+                if (ids.isEmpty()) return null
+                fw.pickedValue = if (multiple) ids else ids.first()
+                return "✓ " + labels.joinToString("، ")
+            }
+            else -> {
+                val s = existing.toString()
+                if (s.isBlank()) return null
+                fw.pickedValue = if (multiple) listOf(s) else s
+                return "✓ $s"
+            }
+        }
+    }
+
+    private fun findAllowedIndex(allowed: List<JiraAllowedValue>, existing: Any?): Int {
+        if (existing == null || allowed.isEmpty()) return -1
+        val candidates = when (existing) {
+            is Collection<*> -> existing.map { it?.toString().orEmpty().lowercase() }
+            else -> listOf(existing.toString().lowercase())
+        }.filter { it.isNotEmpty() }
+        allowed.forEachIndexed { i, av ->
+            val labels = listOfNotNull(av.name, av.value, av.id, av.key).map { it.lowercase() }
+            if (candidates.any { c -> c in labels || labels.any { l -> l.contains(c) || c.contains(l) } }) {
+                return i
+            }
+        }
+        return -1
+    }
+
     private fun displayAv(av: JiraAllowedValue): String =
         av.name ?: av.value ?: av.key ?: av.id ?: "?"
 
@@ -382,7 +487,7 @@ class JiraIssueFormHelper(
         val pid = projectId
         val typeId = issueTypeId
         if (pid.isNullOrBlank() || typeId.isNullOrBlank()) {
-            Toast.makeText(ctx, "شناسه پروژه/نوع Issue برای بارگذاری گزینه‌ها لازم است", Toast.LENGTH_LONG).show()
+            Toast.makeText(ctx, "شناسه نوع/پروژه برای بارگذاری گزینه‌ها لازم است — صفحه ویرایش را ببندید و دوباره باز کنید", Toast.LENGTH_LONG).show()
             return
         }
         val box = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL }

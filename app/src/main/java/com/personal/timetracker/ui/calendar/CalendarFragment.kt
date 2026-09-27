@@ -27,6 +27,8 @@ import com.personal.timetracker.util.AttendanceEditor
 import com.personal.timetracker.util.DialogHelper
 import com.personal.timetracker.util.ThemeHelper
 import com.personal.timetracker.util.TimeUtils
+import com.personal.timetracker.util.WorklogTimeFields
+import com.personal.timetracker.util.JalaliDatePickerDialog
 import kotlinx.coroutines.launch
 import java.util.Calendar
 
@@ -34,6 +36,8 @@ import java.util.Calendar
  * تقویم شمسی ماهانه + جزئیات تردد و تسک هر روز
  */
 class CalendarFragment : Fragment() {
+    private val repo get() = (requireActivity().application as App).repository
+
     private lateinit var monthTitle: TextView
     private lateinit var grid: GridLayout
     private lateinit var detailBox: LinearLayout
@@ -380,6 +384,11 @@ class CalendarFragment : Fragment() {
             logBox.addView(TextView(ctx).apply {
                 text = "تسک‌ها و لاگ‌ها"; textSize = 13f; setTypeface(null, Typeface.BOLD); setTextColor(primary)
             })
+            logBox.addView(MaterialButton(ctx).apply {
+                text = "＋ ثبت لاگ روی Issue"
+                ThemeHelper.applyButton(this, primary, true)
+                setOnClickListener { showAddWorklogSearchDialog(d) }
+            })
             if (logs.isEmpty()) {
                 logBox.addView(TextView(ctx).apply {
                     text = "موردی نیست"; textSize = 12.5f; setTextColor(ThemeHelper.textSecondary(dark))
@@ -407,7 +416,7 @@ class CalendarFragment : Fragment() {
                     logBox.addView(rowWithActions(
                         ctx, label, primary, dark,
                         onEdit = {
-                            Toast.makeText(ctx, "ویرایش Worklog از صفحه تسک‌ها → جزئیات Issue", Toast.LENGTH_SHORT).show()
+                            showEditWorklogDialog(log)
                         },
                         onDelete = {
                             DialogHelper.confirm(
@@ -481,4 +490,149 @@ class CalendarFragment : Fragment() {
         ).apply { bottomMargin = 12 }
         return c
     }
+
+    /** ویرایش Worklog از تقویم — همگام با شروع/پایان و ساعت/دقیقه */
+    private fun showEditWorklogDialog(wl: com.personal.timetracker.data.entity.JiraWorklogCacheEntity) {
+        val ctx = requireContext()
+        val primary = primary()
+        val dark = dark()
+        val layout = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL }
+        layout.addView(DialogHelper.sectionLabel(ctx, "تاریخ", dark))
+        val (dateL, dateField) = DialogHelper.inputField(
+            ctx, "تاریخ", TimeUtils.toJalaliShort(TimeUtils.parseDate(wl.date)), primary
+        )
+        dateField.tag = wl.date
+        dateField.isFocusable = false
+        dateField.setOnClickListener {
+            JalaliDatePickerDialog.show(ctx, primary = primary, dark = dark, initialGregorianDate = dateField.tag as? String) { g, j ->
+                dateField.tag = g; dateField.setText(j)
+            }
+        }
+        layout.addView(dateL)
+        val startedHm = wl.started?.substringAfter("T")?.take(5)
+        val times = WorklogTimeFields.build(
+            ctx, primary, dark,
+            defaultStart = startedHm,
+            defaultDurationMinutes = wl.durationMinutes.coerceAtLeast(15)
+        )
+        layout.addView(times.root)
+        val (nL, nE) = DialogHelper.inputField(ctx, "توضیح", wl.comment ?: "", primary, multiline = true)
+        layout.addView(nL)
+        DialogHelper.show(
+            ctx, icon = "✎", title = "ویرایش Worklog", subtitle = wl.issueKey,
+            primary = primary, dark = dark, body = layout, positiveText = "ذخیره",
+            onPositive = {
+                val date = (dateField.tag as? String) ?: wl.date
+                val dur = times.durationMinutes()
+                if (dur <= 0) {
+                    Toast.makeText(ctx, "مدت نامعتبر", Toast.LENGTH_SHORT).show()
+                    return@show false
+                }
+                lifecycleScope.launch {
+                    repo.updateJiraTaskLog(wl.localId, dur, date, nE.text?.toString())
+                    Toast.makeText(ctx, "ذخیره شد", Toast.LENGTH_SHORT).show()
+                    loadDay()
+                }
+                true
+            }
+        )
+    }
+
+    /** جستجوی Issue و ثبت لاگ برای روز انتخاب‌شده در تقویم */
+    private fun showAddWorklogSearchDialog(date: String) {
+        val ctx = requireContext()
+        val primary = primary()
+        val dark = dark()
+        val layout = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL }
+        val (qL, qE) = DialogHelper.inputField(ctx, "جستجوی کلید یا عنوان Issue", "", primary)
+        layout.addView(qL)
+        val listBox = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL }
+        layout.addView(android.widget.ScrollView(ctx).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                (ctx.resources.displayMetrics.density * 220).toInt()
+            )
+            addView(listBox)
+        })
+        val dlg = DialogHelper.show(
+            ctx, icon = "＋", title = "ثبت لاگ",
+            subtitle = TimeUtils.toJalaliDisplay(date),
+            primary = primary, dark = dark, body = layout,
+            positiveText = "جستجو",
+            onPositive = {
+                val q = qE.text?.toString()?.trim().orEmpty()
+                if (q.isBlank()) {
+                    Toast.makeText(ctx, "متن جستجو را وارد کنید", Toast.LENGTH_SHORT).show()
+                    return@show false
+                }
+                lifecycleScope.launch {
+                    listBox.removeAllViews()
+                    val service = repo.jiraServiceOrNull()
+                    if (service == null) {
+                        Toast.makeText(ctx, "جیرا پیکربندی نشده", Toast.LENGTH_SHORT).show()
+                        return@launch
+                    }
+                    service.search(q, 20).fold(
+                        onSuccess = { page ->
+                            if (page.items.isEmpty()) {
+                                listBox.addView(TextView(ctx).apply {
+                                    text = "موردی یافت نشد"
+                                    setTextColor(ThemeHelper.textSecondary(dark))
+                                })
+                            } else {
+                                page.items.forEach { item ->
+                                    listBox.addView(MaterialButton(ctx).apply {
+                                        text = "${item.key} — ${item.summary.take(50)}"
+                                        ThemeHelper.applyButton(this, primary, false)
+                                        setOnClickListener {
+                                            showQuickAddLog(item.key, item.summary, date)
+                                        }
+                                    })
+                                }
+                            }
+                        },
+                        onFailure = { e ->
+                            Toast.makeText(ctx, e.message, Toast.LENGTH_LONG).show()
+                        }
+                    )
+                }
+                false // باز بماند تا انتخاب
+            }
+        )
+    }
+
+    private fun showQuickAddLog(issueKey: String, summary: String, date: String) {
+        val ctx = requireContext()
+        val primary = primary()
+        val dark = dark()
+        val layout = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL }
+        val times = WorklogTimeFields.build(ctx, primary, dark, defaultDurationMinutes = 60)
+        layout.addView(times.root)
+        val (nL, nE) = DialogHelper.inputField(ctx, "توضیح", "", primary, multiline = true)
+        layout.addView(nL)
+        DialogHelper.show(
+            ctx, icon = "⏱", title = "ثبت Worklog",
+            subtitle = "$issueKey — $summary",
+            primary = primary, dark = dark, body = layout, positiveText = "ثبت",
+            onPositive = {
+                val dur = times.durationMinutes()
+                if (dur <= 0) {
+                    Toast.makeText(ctx, "مدت نامعتبر", Toast.LENGTH_SHORT).show()
+                    return@show false
+                }
+                val st = times.startHm()
+                lifecycleScope.launch {
+                    repo.addJiraTaskLog(issueKey, dur, date, nE.text?.toString(), st).fold(
+                        onSuccess = {
+                            Toast.makeText(ctx, "ثبت شد", Toast.LENGTH_SHORT).show()
+                            loadDay()
+                        },
+                        onFailure = { e -> Toast.makeText(ctx, e.message, Toast.LENGTH_LONG).show() }
+                    )
+                }
+                true
+            }
+        )
+    }
+
 }

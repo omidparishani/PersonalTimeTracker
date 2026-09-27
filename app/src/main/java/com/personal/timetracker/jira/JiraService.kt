@@ -91,6 +91,83 @@ class JiraService(
         searchJql(jql, maxResults)
     }
 
+
+    /**
+     * استخراج مقادیر فعلی فیلدهای Issue برای پیش‌پر کردن فرم ویرایش.
+     * خروجی: fieldId -> مقدار ساده‌شده (رشته، id، یا لیست id)
+     */
+    suspend fun fetchIssueFieldValues(issueKey: String): Result<Map<String, Any?>> = runCatching {
+        val resp = api.getIssueRaw(issueKey.trim().uppercase())
+        if (!resp.isSuccessful || resp.body() == null) {
+            throw Exception(JiraClient.parseError(resp.errorBody()?.string()))
+        }
+        val root = com.google.gson.JsonParser.parseString(resp.body()!!.string()).asJsonObject
+        val fields = root.getAsJsonObject("fields") ?: return@runCatching emptyMap()
+        val out = linkedMapOf<String, Any?>()
+        for ((key, el) in fields.entrySet()) {
+            if (el == null || el.isJsonNull) continue
+            out[key] = simplifyFieldJson(el)
+        }
+        // شناسه‌های لازم برای ScriptRunner picker
+        fields.getAsJsonObject("issuetype")?.let { it ->
+            out["_issueTypeId"] = it.get("id")?.asString
+            out["_issueTypeName"] = it.get("name")?.asString
+        }
+        fields.getAsJsonObject("project")?.let { p ->
+            out["_projectId"] = p.get("id")?.asString
+            out["_projectKey"] = p.get("key")?.asString
+        }
+        out
+    }
+
+    private fun simplifyFieldJson(el: com.google.gson.JsonElement): Any? {
+        if (el.isJsonNull) return null
+        if (el.isJsonPrimitive) {
+            val p = el.asJsonPrimitive
+            return when {
+                p.isString -> p.asString
+                p.isNumber -> p.asNumber
+                p.isBoolean -> p.asBoolean
+                else -> p.asString
+            }
+        }
+        if (el.isJsonArray) {
+            val arr = el.asJsonArray
+            // multi-select / components
+            return arr.mapNotNull { item ->
+                if (!item.isJsonObject) return@mapNotNull item.takeIf { it.isJsonPrimitive }?.asString
+                val o = item.asJsonObject
+                o.get("name")?.asString ?: o.get("value")?.asString ?: o.get("id")?.asString
+                    ?: o.get("key")?.asString
+            }
+        }
+        if (el.isJsonObject) {
+            val o = el.asJsonObject
+            // user
+            if (o.has("displayName") || (o.has("name") && o.has("self"))) {
+                return mapOf(
+                    "name" to (o.get("name")?.asString ?: ""),
+                    "displayName" to (o.get("displayName")?.asString ?: o.get("name")?.asString ?: "")
+                ).filterValues { it.isNotBlank() }
+            }
+            // ScriptRunner / option: نگه داشتن id + برچسب برای پیش‌پر کردن picker
+            if (o.has("id") || o.has("value") || o.has("name") || o.has("label")) {
+                val id = o.get("id")?.asString ?: o.get("value")?.asString
+                val label = o.get("label")?.asString
+                    ?: o.get("value")?.asString
+                    ?: o.get("name")?.asString
+                    ?: id
+                return if (id != null) mapOf("id" to id, "label" to (label ?: id)) else label
+            }
+            // timetracking
+            if (o.has("originalEstimate") || o.has("remainingEstimate")) {
+                return o
+            }
+            return o.get("id")?.asString ?: o.toString()
+        }
+        return null
+    }
+
     /** جزئیات یک Issue با کلید */
     suspend fun getIssue(issueKey: String): Result<IssueItem> = runCatching {
         val resp = api.getIssue(issueKey.trim().uppercase())

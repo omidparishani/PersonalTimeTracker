@@ -40,8 +40,8 @@ android {
         applicationId = "com.personal.timetracker"
         minSdk = 26
         targetSdk = 34
-        versionCode = (System.getenv("VERSION_CODE")?.toIntOrNull() ?: 2).coerceAtLeast(2)
-        versionName = System.getenv("VERSION_NAME") ?: "1.1.0"
+        versionCode = (System.getenv("VERSION_CODE")?.toIntOrNull() ?: 3).coerceAtLeast(3)
+        versionName = System.getenv("VERSION_NAME") ?: "1.2.0"
     }
 
     signingConfigs {
@@ -51,6 +51,8 @@ android {
                 storePassword = secret("RELEASE_STORE_PASSWORD", "storePassword")
                 keyAlias = secret("RELEASE_KEY_ALIAS", "keyAlias")
                 keyPassword = secret("RELEASE_KEY_PASSWORD", "keyPassword")
+                enableV1Signing = true
+                enableV2Signing = true
             }
         }
     }

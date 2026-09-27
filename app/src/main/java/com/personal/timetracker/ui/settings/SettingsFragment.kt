@@ -7,6 +7,7 @@ package com.personal.timetracker.ui.settings
  */
 
 import android.Manifest
+import android.content.Intent
 import android.app.TimePickerDialog
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
@@ -46,6 +47,23 @@ import kotlinx.coroutines.launch
  * تنظیمات اپ، جیرا، بکاپ و موقعیت.
  */
 class SettingsFragment : Fragment() {
+
+    /** انتخاب پوشه پشتیبان با SAF */
+    private val folderPickerLauncher = registerForActivityResult(
+        ActivityResultContracts.OpenDocumentTree()
+    ) { uri: Uri? ->
+        if (uri == null) return@registerForActivityResult
+        try {
+            requireContext().contentResolver.takePersistableUriPermission(
+                uri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+            )
+        } catch (_: Exception) { }
+        if (::backupDirEdit.isInitialized) {
+            backupDirEdit.setText(uri.toString())
+        }
+    }
+
     private var settings = SettingsEntity()
     private lateinit var startBtn: MaterialButton
     private lateinit var endBtn: MaterialButton
@@ -60,7 +78,7 @@ class SettingsFragment : Fragment() {
     private lateinit var holidayListBox: LinearLayout
     private lateinit var holidayDateEdit: TextInputEditText
     private lateinit var holidayTitleEdit: TextInputEditText
-    private lateinit var projectEdit: TextInputEditText
+    private var projectEdit: TextInputEditText? = null
     private lateinit var notifTitleEdit: TextInputEditText
     private lateinit var notifBodyEdit: TextInputEditText
     private lateinit var notifBeforeEdit: TextInputEditText
@@ -85,8 +103,8 @@ class SettingsFragment : Fragment() {
     private lateinit var jiraStatusesSummary: TextView
     private val selectedJiraStatuses = linkedSetOf<String>()
     private val selectedJiraProjects = linkedSetOf<String>()
-    private lateinit var jiraProjectsBtn: MaterialButton
-    private lateinit var jiraProjectsSummary: TextView
+    private var jiraProjectsBtn: MaterialButton? = null
+    private var jiraProjectsSummary: TextView? = null
     private lateinit var backupDirEdit: TextInputEditText
     private val projects = mutableListOf<String>()
     private var themeColor = -10983104
@@ -332,20 +350,7 @@ class SettingsFragment : Fragment() {
             }
         )
 
-        // Projects
-        content.addView(title("پروژه‌های Jira"))
-        val (pL, pE) = til("نام پروژه"); projectEdit = pE; content.addView(pL)
-        content.addView(MaterialButton(ctx).apply {
-            text = "افزودن پروژه"
-            ThemeHelper.applyButton(this, primary(), true)
-            setOnClickListener {
-                val n = projectEdit.text?.toString()?.trim().orEmpty()
-                if (n.isNotEmpty() && n !in projects) {
-                    projects.add(n); projectEdit.text?.clear(); refreshChips()
-                }
-            }
-        })
-        chipGroup = ChipGroup(ctx); content.addView(chipGroup)
+        // پروژه‌های Jira از تنظیمات حذف شد — فیلتر در تب تسک‌ها انجام می‌شود
 
         // Notifications
         content.addView(title("اعلان‌ها"))
@@ -429,7 +434,16 @@ class SettingsFragment : Fragment() {
         })
 
         val (bakDirL, bakDirE) = til("مسیر پوشه پشتیبان خودکار (خالی = پیش‌فرض)"); backupDirEdit = bakDirE
-        backupDirEdit.hint = "/storage/emulated/0/PTT_Backups"
+        backupDirEdit.hint = "برای انتخاب پوشه ضربه بزنید"
+        backupDirEdit.isFocusable = false
+        backupDirEdit.isClickable = true
+        backupDirEdit.setOnClickListener {
+            folderPickerLauncher.launch(null)
+        }
+        val pickFolderBtn = MaterialButton(ctx).apply { text = "📁 انتخاب پوشه پشتیبان" }
+        ThemeHelper.applyButton(pickFolderBtn, primary(), false)
+        pickFolderBtn.setOnClickListener { folderPickerLauncher.launch(null) }
+        content.addView(pickFolderBtn)
         content.addView(bakDirL)
         content.addView(TextView(ctx).apply {
             text = "اگر خالی باشد از پوشه PTT_Backups داخل حافظه اختصاصی اپ استفاده می‌شود."
@@ -482,38 +496,6 @@ class SettingsFragment : Fragment() {
             text = "هنوز انتخاب نشده (همه وضعیت‌ها)"
         }
         content.addView(jiraStatusesSummary)
-        val jiraProjRefreshBtn = MaterialButton(ctx).apply { text = "↻ بروزرسانی لیست پروژه‌ها از جیرا" }
-        ThemeHelper.applyButton(jiraProjRefreshBtn, primary(), true)
-        jiraProjRefreshBtn.setOnClickListener {
-            lifecycleScope.launch {
-                jiraProjRefreshBtn.isEnabled = false
-                jiraProjRefreshBtn.text = "..."
-                val repo = (requireActivity().application as App).repository
-                repo.refreshJiraProjectsCatalog().fold(
-                    onSuccess = { n ->
-                        Toast.makeText(requireContext(), "$n پروژه دریافت شد", Toast.LENGTH_SHORT).show()
-                        jiraProjectsSummary.text = "کاتالوگ: $n پروژه — از «انتخاب پروژه‌های فیلتر» زیرمجموعه را مشخص کنید"
-                    },
-                    onFailure = { e ->
-                        Toast.makeText(requireContext(), e.message, Toast.LENGTH_LONG).show()
-                    }
-                )
-                jiraProjRefreshBtn.isEnabled = true
-                jiraProjRefreshBtn.text = "↻ بروزرسانی لیست پروژه‌ها از جیرا"
-            }
-        }
-        content.addView(jiraProjRefreshBtn)
-        jiraProjectsBtn = MaterialButton(ctx).apply { text = "انتخاب پروژه‌های فیلتر" }
-        ThemeHelper.applyButton(jiraProjectsBtn, primary(), false)
-        jiraProjectsBtn.setOnClickListener { openJiraProjectPicker() }
-        content.addView(jiraProjectsBtn)
-        jiraProjectsSummary = TextView(ctx).apply {
-            textSize = 12.5f
-            setTextColor(ThemeHelper.textSecondary(dark()))
-            setPadding(4, 8, 4, 12)
-            text = "همه پروژه‌ها"
-        }
-        content.addView(jiraProjectsSummary)
         content.addView(MaterialButton(ctx, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
             text = "اعمال زمانبندی پشتیبان‌گیری"
             ThemeHelper.applyButton(this, primary(), false)
@@ -591,14 +573,9 @@ class SettingsFragment : Fragment() {
     }
 
     private fun refreshChips() {
+        if (!::chipGroup.isInitialized) return
         chipGroup.removeAllViews()
-        projects.forEach { p ->
-            chipGroup.addView(Chip(requireContext()).apply {
-                text = p
-                isCloseIconVisible = true
-                setOnCloseIconClickListener { projects.remove(p); refreshChips() }
-            })
-        }
+        // پروژه‌های محلی دیگر در تنظیمات مدیریت نمی‌شوند
     }
 
     private fun loadHolidays() {
@@ -869,56 +846,11 @@ class SettingsFragment : Fragment() {
 
 
     private fun updateJiraProjectsSummary() {
-        if (!::jiraProjectsSummary.isInitialized) return
-        jiraProjectsSummary.text = when {
-            selectedJiraProjects.isEmpty() -> "همه پروژه‌ها"
-            else -> "${selectedJiraProjects.size} پروژه: " + selectedJiraProjects.take(6).joinToString("، ") +
-                if (selectedJiraProjects.size > 6) "…" else ""
-        }
+        // حذف‌شده از UI تنظیمات
     }
 
     private fun openJiraProjectPicker() {
-        val ctx = requireContext()
-        lifecycleScope.launch {
-            val repo = (requireActivity().application as App).repository
-            val options = repo.getJiraProjectCatalog().toMutableList()
-            if (options.isEmpty()) {
-                options.addAll(repo.getDistinctJiraProjects())
-            }
-            selectedJiraProjects.forEach { if (it !in options) options.add(it) }
-            options.sort()
-            if (options.isEmpty()) {
-                val input = android.widget.EditText(ctx).apply { hint = "کلید پروژه مثلاً PROJ" }
-                androidx.appcompat.app.AlertDialog.Builder(ctx)
-                    .setTitle("کلید پروژه")
-                    .setMessage("پروژه‌ای در کش نیست. کلید را وارد کنید یا از تسک‌ها همگام‌سازی کنید.")
-                    .setView(input)
-                    .setPositiveButton("افزودن") { _, _ ->
-                        val k = input.text?.toString()?.trim().orEmpty()
-                        if (k.isNotBlank()) {
-                            selectedJiraProjects.add(k.uppercase())
-                            updateJiraProjectsSummary()
-                        }
-                    }
-                    .setNegativeButton("انصراف", null)
-                    .show()
-                return@launch
-            }
-            val checked = BooleanArray(options.size) { options[it] in selectedJiraProjects }
-            androidx.appcompat.app.AlertDialog.Builder(ctx)
-                .setTitle("پروژه‌های فیلتر")
-                .setMultiChoiceItems(options.toTypedArray(), checked) { _, which, isChecked ->
-                    if (isChecked) selectedJiraProjects.add(options[which])
-                    else selectedJiraProjects.remove(options[which])
-                }
-                .setPositiveButton("تأیید") { _, _ -> updateJiraProjectsSummary() }
-                .setNeutralButton("پاک کردن") { _, _ ->
-                    selectedJiraProjects.clear()
-                    updateJiraProjectsSummary()
-                }
-                .setNegativeButton("انصراف", null)
-                .show()
-        }
+        // حذف‌شده از UI تنظیمات
     }
 
     private fun updateJiraStatusesSummary() {

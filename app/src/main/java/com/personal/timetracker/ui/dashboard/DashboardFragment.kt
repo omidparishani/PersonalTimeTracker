@@ -284,7 +284,7 @@ class DashboardFragment : Fragment() {
                     // chart
                     chartBox.removeAllViews()
                     val settingsMin = settings.minimumWorkMinutes.coerceAtLeast(1)
-                    val jiraLogs = try {
+                    val localTaskLogs = try {
                         (requireActivity().application as App).repository.getLogsByDate(TimeUtils.today())
                     } catch (_: Exception) { emptyList() }
 
@@ -293,8 +293,8 @@ class DashboardFragment : Fragment() {
                         BarItem("کار انجام‌شده — ${TimeUtils.formatDuration(worked)}", worked, primary()),
                         BarItem("مرخصی — ${TimeUtils.formatDuration(leave)}", leave, 0xFFF9A825.toInt())
                     )
-                    if (jiraLogs.isNotEmpty()) {
-                        val byTask = jiraLogs.groupBy { it.taskId }
+                    if (localTaskLogs.isNotEmpty()) {
+                        val byTask = localTaskLogs.groupBy { it.taskId }
                         byTask.forEach { (tid, logs) ->
                             val sum = logs.sumOf { it.duration }
                             barItems.add(BarItem("لاگ تسک #$tid — ${TimeUtils.formatDuration(sum)}", sum, 0xFF00897B.toInt()))
@@ -385,6 +385,81 @@ class DashboardFragment : Fragment() {
                             box.addView(rActions)
                             card.addView(box)
                             listBox.addView(card, lp(bottom = 10))
+                        }
+                    }
+
+                    // --- لاگ‌های امروز جیرا ---
+                    listBox.addView(TextView(ctx).apply {
+                        text = "لاگ‌های امروز"
+                        textSize = 15f
+                        setTypeface(null, android.graphics.Typeface.BOLD)
+                        setTextColor(primary())
+                        setPadding(4, 20, 4, 8)
+                    })
+                    try { repo.syncWorklogsForDate(TimeUtils.today()) } catch (_: Exception) {}
+                    val jiraWorklogsToday = repo.getJiraWorklogsForDate(TimeUtils.today())
+                    if (jiraWorklogsToday.isEmpty()) {
+                        listBox.addView(TextView(ctx).apply {
+                            text = "لاگ جیرایی برای امروز نیست"
+                            setTextColor(ThemeHelper.textSecondary(dark()))
+                            setPadding(8, 4, 8, 8)
+                        })
+                    } else {
+                        jiraWorklogsToday.take(15).forEach { wl ->
+                            val card = MaterialCardView(ctx)
+                            ThemeHelper.applyCard(card, dark())
+                            card.setContentPadding(20, 14, 20, 14)
+                            card.addView(TextView(ctx).apply {
+                                setTextColor(ThemeHelper.textPrimary(dark()))
+                                textSize = 13f
+                                text = buildString {
+                                    append(wl.issueKey)
+                                    append("  ·  ")
+                                    append(TimeUtils.formatDuration(wl.durationMinutes))
+                                    if (!wl.comment.isNullOrBlank()) {
+                                        append("\n")
+                                        append(wl.comment.take(80))
+                                    }
+                                }
+                            })
+                            listBox.addView(card, lp(bottom = 8))
+                        }
+                    }
+
+                    // --- تسک/Issue فعال ---
+                    listBox.addView(TextView(ctx).apply {
+                        text = "Issue فعال (در حال کار)"
+                        textSize = 15f
+                        setTypeface(null, android.graphics.Typeface.BOLD)
+                        setTextColor(primary())
+                        setPadding(4, 20, 4, 8)
+                    })
+                    // Issueهای باز assign‌شده با وضعیت در حال انجام
+                    val openIssues = try {
+                        repo.jiraServiceOrNull()?.fetchAssigned(openOnly = true)?.getOrNull().orEmpty()
+                    } catch (_: Exception) { emptyList() }
+                    val inProgress = openIssues.filter {
+                        it.statusCategory == "indeterminate" ||
+                            it.statusName.contains("progress", true) ||
+                            it.statusName.contains("در حال", true)
+                    }
+                    if (inProgress.isEmpty()) {
+                        listBox.addView(TextView(ctx).apply {
+                            text = "Issue در حال اجرایی یافت نشد"
+                            setTextColor(ThemeHelper.textSecondary(dark()))
+                            setPadding(8, 4, 8, 8)
+                        })
+                    } else {
+                        inProgress.take(5).forEach { it ->
+                            val card = MaterialCardView(ctx)
+                            ThemeHelper.applyCard(card, dark())
+                            card.setContentPadding(20, 14, 20, 14)
+                            card.addView(TextView(ctx).apply {
+                                setTextColor(ThemeHelper.textPrimary(dark()))
+                                textSize = 13f
+                                text = "${it.key} — ${it.summary}\nوضعیت: ${it.statusName}"
+                            })
+                            listBox.addView(card, lp(bottom = 8))
                         }
                     }
                 }

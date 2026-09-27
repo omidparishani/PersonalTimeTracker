@@ -45,6 +45,7 @@ import com.personal.timetracker.util.JalaliDatePickerDialog
 import com.personal.timetracker.util.ChartHelper
 import com.personal.timetracker.util.ThemeHelper
 import com.personal.timetracker.util.TimeUtils
+import com.personal.timetracker.util.WorklogTimeFields
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -271,6 +272,76 @@ class TasksFragment : Fragment() {
         }
 
         return root
+    }
+
+
+    /**
+     * بارگذاری/همگام‌سازی صفحه Issueها از سرور بر اساس mode و فیلترها.
+     * @param reset اگر true از اول صفحه؛ وگرنه صفحه بعدی (load more)
+     */
+    private suspend fun loadPage(reset: Boolean = true) {
+        if (isLoadingPage) return
+        isLoadingPage = true
+        try {
+            if (reset) {
+                pageStartAt = 0
+                pageTotal = 0
+            }
+            val settings = repo.getSettings()
+            allowedStatusesFromSettings = settings.jiraFilterStatuses.split(",")
+                .map { it.trim() }.filter { it.isNotEmpty() }
+            allowedProjectsFromSettings = settings.jiraFilterProjects.split(",")
+                .map { it.trim() }.filter { it.isNotEmpty() }
+            projectCatalog = repo.getJiraProjectCatalog()
+
+            val textQ = if (::searchEdit.isInitialized) {
+                searchEdit.text?.toString()?.trim()?.takeIf { it.length >= 2 }
+            } else null
+
+            val projects = when {
+                projectFilter.isNotEmpty() -> projectFilter.toList()
+                allowedProjectsFromSettings.isNotEmpty() -> allowedProjectsFromSettings
+                else -> emptyList()
+            }
+            val statusesSel = when {
+                statusFilter.isNotEmpty() -> statusFilter.toList()
+                allowedStatusesFromSettings.isNotEmpty() -> allowedStatusesFromSettings
+                else -> emptyList()
+            }
+            val assigned = mode == "assigned"
+            val openOnly = mode == "open"
+            val result = repo.refreshJiraIssues(
+                openOnly = openOnly,
+                projectKeys = projects,
+                textQuery = textQ,
+                startAt = pageStartAt,
+                pageSize = 50,
+                append = !reset,
+                assignedToMe = assigned,
+                statusNames = statusesSel
+            )
+            result.fold(
+                onSuccess = { (count, nextStart, total) ->
+                    pageStartAt = nextStart
+                    pageTotal = total
+                    if (::loadMoreBtn.isInitialized) {
+                        loadMoreBtn.visibility =
+                            if (nextStart < total) android.view.View.VISIBLE else android.view.View.GONE
+                    }
+                    if (::statusTv.isInitialized) {
+                        statusTv.text = if (total > 0) "$count از $total (کش: ${cache.size})" else "${cache.size} مورد"
+                    }
+                },
+                onFailure = { e ->
+                    if (::statusTv.isInitialized) {
+                        statusTv.text = "خطا: ${e.message}"
+                    }
+                }
+            )
+            bindList()
+        } finally {
+            isLoadingPage = false
+        }
     }
 
     private fun bindList() {
@@ -572,16 +643,13 @@ class TasksFragment : Fragment() {
             }
         }
         layout.addView(dateL)
-        layout.addView(DialogHelper.sectionLabel(ctx, "مدت", dark()))
-        val row = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL }
-        val (hL, hE) = DialogHelper.inputField(ctx, "ساعت", "1", primary(), number = true)
-        val (mL, mE) = DialogHelper.inputField(ctx, "دقیقه", "0", primary(), number = true)
-        hL.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
-            marginEnd = DialogHelper.dp(ctx, 10)
-        }
-        mL.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-        row.addView(hL); row.addView(mL)
-        layout.addView(row)
+        val times = WorklogTimeFields.build(
+            ctx = ctx,
+            primary = primary(),
+            dark = dark(),
+            defaultDurationMinutes = 60
+        )
+        layout.addView(times.root)
         layout.addView(DialogHelper.sectionLabel(ctx, "توضیح", dark()))
         val (nL, nE) = DialogHelper.inputField(ctx, "توضیح", "", primary(), multiline = true)
         layout.addView(nL)
@@ -592,14 +660,14 @@ class TasksFragment : Fragment() {
             primary = primary(), dark = dark(), body = layout, positiveText = "ثبت و ارسال",
             onPositive = {
                 val date = (dateField.tag as? String)?.ifBlank { today } ?: today
-                val dur = ((hE.text?.toString() ?: "0").toIntOrNull() ?: 0) * 60 +
-                    ((mE.text?.toString() ?: "0").toIntOrNull() ?: 0)
+                val dur = times.durationMinutes()
                 if (dur <= 0) {
-                    Toast.makeText(ctx, "مدت نامعتبر", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(ctx, "مدت نامعتبر — ساعت شروع/پایان یا ساعت و دقیقه را بررسی کنید", Toast.LENGTH_SHORT).show()
                     return@show false
                 }
+                val startT = times.startHm()
                 viewLifecycleOwner.lifecycleScope.launch {
-                    val r = repo.addJiraTaskLog(issue.issueKey, dur, date, nE.text?.toString())
+                    val r = repo.addJiraTaskLog(issue.issueKey, dur, date, nE.text?.toString(), startT)
                     r.fold(
                         onSuccess = {
                             val msg = if (it.syncStatus == "synced") "ثبت و به جیرا ارسال شد"
@@ -635,16 +703,15 @@ class TasksFragment : Fragment() {
             }
         }
         layout.addView(dateL)
-        val row = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL }
-        val (hL, hE) = DialogHelper.inputField(ctx, "ساعت", (wl.durationMinutes / 60).toString(), primary(), number = true)
-        val (mL, mE) = DialogHelper.inputField(ctx, "دقیقه", (wl.durationMinutes % 60).toString(), primary(), number = true)
-        hL.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
-            marginEnd = DialogHelper.dp(ctx, 10)
-        }
-        mL.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-        row.addView(hL); row.addView(mL)
-        layout.addView(DialogHelper.sectionLabel(ctx, "مدت", dark()))
-        layout.addView(row)
+        val startedHm = wl.started?.substringAfter("T")?.take(5)
+        val times = WorklogTimeFields.build(
+            ctx = ctx,
+            primary = primary(),
+            dark = dark(),
+            defaultStart = startedHm,
+            defaultDurationMinutes = wl.durationMinutes.coerceAtLeast(15)
+        )
+        layout.addView(times.root)
         val (nL, nE) = DialogHelper.inputField(ctx, "توضیح", wl.comment ?: "", primary(), multiline = true)
         layout.addView(nL)
 
@@ -654,8 +721,7 @@ class TasksFragment : Fragment() {
             primary = primary(), dark = dark(), body = layout, positiveText = "ذخیره",
             onPositive = {
                 val date = (dateField.tag as? String) ?: wl.date
-                val dur = ((hE.text?.toString() ?: "0").toIntOrNull() ?: 0) * 60 +
-                    ((mE.text?.toString() ?: "0").toIntOrNull() ?: 0)
+                val dur = times.durationMinutes()
                 if (dur <= 0) {
                     Toast.makeText(ctx, "مدت نامعتبر", Toast.LENGTH_SHORT).show()
                     return@show false
@@ -663,66 +729,12 @@ class TasksFragment : Fragment() {
                 viewLifecycleOwner.lifecycleScope.launch {
                     repo.updateJiraTaskLog(wl.localId, dur, date, nE.text?.toString())
                     Toast.makeText(ctx, "ذخیره شد", Toast.LENGTH_SHORT).show()
+                    expanded.add(issue.issueKey)
                     bindList()
                 }
                 true
             }
         )
-    }
-
-
-
-    /**
-     * بارگذاری/ریفرش صفحه لیست Issue.
-     */
-    private suspend fun loadPage(reset: Boolean) {
-        if (isLoadingPage) return
-        isLoadingPage = true
-        try {
-            if (reset) {
-                pageStartAt = 0
-                pageTotal = 0
-            }
-            val projects = projectFilter.toList()
-            val statuses = statusFilter.toList()
-            val q = searchEdit.text?.toString()?.trim().orEmpty().ifBlank { null }
-            statusTv.text = "در حال بارگذاری از سرور…"
-            val result = repo.refreshJiraIssues(
-                openOnly = (mode == "open"),
-                projectKeys = projects,
-                textQuery = q,
-                startAt = pageStartAt,
-                pageSize = 50,
-                append = !reset || pageStartAt > 0,
-                assignedToMe = (mode == "assigned"),
-                statusNames = statuses
-            )
-            result.fold(
-                onSuccess = { (count, next, total) ->
-                    pageStartAt = next
-                    pageTotal = total
-                    statusTv.text = if (projects.isNotEmpty()) {
-                        "نمایش از کش · سرور: $next از $total (این صفحه: $count)"
-                    } else {
-                        "اساین‌شده / بدون فیلتر پروژه · $count مورد"
-                    }
-                    if (::loadMoreBtn.isInitialized) {
-                        loadMoreBtn.visibility =
-                            if (next < total && projects.isNotEmpty()) View.VISIBLE else View.GONE
-                        loadMoreBtn.text = "بارگذاری بیشتر ($next / $total)"
-                    }
-                    if (count == 0 && reset) {
-                        Toast.makeText(requireContext(), "موردی یافت نشد", Toast.LENGTH_SHORT).show()
-                    }
-                },
-                onFailure = { e ->
-                    statusTv.text = "خطا: ${e.message}"
-                    Toast.makeText(requireContext(), e.message, Toast.LENGTH_LONG).show()
-                }
-            )
-        } finally {
-            isLoadingPage = false
-        }
     }
 
     private fun updateStatusFilterButton() {
@@ -1254,10 +1266,15 @@ class TasksFragment : Fragment() {
                 emptyMap()
             }
             val full = service.getIssue(issue.issueKey).getOrNull()
-            val existing = mutableMapOf<String, Any?>(
-                "summary" to (full?.summary ?: issue.summary),
-                "description" to (full?.description ?: issue.description)
-            )
+            // همه فیلدهای فعلی Issue برای پیش‌پر کردن فرم
+            val existing = service.fetchIssueFieldValues(issue.issueKey).getOrElse {
+                mutableMapOf(
+                    "summary" to (full?.summary ?: issue.summary),
+                    "description" to (full?.description ?: issue.description)
+                )
+            }.toMutableMap()
+            if (existing["summary"] == null) existing["summary"] = full?.summary ?: issue.summary
+            if (existing["description"] == null) existing["description"] = full?.description ?: issue.description
             val layout = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL }
             val fieldsBox = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL }
             layout.addView(ScrollView(ctx).apply {
@@ -1267,7 +1284,21 @@ class TasksFragment : Fragment() {
                 )
                 addView(fieldsBox)
             })
-            val pk = issue.projectKey.ifBlank { full?.projectKey.orEmpty() }
+            val pk = (existing["_projectKey"] as? String)?.ifBlank { null }
+                ?: issue.projectKey.ifBlank { full?.projectKey.orEmpty() }
+            val projectNumericId = (existing["_projectId"] as? String)?.ifBlank { null }
+                ?: service.resolveProjectId(pk).getOrNull()
+            var typeId = (existing["_issueTypeId"] as? String)?.ifBlank { null }
+            val typeName = (existing["_issueTypeName"] as? String)
+                ?: full?.issueTypeName
+                ?: issue.issueTypeName
+            if (typeId.isNullOrBlank() && pk.isNotBlank()) {
+                // از createmeta نوع را با نام پیدا کن
+                val meta = service.fetchCreateMeta(pk).getOrNull()
+                typeId = meta?.issuetypes?.firstOrNull {
+                    it.name.equals(typeName, true)
+                }?.id
+            }
             val helper = JiraIssueFormHelper(
                 ctx = ctx,
                 primary = primary(),
@@ -1275,6 +1306,8 @@ class TasksFragment : Fragment() {
                 scope = viewLifecycleOwner.lifecycleScope,
                 service = service,
                 projectKey = pk,
+                projectId = projectNumericId,
+                issueTypeId = typeId,
                 currentUserName = me?.name ?: me?.key,
                 currentUserDisplay = me?.displayName
             )
@@ -1282,7 +1315,7 @@ class TasksFragment : Fragment() {
             val fieldsToShow = if (editFields.isNotEmpty()) editFields else {
                 val meta = service.fetchCreateMeta(pk).getOrNull()
                 meta?.issuetypes?.firstOrNull {
-                    it.name.equals(issue.issueTypeName, true) || it.name.equals(full?.issueTypeName, true)
+                    it.id == typeId || it.name.equals(typeName, true)
                 }?.fields.orEmpty().ifEmpty { meta?.issuetypes?.firstOrNull()?.fields.orEmpty() }
             }
             helper.build(fieldsBox, fieldsToShow, existing)

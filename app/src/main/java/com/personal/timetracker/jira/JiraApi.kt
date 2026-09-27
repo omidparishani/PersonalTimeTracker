@@ -48,6 +48,13 @@ interface JiraApi {
         @Query("expand") expand: String = "renderedFields"
     ): Response<JiraIssue>
 
+    /** همه فیلدها برای پیش‌پر کردن فرم ویرایش */
+    @GET("rest/api/2/issue/{issueKey}")
+    suspend fun getIssueRaw(
+        @Path("issueKey") issueKey: String,
+        @Query("fields") fields: String = "*all"
+    ): Response<okhttp3.ResponseBody>
+
     /** بخش Worklog: ثبت و مدیریت زمان روی Issue */
     // ---- Worklog ----
 
