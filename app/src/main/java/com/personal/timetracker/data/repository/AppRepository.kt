@@ -1002,6 +1002,28 @@ class AppRepository(context: Context) {
     /** Same as [projectSummary]/[jiraSummary] but scoped to a date range, based on actual
      *  logged time in that range rather than lifetime task totals — used by Reports so the
      *  bottom charts respect the daily/weekly/monthly filter above them. */
+    suspend fun getJiraIssue(issueKey: String) = withContext(Dispatchers.IO) {
+        jiraIssueDao.getByKey(issueKey.trim().uppercase())
+    }
+
+    /** جمع Worklogهای جیرا بر اساس پروژه در بازه */
+    suspend fun jiraProjectSummaryRange(start: String, end: String): List<ProjectSum> = withContext(Dispatchers.IO) {
+        jiraWorklogDao.dedupeByRemoteId()
+        val rows = filterOwnWorklogs(
+            jiraWorklogDao.getByRange(start, end).filter { it.syncStatus != "pending_delete" }
+        )
+        val issues = jiraIssueDao.getAllOnce().associateBy { it.issueKey.uppercase() }
+        rows.groupBy { wl ->
+            val key = wl.issueKey.uppercase()
+            val pk = issues[key]?.projectKey?.ifBlank { null }
+                ?: issues[key]?.projectName?.ifBlank { null }
+                ?: key.substringBefore("-").ifBlank { "بدون پروژه" }
+            pk
+        }.map { (proj, list) -> ProjectSum(proj, list.sumOf { it.durationMinutes }) }
+            .filter { it.total > 0 }
+            .sortedByDescending { it.total }
+    }
+
     suspend fun projectSummaryRange(start: String, end: String): List<ProjectSum> {
         val logs = taskLogDao.getByRange(start, end)
         val tasks = taskDao.getAllOnce().associateBy { it.id }

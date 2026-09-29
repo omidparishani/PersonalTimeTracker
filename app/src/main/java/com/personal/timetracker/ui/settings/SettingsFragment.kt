@@ -97,6 +97,8 @@ class SettingsFragment : Fragment() {
     private lateinit var jiraEnabledSwitch: Switch
     private lateinit var jiraUrlEdit: TextInputEditText
     private lateinit var jiraTokenEdit: TextInputEditText
+    private lateinit var jiraUsernameEdit: TextInputEditText
+    private lateinit var jiraPasswordEdit: TextInputEditText
     private lateinit var jiraTestBtn: MaterialButton
     private lateinit var jiraStatusTv: TextView
     private lateinit var jiraStatusesBtn: MaterialButton
@@ -459,7 +461,18 @@ class SettingsFragment : Fragment() {
         val (jiraUrlL, jiraUrlE) = til("آدرس سرور جیرا"); jiraUrlEdit = jiraUrlE
         jiraUrlEdit.hint = "https://jira.demisco.com"
         content.addView(jiraUrlL)
-        val (jiraTokL, jiraTokE) = til("Personal Access Token"); jiraTokenEdit = jiraTokE
+        val (jiraUserL, jiraUserE) = til("نام کاربری جیرا"); jiraUsernameEdit = jiraUserE
+        content.addView(jiraUserL)
+        val (jiraPassL, jiraPassE) = til("رمز عبور جیرا"); jiraPasswordEdit = jiraPassE
+        jiraPasswordEdit.inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+        content.addView(jiraPassL)
+        content.addView(TextView(ctx).apply {
+            text = "با نام کاربری و رمز عبور وارد شوید (همان صفحه لاگین شرکت). توکن اختیاری است."
+            textSize = 11.5f
+            setTextColor(ThemeHelper.textSecondary(dark()))
+            setPadding(4, 4, 4, 8)
+        })
+        val (jiraTokL, jiraTokE) = til("Personal Access Token (اختیاری)"); jiraTokenEdit = jiraTokE
         jiraTokenEdit.inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
         content.addView(jiraTokL)
         jiraTestBtn = MaterialButton(ctx).apply { text = "تست اتصال" }
@@ -782,7 +795,9 @@ class SettingsFragment : Fragment() {
             jiraEnabledSwitch.isChecked = settings.jiraEnabled
             jiraUrlEdit.setText(settings.jiraBaseUrl)
             jiraTokenEdit.setText(settings.jiraToken)
-            jiraStatusTv.text = if (settings.jiraEnabled && settings.jiraToken.isNotBlank())
+            if (::jiraUsernameEdit.isInitialized) jiraUsernameEdit.setText(settings.jiraUsername)
+            if (::jiraPasswordEdit.isInitialized) jiraPasswordEdit.setText(settings.jiraPassword)
+            jiraStatusTv.text = if (settings.jiraEnabled && (settings.jiraToken.isNotBlank() || (settings.jiraUsername.isNotBlank() && settings.jiraPassword.isNotBlank())))
                 "جیرا پیکربندی شده است"
             else
                 "جیرا هنوز پیکربندی نشده"
@@ -836,6 +851,8 @@ class SettingsFragment : Fragment() {
             jiraEnabled = jiraEnabledSwitch.isChecked,
             jiraBaseUrl = jiraUrlEdit.text?.toString()?.trim()?.trimEnd('/') ?: "",
             jiraToken = jiraTokenEdit.text?.toString()?.trim() ?: "",
+            jiraUsername = if (::jiraUsernameEdit.isInitialized) jiraUsernameEdit.text?.toString()?.trim() ?: "" else settings.jiraUsername,
+            jiraPassword = if (::jiraPasswordEdit.isInitialized) jiraPasswordEdit.text?.toString() ?: "" else settings.jiraPassword,
             jiraFilterStatuses = selectedJiraStatuses.joinToString(","),
             jiraFilterProjects = selectedJiraProjects.joinToString(","),
             autoBackupDir = if (::backupDirEdit.isInitialized)
@@ -894,28 +911,75 @@ class SettingsFragment : Fragment() {
     }
 
     private fun testJiraConnection() {
-        val url = jiraUrlEdit.text?.toString()?.trim().orEmpty()
+        val url = jiraUrlEdit.text?.toString()?.trim()?.trimEnd('/').orEmpty()
         val token = jiraTokenEdit.text?.toString()?.trim().orEmpty()
-        if (url.isBlank() || token.isBlank()) {
-            Toast.makeText(requireContext(), "آدرس و توکن را وارد کنید", Toast.LENGTH_SHORT).show()
+        val user = if (::jiraUsernameEdit.isInitialized) jiraUsernameEdit.text?.toString()?.trim().orEmpty() else ""
+        val pass = if (::jiraPasswordEdit.isInitialized) jiraPasswordEdit.text?.toString().orEmpty() else ""
+        if (url.isBlank() || (token.isBlank() && (user.isBlank() || pass.isBlank()))) {
+            Toast.makeText(requireContext(), "آدرس و (نام‌کاربری+رمز یا توکن) را وارد کنید", Toast.LENGTH_SHORT).show()
             return
         }
+        // فعال‌سازی خودکار هنگام تست
+        if (::jiraEnabledSwitch.isInitialized) jiraEnabledSwitch.isChecked = true
         jiraTestBtn.isEnabled = false
-        jiraStatusTv.text = "در حال بررسی..."
+        jiraStatusTv.text = "در حال اتصال و ذخیره…"
         lifecycleScope.launch {
             try {
-                val service = com.personal.timetracker.jira.JiraService(url, token)
-                val result = service.testConnection()
-                result.fold(
-                    onSuccess = { user ->
-                        jiraStatusTv.text = "✓ متصل به عنوان: ${user.displayName ?: user.name ?: "کاربر"}"
-                        Toast.makeText(requireContext(), "اتصال موفق", Toast.LENGTH_SHORT).show()
-                    },
-                    onFailure = { e ->
-                        jiraStatusTv.text = "✗ خطا: ${e.message}"
-                        Toast.makeText(requireContext(), "اتصال ناموفق", Toast.LENGTH_SHORT).show()
-                    }
+                // اول ذخیره تا بقیهٔ اپ از همین credential استفاده کنند
+                val updated = buildSettings().copy(
+                    jiraEnabled = true,
+                    jiraBaseUrl = url,
+                    jiraToken = token,
+                    jiraUsername = user,
+                    jiraPassword = pass
                 )
+                (requireActivity().application as App).repository.saveSettings(updated)
+                settings = updated
+
+                val service = com.personal.timetracker.jira.JiraService(
+                    url,
+                    if (user.isNotBlank() && pass.isNotBlank()) "" else token,
+                    user,
+                    pass
+                )
+                val meResult = service.testConnection()
+                if (meResult.isFailure) {
+                    val msg = meResult.exceptionOrNull()?.message ?: "نامشخص"
+                    jiraStatusTv.text = "✗ myself: $msg"
+                    Toast.makeText(requireContext(), "اتصال ناموفق", Toast.LENGTH_SHORT).show()
+                    return@launch
+                }
+                val me = meResult.getOrNull()
+                // تست واقعی search / status
+                val searchResult = service.fetchAssigned(openOnly = true, maxResults = 5)
+                val statusResult = service.fetchStatuses()
+                val issueCount = searchResult.getOrNull()?.size ?: -1
+                val statusCount = statusResult.getOrNull()?.size ?: -1
+                val searchErr = searchResult.exceptionOrNull()?.message
+                val statusErr = statusResult.exceptionOrNull()?.message
+
+                val lines = buildString {
+                    append("✓ متصل: ${me?.displayName ?: me?.name ?: "OK"}")
+                    append("\n")
+                    if (issueCount >= 0) append("Issueهای اساین: $issueCount")
+                    else append("Issue: خطا — ${searchErr ?: "?"}")
+                    append("\n")
+                    if (statusCount >= 0) append("وضعیت‌ها: $statusCount")
+                    else append("وضعیت: خطا — ${statusErr ?: "?"}")
+                }
+                jiraStatusTv.text = lines
+                if (issueCount < 0 && statusCount < 0) {
+                    Toast.makeText(requireContext(), "لاگین OK ولی دریافت لیست ناموفق", Toast.LENGTH_LONG).show()
+                } else {
+                    Toast.makeText(requireContext(), "اتصال و ذخیره موفق", Toast.LENGTH_SHORT).show()
+                    // کش وضعیت‌ها
+                    if (statusCount > 0) {
+                        (requireActivity().application as App).repository.refreshJiraStatuses()
+                    }
+                }
+            } catch (e: Exception) {
+                jiraStatusTv.text = "✗ ${e.message}"
+                Toast.makeText(requireContext(), e.message, Toast.LENGTH_LONG).show()
             } finally {
                 jiraTestBtn.isEnabled = true
             }

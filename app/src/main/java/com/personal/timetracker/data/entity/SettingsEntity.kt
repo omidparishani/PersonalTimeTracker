@@ -49,6 +49,10 @@ data class SettingsEntity(
     val jiraEnabled: Boolean = false,
     val jiraBaseUrl: String = "https://jira.demisco.com",
     val jiraToken: String = "",
+    /** نام کاربری جیرا (جایگزین یا مکمل توکن) */
+    val jiraUsername: String = "",
+    /** رمز عبور جیرا — برای Basic Auth */
+    val jiraPassword: String = "",
     /** نام وضعیت‌های انتخاب‌شده برای فیلتر (با کاما). خالی = همه */
     val jiraFilterStatuses: String = "",
     /** کلید/نام پروژه‌های انتخاب‌شده برای فیلتر (با کاما). خالی = همه */

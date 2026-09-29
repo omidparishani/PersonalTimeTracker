@@ -99,17 +99,23 @@ class JiraIssueFormHelper(
             addField(container, key, meta, existing[key])
         }
         // timetracking split
-        val tt = fields["timetracking"]
-        if (tt != null && "originalEstimate" !in widgets) {
+        // همیشه فیلدهای تخمین را با مقدار فعلی نشان بده
+        if ("originalEstimate" !in widgets) {
+            val oe = existing["originalEstimate"]
+                ?: (existing["timetracking"] as? Map<*, *>)?.get("originalEstimate")
             addField(
                 container, "originalEstimate",
-                JiraMetaField(required = false, name = "Original Estimate", schema = JiraFieldSchema(type = "string", system = "timetracking")),
-                null
+                JiraMetaField(required = false, name = "Original Estimate (e.g. 2h 30m)", schema = JiraFieldSchema(type = "string", system = "timetracking")),
+                oe
             )
+        }
+        if ("remainingEstimate" !in widgets) {
+            val re = existing["remainingEstimate"]
+                ?: (existing["timetracking"] as? Map<*, *>)?.get("remainingEstimate")
             addField(
                 container, "remainingEstimate",
-                JiraMetaField(required = false, name = "Remaining Estimate", schema = JiraFieldSchema(type = "string", system = "timetracking")),
-                null
+                JiraMetaField(required = false, name = "Remaining Estimate (e.g. 1h)", schema = JiraFieldSchema(type = "string", system = "timetracking")),
+                re
             )
         }
         if ("summary" !in widgets) {
@@ -284,11 +290,28 @@ class JiraIssueFormHelper(
                         minLines = 3
                         inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE
                     }
-                    if (existing != null) setText(existing.toString())
+                    val textVal = when (existing) {
+                        is Map<*, *> -> existing["originalEstimate"]?.toString()
+                            ?: existing["remainingEstimate"]?.toString()
+                            ?: existing.values.firstOrNull()?.toString()
+                        null -> null
+                        else -> existing.toString()
+                    }
+                    // فقط ارقام لاتین برای تخمین زمان (جیرا با فارسی مشکل دارد)
+                    if (!textVal.isNullOrBlank()) {
+                        setText(textVal.replace(Regex("[۰-۹]")) { ch ->
+                            (ch.value[0].code - '۰'.code + '0'.code).toChar().toString()
+                        })
+                    }
                 }
                 fw.edit = et
                 container.addView(TextInputLayout(ctx).apply {
-                    hint = if (meta.required) "${meta.name ?: key} *" else (meta.name ?: key)
+                    val label = when (key) {
+                        "originalEstimate" -> "Original Estimate"
+                        "remainingEstimate" -> "Remaining Estimate"
+                        else -> meta.name ?: key
+                    }
+                    hint = if (meta.required) "$label *" else label
                     addView(et)
                 })
             }

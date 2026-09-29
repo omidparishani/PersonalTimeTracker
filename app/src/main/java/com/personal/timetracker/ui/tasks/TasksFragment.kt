@@ -288,6 +288,20 @@ class TasksFragment : Fragment() {
                 pageTotal = 0
             }
             val settings = repo.getSettings()
+            if (!settings.jiraEnabled) {
+                if (::statusTv.isInitialized) statusTv.text = "جیرا غیرفعال است — تنظیمات"
+                return
+            }
+            val hasAuth = settings.jiraToken.isNotBlank() ||
+                (settings.jiraUsername.isNotBlank() && settings.jiraPassword.isNotBlank())
+            if (!hasAuth) {
+                if (::statusTv.isInitialized) statusTv.text = "نام کاربری/رمز یا توکن ذخیره نشده — تنظیمات → تست اتصال"
+                return
+            }
+            if (repo.jiraServiceOrNull() == null) {
+                if (::statusTv.isInitialized) statusTv.text = "پیکربندی جیرا ناقص است"
+                return
+            }
             allowedStatusesFromSettings = settings.jiraFilterStatuses.split(",")
                 .map { it.trim() }.filter { it.isNotEmpty() }
             allowedProjectsFromSettings = settings.jiraFilterProjects.split(",")
@@ -450,18 +464,35 @@ class TasksFragment : Fragment() {
             setPadding(0, 6, 0, 2)
         })
 
-        val meta = buildString {
+        
+        val estLine = buildString {
+            if (issue.requiredMinutes > 0) append("Original: ${formatEstLatin(issue.requiredMinutes)}")
+            if (issue.remainingMinutes > 0) {
+                if (isNotEmpty()) append("  ·  ")
+                append("Remaining: ${formatEstLatin(issue.remainingMinutes)}")
+            }
+            if (issue.timeSpentMinutes > 0) {
+                if (isNotEmpty()) append("  ·  ")
+                append("Spent: ${formatEstLatin(issue.timeSpentMinutes)}")
+            }
+        }
+        if (estLine.isNotBlank()) {
+            box.addView(TextView(ctx).apply {
+                text = estLine
+                textSize = 12f
+                setTextColor(ThemeHelper.textSecondary(dark()))
+                setPadding(0, 4, 0, 0)
+            })
+        }
+val meta = buildString {
             if (issue.projectKey.isNotBlank()) append(issue.projectKey)
             if (issue.priorityName.isNotBlank()) {
                 if (isNotEmpty()) append(" · "); append(issue.priorityName)
             }
-            if (issue.timeSpentMinutes > 0 || estimate > 0) {
-                if (isNotEmpty()) append(" · ")
-                append("${fmt(issue.timeSpentMinutes)}")
-                if (estimate > 0) append(" / ${fmt(estimate)}")
-            }
             if (issue.isAssignedToMe) {
                 if (isNotEmpty()) append(" · "); append("اساین من")
+            } else {
+                if (isNotEmpty()) append(" . "); append(issue.assigneeName)
             }
         }
         if (meta.isNotBlank()) {
@@ -1408,6 +1439,17 @@ class TasksFragment : Fragment() {
                     }
                 )
             }
+        }
+    }
+
+    private fun formatEstLatin(minutes: Int): String {
+        val m = minutes.coerceAtLeast(0)
+        val h = m / 60
+        val min = m % 60
+        return when {
+            h > 0 && min > 0 -> "${h}h ${min}m"
+            h > 0 -> "${h}h"
+            else -> "${min}m"
         }
     }
 

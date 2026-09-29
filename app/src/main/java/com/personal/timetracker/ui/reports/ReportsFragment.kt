@@ -418,7 +418,7 @@ class ReportsFragment : Fragment() {
         lifecycleScope.launch {
             try { repo.syncWorklogsForDateRange(start, end) } catch (_: Exception) {}
             val r = repo.report(start, end)
-            val projects = repo.projectSummaryRange(start, end)
+            val projects = repo.jiraProjectSummaryRange(start, end).ifEmpty { repo.projectSummaryRange(start, end) }
             val jiras = repo.jiraSummaryRange(start, end)
             val days = repo.dayBreakdown(start, end)
             val ctx = requireContext()
@@ -477,7 +477,7 @@ class ReportsFragment : Fragment() {
                 days.asReversed().forEach { content.addView(dayCard(it, repo)) }
             }
 
-            content.addView(ThemeHelper.sectionTitle(ctx, "پروژه‌ها", dark(), primary()))
+            content.addView(ThemeHelper.sectionTitle(ctx, "پروژه‌های Jira (بر اساس Worklog)", dark(), primary()))
             if (projects.isEmpty()) {
                 content.addView(TextView(ctx).apply {
                     text = "داده‌ای نیست"; setTextColor(ThemeHelper.textSecondary(dark()))

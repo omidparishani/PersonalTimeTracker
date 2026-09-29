@@ -39,7 +39,7 @@ import com.personal.timetracker.data.entity.TaskLogEntity
         AttendanceEntity::class, TaskEntity::class, TaskLogEntity::class, SettingsEntity::class, HolidayEntity::class,
         JiraFavoriteEntity::class, JiraIssueCacheEntity::class, JiraWorklogCacheEntity::class, JiraStatusEntity::class
     ],
-    version = 14,
+    version = 15,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -153,6 +153,13 @@ abstract class AppDatabase : RoomDatabase() {
                 try {
                     db.execSQL("ALTER TABLE settings ADD COLUMN jiraProjectCatalog TEXT NOT NULL DEFAULT ''")
                 } catch (_: Exception) {}
+            }
+        }
+
+        private val MIGRATION_14_15 = object : Migration(14, 15) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                try { db.execSQL("ALTER TABLE settings ADD COLUMN jiraUsername TEXT NOT NULL DEFAULT ''") } catch (_: Exception) {}
+                try { db.execSQL("ALTER TABLE settings ADD COLUMN jiraPassword TEXT NOT NULL DEFAULT ''") } catch (_: Exception) {}
             }
         }
 
@@ -289,7 +296,7 @@ abstract class AppDatabase : RoomDatabase() {
          */
         private fun build(context: Context): AppDatabase {
             return Room.databaseBuilder(context, AppDatabase::class.java, "personal_time_tracker.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15)
                 .fallbackToDestructiveMigration()
                 .allowMainThreadQueries()
                 .addCallback(object : Callback() {

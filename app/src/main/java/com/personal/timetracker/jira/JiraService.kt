@@ -22,9 +22,11 @@ import java.util.TimeZone
  */
 class JiraService(
     private val baseUrl: String,
-    private val token: String
+    private val token: String = "",
+    private val username: String = "",
+    private val password: String = ""
 ) {
-    private val api = JiraClient.create(baseUrl, token)
+    private val api = JiraClient.create(baseUrl, token, username, password)
 
     /** مدل ساده‌شده برای لیست UI */
     data class IssueItem(
@@ -108,6 +110,12 @@ class JiraService(
             if (el == null || el.isJsonNull) continue
             out[key] = simplifyFieldJson(el)
         }
+        // استخراج original/remaining از timetracking برای فرم ویرایش
+        val tt = out["timetracking"]
+        if (tt is Map<*, *>) {
+            (tt["originalEstimate"] as? String)?.let { out["originalEstimate"] = it }
+            (tt["remainingEstimate"] as? String)?.let { out["remainingEstimate"] = it }
+        }
         // شناسه‌های لازم برای ScriptRunner picker
         fields.getAsJsonObject("issuetype")?.let { it ->
             out["_issueTypeId"] = it.get("id")?.asString
@@ -118,6 +126,17 @@ class JiraService(
             out["_projectKey"] = p.get("key")?.asString
         }
         out
+    }
+
+    private fun secondsToJiraDuration(sec: Int): String {
+        val m = (sec / 60).coerceAtLeast(0)
+        val h = m / 60
+        val min = m % 60
+        return when {
+            h > 0 && min > 0 -> "${h}h ${min}m"
+            h > 0 -> "${h}h"
+            else -> "${min}m"
+        }
     }
 
     private fun simplifyFieldJson(el: com.google.gson.JsonElement): Any? {
@@ -159,9 +178,24 @@ class JiraService(
                     ?: id
                 return if (id != null) mapOf("id" to id, "label" to (label ?: id)) else label
             }
-            // timetracking
-            if (o.has("originalEstimate") || o.has("remainingEstimate")) {
-                return o
+            // timetracking — مقادیر متنی لاتین برای فرم ویرایش
+            if (o.has("originalEstimate") || o.has("remainingEstimate") || o.has("timeSpent")) {
+                val map = linkedMapOf<String, String>()
+                o.get("originalEstimate")?.asString?.let { map["originalEstimate"] = it }
+                o.get("remainingEstimate")?.asString?.let { map["remainingEstimate"] = it }
+                o.get("timeSpent")?.asString?.let { map["timeSpent"] = it }
+                // seconds fallback
+                if (!map.containsKey("originalEstimate")) {
+                    o.get("originalEstimateSeconds")?.asInt?.let { sec ->
+                        if (sec > 0) map["originalEstimate"] = secondsToJiraDuration(sec)
+                    }
+                }
+                if (!map.containsKey("remainingEstimate")) {
+                    o.get("remainingEstimateSeconds")?.asInt?.let { sec ->
+                        if (sec > 0) map["remainingEstimate"] = secondsToJiraDuration(sec)
+                    }
+                }
+                return map
             }
             return o.get("id")?.asString ?: o.toString()
         }
@@ -852,9 +886,14 @@ class JiraService(
     companion object {
         fun fromSettings(s: SettingsEntity): JiraService? {
             val url = s.jiraBaseUrl.trim()
+            if (!s.jiraEnabled || url.isBlank()) return null
             val token = s.jiraToken.trim()
-            if (!s.jiraEnabled || url.isBlank() || token.isBlank()) return null
-            return JiraService(url, token)
+            val user = s.jiraUsername.trim()
+            val pass = s.jiraPassword
+            // اگر user+pass هست، توکن خالی را نادیده بگیر تا اشتباهی Bearer نشود
+            val effectiveToken = if (user.isNotBlank() && pass.isNotBlank()) "" else token
+            if (effectiveToken.isBlank() && (user.isBlank() || pass.isBlank())) return null
+            return JiraService(url, effectiveToken, user, pass)
         }
 
         fun nowIranIso(): String {

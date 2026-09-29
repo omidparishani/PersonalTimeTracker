@@ -431,6 +431,9 @@ class CalendarFragment : Fragment() {
                                     loadDay()
                                 }
                             }
+                        },
+                        onDetails = {
+                            showIssueDetailsDialog(log.issueKey)
                         }
                     ))
                 }
@@ -440,12 +443,50 @@ class CalendarFragment : Fragment() {
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
             ).apply { bottomMargin = 12 }
             detailBox.addView(logCard)
+
+            // Issueهای در حال انجام از جیرا
+            try {
+                val openIssues = repo.jiraServiceOrNull()?.fetchAssigned(openOnly = true)?.getOrNull().orEmpty()
+                val inProgress = openIssues.filter {
+                    it.statusCategory == "indeterminate" ||
+                        it.statusName.contains("progress", true) ||
+                        it.statusName.contains("در حال", true)
+                }
+                if (inProgress.isNotEmpty()) {
+                    val actCard = MaterialCardView(ctx)
+                    ThemeHelper.applyCard(actCard, dark)
+                    val actBox = LinearLayout(ctx).apply {
+                        orientation = LinearLayout.VERTICAL
+                        setPadding(24, 18, 24, 18)
+                    }
+                    actBox.addView(TextView(ctx).apply {
+                        text = "Issue فعال (در حال انجام)"
+                        textSize = 13f
+                        setTypeface(null, Typeface.BOLD)
+                        setTextColor(primary)
+                    })
+                    inProgress.take(5).forEach { iss ->
+                        actBox.addView(TextView(ctx).apply {
+                            text = "${iss.key} — ${iss.summary}\nوضعیت: ${iss.statusName}"
+                            textSize = 12.5f
+                            setTextColor(ThemeHelper.textPrimary(dark))
+                            setPadding(0, 8, 0, 0)
+                        })
+                    }
+                    actCard.addView(actBox)
+                    actCard.layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+                    ).apply { bottomMargin = 12 }
+                    detailBox.addView(actCard)
+                }
+            } catch (_: Exception) { }
         }
     }
 
     private fun rowWithActions(
         ctx: android.content.Context, label: String, primary: Int, dark: Boolean,
-        onEdit: () -> Unit, onDelete: () -> Unit, extra: View? = null
+        onEdit: () -> Unit, onDelete: () -> Unit, extra: View? = null,
+        onDetails: (() -> Unit)? = null
     ): LinearLayout {
         val row = LinearLayout(ctx).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -459,9 +500,58 @@ class CalendarFragment : Fragment() {
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         })
         if (extra != null) row.addView(extra)
+        if (onDetails != null) {
+            row.addView(ThemeHelper.iconButton(ctx, "ℹ", primary, dark, "جزئیات Issue", onDetails))
+        }
         row.addView(ThemeHelper.iconButton(ctx, "✎", primary, dark, "ویرایش", onEdit))
         row.addView(ThemeHelper.iconButton(ctx, "🗑", ThemeHelper.deleteColor, dark, "حذف", onDelete))
         return row
+    }
+
+    /** نمایش خلاصه و توضیحات Issue از جیرا */
+    private fun showIssueDetailsDialog(issueKey: String) {
+        val ctx = requireContext()
+        val primary = primary()
+        val dark = dark()
+        lifecycleScope.launch {
+            val cached = repo.getJiraIssue(issueKey)
+            val service = repo.jiraServiceOrNull()
+            val remote = service?.getIssue(issueKey)?.getOrNull()
+            val summary = remote?.summary ?: cached?.summary ?: "—"
+            val desc = remote?.description ?: cached?.description ?: "توضیحی ثبت نشده"
+            val status = remote?.statusName ?: cached?.statusName ?: "—"
+            val type = remote?.issueTypeName ?: cached?.issueTypeName ?: "—"
+            val assignee = remote?.assigneeName ?: cached?.assigneeName ?: "—"
+            val body = LinearLayout(ctx).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(8, 8, 8, 8)
+            }
+            fun line(title: String, value: String) {
+                body.addView(TextView(ctx).apply {
+                    text = title
+                    textSize = 12f
+                    setTextColor(ThemeHelper.textSecondary(dark))
+                    setPadding(0, 10, 0, 2)
+                })
+                body.addView(TextView(ctx).apply {
+                    text = value
+                    textSize = 14f
+                    setTextColor(ThemeHelper.textPrimary(dark))
+                })
+            }
+            line("کلید", issueKey)
+            line("عنوان", summary)
+            line("وضعیت", status)
+            line("نوع", type)
+            line("مسئول", assignee)
+            line("توضیحات", desc)
+            DialogHelper.show(
+                ctx, icon = "ℹ", title = "جزئیات Issue",
+                subtitle = issueKey,
+                primary = primary, dark = dark, body = body,
+                positiveText = "بستن", onPositive = { true }
+            )
+        }
     }
 
     private fun card(ctx: android.content.Context, title: String, body: String): MaterialCardView {
