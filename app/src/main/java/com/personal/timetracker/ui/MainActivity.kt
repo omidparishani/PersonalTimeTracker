@@ -33,6 +33,7 @@ import com.personal.timetracker.util.BiometricHelper
 import com.personal.timetracker.util.GeoHelper
 import com.personal.timetracker.util.NotifHelper
 import com.personal.timetracker.util.ThemeHelper
+import com.personal.timetracker.license.ActivationGate
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -124,26 +125,42 @@ class MainActivity : AppCompatActivity() {
                         repo.syncWorklogsForDateRange(weekStart, today)
                     } catch (_: Exception) {}
 
-                    if (settings.biometricEnabled && !unlocked) {
+                    // لایسنس: قبل از بیومتریک
+                    withContext(Dispatchers.Main) {
                         binding.root.visibility = View.INVISIBLE
-                        if (BiometricHelper.canAuthenticate(this@MainActivity)) {
-                            BiometricHelper.prompt(
-                                this@MainActivity,
-                                onSuccess = {
-                                    unlocked = true
+                    }
+                    ActivationGate.ensure(
+                        activity = this@MainActivity,
+                        owner = this@MainActivity,
+                        appVersion = try {
+                            packageManager.getPackageInfo(packageName, 0).versionName
+                        } catch (_: Exception) { null },
+                        username = null
+                    ) {
+                        // پس از لایسنس معتبر
+                        lifecycleScope.launch {
+                            if (settings.biometricEnabled && !unlocked) {
+                                if (BiometricHelper.canAuthenticate(this@MainActivity)) {
+                                    BiometricHelper.prompt(
+                                        this@MainActivity,
+                                        onSuccess = {
+                                            unlocked = true
+                                            binding.root.visibility = View.VISIBLE
+                                        },
+                                        onFail = {
+                                            Toast.makeText(this@MainActivity, "احراز هویت ناموفق", Toast.LENGTH_SHORT).show()
+                                            finish()
+                                        }
+                                    )
+                                } else {
                                     binding.root.visibility = View.VISIBLE
-                                },
-                                onFail = {
-                                    Toast.makeText(this@MainActivity, "احراز هویت ناموفق", Toast.LENGTH_SHORT).show()
-                                    finish()
+                                    unlocked = true
                                 }
-                            )
-                        } else {
-                            binding.root.visibility = View.VISIBLE
-                            unlocked = true
+                            } else {
+                                unlocked = true
+                                binding.root.visibility = View.VISIBLE
+                            }
                         }
-                    } else {
-                        unlocked = true
                     }
                 } catch (e: Exception) {
                     Log.e("PTT", "init", e)
