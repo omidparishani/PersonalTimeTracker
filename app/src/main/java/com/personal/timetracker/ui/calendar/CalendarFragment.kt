@@ -26,6 +26,7 @@ import com.personal.timetracker.ui.MainActivity
 import com.personal.timetracker.util.AttendanceEditor
 import com.personal.timetracker.util.DialogHelper
 import com.personal.timetracker.util.ThemeHelper
+import com.personal.timetracker.util.FigmaUi
 import com.personal.timetracker.util.TimeUtils
 import com.personal.timetracker.util.WorklogTimeFields
 import com.personal.timetracker.util.JalaliDatePickerDialog
@@ -36,6 +37,13 @@ import java.util.Calendar
  * تقویم شمسی ماهانه + جزئیات تردد و تسک هر روز
  */
 class CalendarFragment : Fragment() {
+    companion object {
+        val COLOR_OT = 0xFF2E7D32.toInt()
+        val COLOR_LEAVE = 0xFFEF6C00.toInt()
+        val COLOR_WORK = 0xFF00897B.toInt()
+        val COLOR_REQ = 0xFF1565C0.toInt()
+    }
+
     private val repo get() = (requireActivity().application as App).repository
 
     private lateinit var monthTitle: TextView
@@ -62,10 +70,11 @@ class CalendarFragment : Fragment() {
         val ctx = requireContext()
         val root = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(ThemeHelper.surface(dark()))
-            setPadding(12)
+            setBackgroundColor(FigmaUi.bg((activity as? MainActivity)?.isDark == true))
+            // بدون فاصله از نوار وضعیت — هدر می‌چسبد
+            setPadding(0, 0, 0, 0)
         }
-        root.addView(ThemeHelper.pageTitle(ctx, "تقویم شمسی", dark()))
+        root.addView(FigmaUi.screenHeader(ctx, "تردد و تقویم", "حضور و ورک‌لاگ", "📅"))
 
         val nav = LinearLayout(ctx).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -319,12 +328,31 @@ class CalendarFragment : Fragment() {
             val leave = att.sumOf { it.leaveDuration }
             val ot = att.sumOf { it.overtimeDuration }
 
-            detailBox.addView(card(ctx, "جمع روز", buildString {
-                append("کار: "); append(TimeUtils.formatDuration(worked))
-                append("   ·   مرخصی: "); append(TimeUtils.formatDuration(leave))
-                append("   ·   اضافه‌کار: "); append(TimeUtils.formatDuration(ot))
-                append("   ·   لاگ تسک: "); append(TimeUtils.formatDuration(logs.sumOf { it.durationMinutes }))
-            }))
+            val sumCard = MaterialCardView(ctx)
+            ThemeHelper.applyCard(sumCard, dark)
+            val sumBox = LinearLayout(ctx).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(16, 12, 16, 12)
+            }
+            sumBox.addView(TextView(ctx).apply {
+                text = "جمع روز"
+                setTypeface(null, Typeface.BOLD)
+                setTextColor(primary)
+            })
+            fun coloredLine(label: String, value: String, color: Int) {
+                sumBox.addView(TextView(ctx).apply {
+                    text = "$label: $value"
+                    textSize = 13f
+                    setTextColor(color)
+                    setPadding(0, 4, 0, 0)
+                })
+            }
+            coloredLine("کار", TimeUtils.formatDuration(worked), COLOR_WORK)
+            coloredLine("مرخصی", TimeUtils.formatDuration(leave), COLOR_LEAVE)
+            coloredLine("اضافه‌کار", TimeUtils.formatDuration(ot), COLOR_OT)
+            coloredLine("لاگ تسک", TimeUtils.formatDuration(logs.sumOf { it.durationMinutes }), COLOR_REQ)
+            sumCard.addView(sumBox)
+            detailBox.addView(sumCard)
 
             // Attendance card with inline edit/delete
             val attCard = MaterialCardView(ctx)

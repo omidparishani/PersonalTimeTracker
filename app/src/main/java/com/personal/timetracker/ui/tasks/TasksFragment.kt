@@ -44,6 +44,7 @@ import com.personal.timetracker.util.DialogHelper
 import com.personal.timetracker.util.JalaliDatePickerDialog
 import com.personal.timetracker.util.ChartHelper
 import com.personal.timetracker.util.ThemeHelper
+import com.personal.timetracker.util.FigmaUi
 import com.personal.timetracker.util.TimeUtils
 import com.personal.timetracker.util.WorklogTimeFields
 import kotlinx.coroutines.Job
@@ -108,10 +109,21 @@ class TasksFragment : Fragment() {
 
         val root = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(ThemeHelper.surface(dark()))
-            setPadding(16)
+            setBackgroundColor(FigmaUi.bg(dark()))
         }
-        root.addView(ThemeHelper.pageTitle(ctx, "تسک‌ها (جیرا)", dark()))
+        root.addView(FigmaUi.screenHeader(
+            ctx,
+            "تسک‌ها",
+            "مسائل تخصیص‌یافته به من",
+            "＋"
+        ) { showCreateIssueDialog() })
+        val contentPad = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(FigmaUi.dp(ctx, 16), FigmaUi.dp(ctx, 12), FigmaUi.dp(ctx, 16), FigmaUi.dp(ctx, 8))
+        }
+        root.addView(contentPad)
+        // از این به بعد کنترل‌های بالا داخل contentPad
+        val host = contentPad
 
         filtersToggle = MaterialButton(ctx).apply { text = "فیلتر و جستجو ▸" }
         ThemeHelper.applyButton(filtersToggle, primary(), false)
@@ -120,13 +132,13 @@ class TasksFragment : Fragment() {
             filtersPanel.visibility = if (filtersExpanded) View.VISIBLE else View.GONE
             filtersToggle.text = if (filtersExpanded) "فیلتر و جستجو ▾" else "فیلتر و جستجو ▸"
         }
-        root.addView(filtersToggle)
+        host.addView(filtersToggle)
 
         filtersPanel = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
             visibility = View.GONE
         }
-        root.addView(filtersPanel)
+        host.addView(filtersPanel)
 
         // Mode chips
         val modes = ChipGroup(ctx).apply { isSingleSelection = true }
@@ -209,7 +221,7 @@ class TasksFragment : Fragment() {
         createIssueBtn.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         createIssueBtn.setOnClickListener { showCreateIssueDialog() }
         btnRow.addView(createIssueBtn)
-        root.addView(btnRow)
+        host.addView(btnRow)
 
         statusTv = TextView(ctx).apply {
             textSize = 12.5f
@@ -217,7 +229,7 @@ class TasksFragment : Fragment() {
             setPadding(4, 8, 4, 4)
             text = "برای دریافت از سرور، همگام‌سازی را بزنید"
         }
-        root.addView(statusTv)
+        host.addView(statusTv)
 
         loadMoreBtn = MaterialButton(ctx).apply {
             text = "بارگذاری بیشتر"
@@ -227,9 +239,12 @@ class TasksFragment : Fragment() {
         loadMoreBtn.setOnClickListener {
             viewLifecycleOwner.lifecycleScope.launch { loadPage(reset = false) }
         }
-        root.addView(loadMoreBtn)
+        host.addView(loadMoreBtn)
 
-        listContainer = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL }
+        listContainer = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(FigmaUi.dp(ctx, 4), FigmaUi.dp(ctx, 2), FigmaUi.dp(ctx, 4), FigmaUi.dp(ctx, 8))
+        }
         root.addView(ScrollView(ctx).apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f
@@ -402,6 +417,7 @@ class TasksFragment : Fragment() {
         val ctx = requireContext()
         val card = MaterialCardView(ctx)
         ThemeHelper.applyCard(card, dark())
+        FigmaUi.styleCard(card, ctx, dark())
         val box = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(18, 14, 18, 14)
@@ -437,18 +453,7 @@ class TasksFragment : Fragment() {
             }
         })
         header.addView(keyCol)
-        // دونات پیشرفت: صرف‌شده / تخمین
-        val estimate = issue.requiredMinutes.takeIf { it > 0 } ?: (issue.remainingMinutes + issue.timeSpentMinutes)
-        header.addView(
-            ChartHelper.jiraProgressDonut(
-                ctx,
-                spentMinutes = issue.timeSpentMinutes,
-                estimateMinutes = estimate,
-                primary = primary(),
-                dark = dark(),
-                sizeDp = 42
-            )
-        )
+        // دونات پیشرفت حذف شد (درخواست کاربر)
         header.addView(TextView(ctx).apply {
             text = issue.statusName.ifBlank { "—" }
             textSize = 12f
@@ -489,10 +494,13 @@ val meta = buildString {
             if (issue.priorityName.isNotBlank()) {
                 if (isNotEmpty()) append(" · "); append(issue.priorityName)
             }
+            if (issue.timeSpentMinutes > 0 || issue.requiredMinutes > 0) {
+                if (isNotEmpty()) append(" · ")
+                append("${fmt(issue.timeSpentMinutes)}")
+                if (issue.requiredMinutes > 0) append(" / ${fmt(issue.requiredMinutes)}")
+            }
             if (issue.isAssignedToMe) {
                 if (isNotEmpty()) append(" · "); append("اساین من")
-            } else {
-                if (isNotEmpty()) append(" . "); append(issue.assigneeName)
             }
         }
         if (meta.isNotBlank()) {

@@ -1,989 +1,384 @@
 package com.personal.timetracker.ui.settings
 
 /**
- * توضیح فایل: تنظیمات اپ، جیرا، بکاپ و موقعیت.
- * بسته: com.personal.timetracker.ui.settings
- * زبان توضیحات: فارسی — برای توسعه‌دهنده جاواکار.
+ * تنظیمات کاربر — ظاهر مطابق Figma (ترجیحات + سرویس‌ها + شیفت فقط‌خواندنی).
  */
 
-import android.Manifest
-import android.content.Intent
-import android.app.TimePickerDialog
-import android.graphics.Color
-import android.graphics.drawable.GradientDrawable
-import android.net.Uri
+import android.graphics.Typeface
 import android.os.Bundle
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.EditText
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.appcompat.app.AlertDialog
-import androidx.core.view.setPadding
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.button.MaterialButton
-import com.google.android.material.chip.Chip
-import com.google.android.material.chip.ChipGroup
-import com.google.android.material.textfield.TextInputEditText
-import com.google.android.material.textfield.TextInputLayout
+import com.google.android.material.card.MaterialCardView
 import com.personal.timetracker.App
 import com.personal.timetracker.data.entity.SettingsEntity
+import com.personal.timetracker.jira.JiraService
+import com.personal.timetracker.license.RemoteConfig
 import com.personal.timetracker.ui.MainActivity
+import com.personal.timetracker.ui.support.SupportFragment
 import com.personal.timetracker.util.AutoBackupWorker
-import com.personal.timetracker.util.BackupHelper
 import com.personal.timetracker.util.BiometricHelper
-import com.personal.timetracker.util.GeoHelper
-import com.personal.timetracker.util.NotifHelper
-import com.personal.timetracker.util.ThemeHelper
-import com.personal.timetracker.util.TimeUtils
+import com.personal.timetracker.util.FigmaUi
 import kotlinx.coroutines.launch
 
-/**
- * تنظیمات اپ، جیرا، بکاپ و موقعیت.
- */
 class SettingsFragment : Fragment() {
-
-    /** انتخاب پوشه پشتیبان با SAF */
-    private val folderPickerLauncher = registerForActivityResult(
-        ActivityResultContracts.OpenDocumentTree()
-    ) { uri: Uri? ->
-        if (uri == null) return@registerForActivityResult
-        try {
-            requireContext().contentResolver.takePersistableUriPermission(
-                uri,
-                Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-            )
-        } catch (_: Exception) { }
-        if (::backupDirEdit.isInitialized) {
-            backupDirEdit.setText(uri.toString())
-        }
-    }
-
-    private var settings = SettingsEntity()
-    private lateinit var startBtn: MaterialButton
-    private lateinit var endBtn: MaterialButton
-    private lateinit var flexEdit: TextInputEditText
-    private lateinit var minHoursEdit: TextInputEditText
-    private lateinit var minMinsEdit: TextInputEditText
-    private lateinit var weeklyHoursEdit: TextInputEditText
-    private lateinit var weeklyMinsEdit: TextInputEditText
-    private lateinit var thursdaySwitch: Switch
-    private lateinit var thursdayHoursEdit: TextInputEditText
-    private lateinit var thursdayMinsEdit: TextInputEditText
-    private lateinit var holidayListBox: LinearLayout
-    private lateinit var holidayDateEdit: TextInputEditText
-    private lateinit var holidayTitleEdit: TextInputEditText
-    private var projectEdit: TextInputEditText? = null
-    private lateinit var notifTitleEdit: TextInputEditText
-    private lateinit var notifBodyEdit: TextInputEditText
-    private lateinit var notifBeforeEdit: TextInputEditText
-    private lateinit var chipGroup: ChipGroup
+    private lateinit var settings: SettingsEntity
     private lateinit var darkSwitch: Switch
-    private lateinit var notifSwitch: Switch
     private lateinit var bioSwitch: Switch
-    private lateinit var geoAutoSwitch: Switch
+    private lateinit var notifSwitch: Switch
+    private lateinit var jiraEnabledSwitch: Switch
+    private lateinit var jiraUrlEdit: EditText
+    private lateinit var jiraUserEdit: EditText
+    private lateinit var jiraPassEdit: EditText
+    private lateinit var jiraTokenEdit: EditText
+    private lateinit var authTokenSwitch: Switch
+    private lateinit var jiraStatusTv: TextView
+    private lateinit var shiftInfo: TextView
+    private lateinit var geoAutoInSwitch: Switch
     private lateinit var geoAutoOutSwitch: Switch
     private lateinit var geoAlertSwitch: Switch
-    private lateinit var radiusEdit: TextInputEditText
+    private lateinit var radiusEdit: EditText
     private lateinit var locationInfo: TextView
-    private lateinit var autoBackupSwitch: Switch
-    private lateinit var autoBackupIntervalEdit: TextInputEditText
-    // Jira
-    private lateinit var jiraEnabledSwitch: Switch
-    private lateinit var jiraUrlEdit: TextInputEditText
-    private lateinit var jiraTokenEdit: TextInputEditText
-    private lateinit var jiraUsernameEdit: TextInputEditText
-    private lateinit var jiraPasswordEdit: TextInputEditText
-    private lateinit var jiraTestBtn: MaterialButton
-    private lateinit var jiraStatusTv: TextView
-    private lateinit var jiraStatusesBtn: MaterialButton
-    private lateinit var jiraStatusesSummary: TextView
-    private val selectedJiraStatuses = linkedSetOf<String>()
-    private val selectedJiraProjects = linkedSetOf<String>()
-    private var jiraProjectsBtn: MaterialButton? = null
-    private var jiraProjectsSummary: TextView? = null
-    private lateinit var backupDirEdit: TextInputEditText
-    private val projects = mutableListOf<String>()
-    private var themeColor = -10983104
 
-    private val colors = listOf(
-        0xFF1565C0.toInt(), 0xFF2E7D32.toInt(), 0xFFC62828.toInt(),
-        0xFF6A1B9A.toInt(), 0xFF00838F.toInt(), 0xFFEF6C00.toInt(),
-        0xFF4527A0.toInt(), 0xFF37474F.toInt(), 0xFFAD1457.toInt()
-    )
+    private fun primary() = (activity as? MainActivity)?.primaryColor ?: FigmaUi.PRIMARY
 
-    private fun primary() = (activity as? MainActivity)?.primaryColor ?: 0xFF1565C0.toInt()
-    private fun dark() = (activity as? MainActivity)?.isDark ?: false
-
-    private val pickBackup =
-        registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
-            if (uri == null) return@registerForActivityResult
-            lifecycleScope.launch {
-                try {
-                    val json =
-                        requireContext().contentResolver.openInputStream(uri)?.bufferedReader()
-                            ?.readText()
-                            ?: throw Exception("خواندن ممکن نیست")
-                    BackupHelper.restoreJson(requireContext(), json)
-                    Toast.makeText(requireContext(), "بازیابی شد", Toast.LENGTH_LONG).show()
-                    load()
-                } catch (e: Exception) {
-                    Toast.makeText(requireContext(), "خطا: ${e.message}", Toast.LENGTH_LONG).show()
-                }
-            }
-        }
-
-    private val locPermission =
-        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { m ->
-            if (m.values.any { it }) saveCurrentLocation()
-            else Toast.makeText(requireContext(), "مجوز موقعیت لازم است", Toast.LENGTH_SHORT).show()
-        }
-
-    /**
-     * ساخت و برگرداندن View ریشه این Fragment.
-     */
-    override fun onCreateView(
-        inflater: LayoutInflater,
-        container: ViewGroup?,
-        savedInstanceState: Bundle?
-    ): View {
+    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         val ctx = requireContext()
-        val content =
-            LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL; setPadding(20) }
-        val scroll = android.widget.ScrollView(ctx).apply { addView(content) }
-
-        fun title(t: String) = TextView(ctx).apply {
-            text = t; textSize = 18f; setPadding(0, 28, 0, 10)
-            setTypeface(typeface, android.graphics.Typeface.BOLD)
+        val isDark = (activity as? MainActivity)?.isDark == true
+        val root = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(FigmaUi.bg(isDark))
+        }
+        val scroll = ScrollView(ctx)
+        val content = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, 0, 0, FigmaUi.dp(ctx, 32))
         }
 
-        fun til(hint: String, single: Boolean = true): Pair<TextInputLayout, TextInputEditText> {
-            val edit = TextInputEditText(ctx)
-            val layout = TextInputLayout(ctx).apply {
+        // هدر
+        content.addView(FigmaUi.screenHeader(ctx, "تنظیمات", "حساب و اتصال‌های سازمانی", "⚙️"))
+
+        val body = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(FigmaUi.dp(ctx, 16), FigmaUi.dp(ctx, 12), FigmaUi.dp(ctx, 16), 0)
+        }
+
+        fun sectionTitle(t: String) = TextView(ctx).apply {
+            text = t
+            textSize = 12f
+            setTextColor(FigmaUi.muted(isDark))
+            gravity = Gravity.END
+            setPadding(0, FigmaUi.dp(ctx, 12), 0, FigmaUi.dp(ctx, 8))
+        }
+
+        fun groupCard(): MaterialCardView = FigmaUi.whiteCard(ctx, isDark).apply {
+            radius = FigmaUi.dp(ctx, 16).toFloat()
+        }
+
+        fun field(hint: String, password: Boolean = false): EditText {
+            return EditText(ctx).apply {
                 this.hint = hint
-                addView(edit)
-                if (!single) {
-                    edit.minLines = 2
-                    edit.gravity = Gravity.TOP or Gravity.START
+                setSingleLine()
+                textSize = 14f
+                setTextColor(FigmaUi.text(isDark))
+                setHintTextColor(FigmaUi.muted(isDark))
+                setPadding(FigmaUi.dp(ctx, 12), FigmaUi.dp(ctx, 12), FigmaUi.dp(ctx, 12), FigmaUi.dp(ctx, 12))
+                background = FigmaUi.rounded(
+                    if (isDark) 0xFF243447.toInt() else 0xFFF5F7FA.toInt(), 12f, ctx
+                )
+                gravity = Gravity.END
+                if (password) {
+                    inputType = android.text.InputType.TYPE_CLASS_TEXT or
+                        android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
                 }
-            }
-            return layout to edit
-        }
-
-        content.addView(TextView(ctx).apply { text = "تنظیمات"; textSize = 22f })
-
-        // Dark
-        darkSwitch = Switch(ctx).apply { text = "حالت تاریک" }
-        content.addView(darkSwitch)
-
-        // Theme colors
-        content.addView(title("رنگ تم"))
-        val colorRow = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL }
-        colors.forEach { c ->
-            val v = View(ctx).apply {
-                layoutParams = LinearLayout.LayoutParams(72, 72).apply { marginEnd = 12 }
-                background = GradientDrawable().apply {
-                    shape = GradientDrawable.OVAL
-                    setColor(c)
-                }
-                setOnClickListener {
-                    themeColor = c
-                    (activity as? MainActivity)?.applyThemeColor(c)
-                    Toast.makeText(ctx, "رنگ انتخاب شد — ذخیره را بزنید", Toast.LENGTH_SHORT).show()
-                }
-            }
-            colorRow.addView(v)
-        }
-        content.addView(android.widget.HorizontalScrollView(ctx).apply { addView(colorRow) })
-
-        // Work hours
-        content.addView(title("ساعات کاری"))
-        startBtn = MaterialButton(
-            ctx,
-            null,
-            com.google.android.material.R.attr.materialButtonOutlinedStyle
-        )
-        endBtn = MaterialButton(
-            ctx,
-            null,
-            com.google.android.material.R.attr.materialButtonOutlinedStyle
-        )
-        content.addView(startBtn); content.addView(endBtn)
-        val (flexL, flexE) = til("شناوری (دقیقه)"); flexEdit = flexE; content.addView(flexL)
-        content.addView(TextView(ctx).apply {
-            text = "اگر ورود بین ساعت شروع کار و پایان بازه‌ی شناوری باشد، ساعت پایان کار به همان اندازه شیفت می‌کند و مرخصی ثبت نمی‌شود. اگر دیرتر باشد، فاصله تا پایان بازه‌ی شناوری مرخصی محسوب می‌شود."
-            textSize = 11.5f
-            setTextColor(ThemeHelper.textSecondary(dark()))
-            setPadding(4, 4, 4, 8)
-        })
-        val minRow = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL }
-        val (mhL, mhE) = til("حداقل کار — ساعت"); minHoursEdit = mhE
-        val (mmL, mmE) = til("حداقل کار — دقیقه"); minMinsEdit = mmE
-        mhL.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-            .apply { marginEnd = 8 }
-        mmL.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-        minRow.addView(mhL); minRow.addView(mmL); content.addView(minRow)
-
-        // Weekly shift schedule
-        content.addView(title("شیفت کاری هفتگی"))
-        val weeklyRow = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL }
-        val (whL, whE) = til("ساعت موظف هفته — ساعت"); weeklyHoursEdit = whE
-        val (wmL, wmE) = til("ساعت موظف هفته — دقیقه"); weeklyMinsEdit = wmE
-        whL.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { marginEnd = 8 }
-        wmL.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-        weeklyRow.addView(whL); weeklyRow.addView(wmL)
-        content.addView(weeklyRow)
-
-        thursdaySwitch = Switch(ctx).apply { text = "پنجشنبه روز کاری است" }
-        content.addView(thursdaySwitch)
-
-        val thuRow = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL }
-        val (thL, thE) = til("ساعت موظف پنجشنبه — ساعت"); thursdayHoursEdit = thE
-        val (tmL, tmE) = til("ساعت موظف پنجشنبه — دقیقه"); thursdayMinsEdit = tmE
-        thL.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { marginEnd = 8 }
-        tmL.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-        thuRow.addView(thL); thuRow.addView(tmL)
-        content.addView(thuRow)
-        content.addView(TextView(ctx).apply {
-            text = "اگر پنجشنبه تعطیل باشد: ساعت موظف هفته به‌طور مساوی بین شنبه تا چهارشنبه تقسیم می‌شود و پنجشنبه/جمعه هر دو تعطیل‌اند.\nاگر پنجشنبه کاری باشد: ابتدا ساعت موظف پنجشنبه از جمع کل کم شده، باقی‌مانده بین شنبه تا چهارشنبه تقسیم می‌شود و فقط جمعه تعطیل است."
-            textSize = 11.5f
-            setTextColor(ThemeHelper.textSecondary(dark()))
-            setPadding(4, 4, 4, 4)
-        })
-
-        content.addView(
-            MaterialButton(ctx, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
-                text = "بازمحاسبه ترددهای قبلی با تنظیمات فعلی"
-                ThemeHelper.applyButton(this, primary(), false)
-                setOnClickListener {
-                    lifecycleScope.launch {
-                        val updated = buildSettings()
-                        (requireActivity().application as App).repository.saveSettings(updated)
-                        settings = updated
-                        Toast.makeText(ctx, "در حال بازمحاسبه...", Toast.LENGTH_SHORT).show()
-                        val n = (requireActivity().application as App).repository.recalculateAllAttendance()
-                        Toast.makeText(ctx, "${TimeUtils.faNum(n)} رکورد بازمحاسبه شد", Toast.LENGTH_LONG).show()
-                    }
-                }
-            }
-        )
-
-        // Holidays
-        content.addView(title("تعطیلات رسمی"))
-        holidayListBox = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL }
-        content.addView(holidayListBox)
-
-        // نمایش تاریخ انتخاب‌شده به صورت شمسی روی دکمه
-        val selectedHolidayDate = arrayOf<String?>(null)
-        val datePickerBtn = MaterialButton(ctx, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
-            text = "📅 انتخاب تاریخ شمسی"
-            ThemeHelper.applyButton(this, primary(), false)
-        }
-
-        val (htL, htE) = til("عنوان (اختیاری)")
-        holidayTitleEdit = htE
-        // مقداردهی اولیه برای holidayDateEdit - مقدار واقعی از selectedHolidayDate آرایه
-        val (hdL, hdE) = til("تاریخ (پر می‌شود با انتخاب تاریخ)")
-        holidayDateEdit = hdE
-        hdL.visibility = android.view.View.GONE // مخفی، فقط برای backward compat
-
-        datePickerBtn.setOnClickListener {
-            com.personal.timetracker.util.JalaliDatePickerDialog.show(
-                ctx = ctx,
-                primary = primary(),
-                dark = dark(),
-                initialGregorianDate = selectedHolidayDate[0]
-            ) { gregStr, jalDisplay ->
-                selectedHolidayDate[0] = gregStr
-                datePickerBtn.text = "📅 $jalDisplay"
             }
         }
 
-        content.addView(datePickerBtn)
-        htL.layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-        content.addView(htL)
+        // ترجیحات
+        body.addView(sectionTitle("ترجیحات"))
+        val prefCard = groupCard()
+        val prefCol = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL }
 
-        content.addView(MaterialButton(ctx).apply {
-            text = "افزودن تعطیلی"
-            ThemeHelper.applyButton(this, primary(), true)
-            setOnClickListener {
-                val d = selectedHolidayDate[0]
-                val t = holidayTitleEdit.text?.toString()?.trim().orEmpty()
-                if (d.isNullOrEmpty()) {
-                    Toast.makeText(ctx, "ابتدا تاریخ را انتخاب کنید", Toast.LENGTH_SHORT).show()
-                } else {
-                    lifecycleScope.launch {
-                        (requireActivity().application as App).repository.addHoliday(d, t.ifEmpty { "تعطیل رسمی" })
-                        selectedHolidayDate[0] = null
-                        datePickerBtn.text = "📅 انتخاب تاریخ شمسی"
-                        holidayTitleEdit.text?.clear()
-                        loadHolidays()
-                    }
-                }
-            }
-        })
-        content.addView(
-            MaterialButton(ctx, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
-                text = "دریافت تعطیلات امسال از اینترنت (تلاش بهترین حالت)"
-                ThemeHelper.applyButton(this, primary(), false)
-                setOnClickListener {
-                    lifecycleScope.launch {
-                        Toast.makeText(ctx, "در حال دریافت...", Toast.LENGTH_SHORT).show()
-                        try {
-                            val jy = TimeUtils.toJalali(java.util.Date())[0]
-                            val n = (requireActivity().application as App).repository
-                                .fetchHolidaysFromInternet(jy)
-                            Toast.makeText(ctx, "${TimeUtils.faNum(n)} تعطیلی اضافه شد", Toast.LENGTH_LONG).show()
-                            loadHolidays()
-                        } catch (e: Exception) {
-                            Toast.makeText(
-                                ctx,
-                                "دریافت خودکار ناموفق بود — می‌توانید به‌صورت دستی وارد کنید",
-                                Toast.LENGTH_LONG
-                            ).show()
-                        }
-                    }
-                }
-            }
-        )
+        darkSwitch = Switch(ctx)
+        prefCol.addView(rowWithSwitch(ctx, "ظاهر", "حالت روشن / تاریک", "🌙", darkSwitch))
+        notifSwitch = Switch(ctx)
+        prefCol.addView(divider(ctx))
+        prefCol.addView(rowWithSwitch(ctx, "اعلان‌ها", "تردد، تسک‌ها و یادآوری‌ها", "🔔", notifSwitch))
+        bioSwitch = Switch(ctx)
+        if (!BiometricHelper.canAuthenticate(requireActivity())) bioSwitch.isEnabled = false
+        prefCol.addView(divider(ctx))
+        prefCol.addView(rowWithSwitch(ctx, "ورود با اثر انگشت", "ورود سریع و امن", "🛡️", bioSwitch))
+        prefCard.addView(prefCol)
+        body.addView(prefCard, FigmaUi.matchParent(bottom = FigmaUi.dp(ctx, 8)))
 
-        // پروژه‌های Jira از تنظیمات حذف شد — فیلتر در تب تسک‌ها انجام می‌شود
-
-        // Notifications
-        content.addView(title("اعلان‌ها"))
-        notifSwitch = Switch(ctx).apply { text = "فعال بودن اعلان پایان کار" }
-        content.addView(notifSwitch)
-        val (nbL, nbE) = til("دقایق قبل از پایان"); notifBeforeEdit = nbE; content.addView(nbL)
-        val (ntL, ntE) = til("عنوان اعلان"); notifTitleEdit = ntE; content.addView(ntL)
-        val (nobodyL, nobodyE) = til("متن اعلان", single = false); notifBodyEdit =
-            nobodyE; content.addView(nobodyL)
-        content.addView(
-            MaterialButton(
-                ctx,
-                null,
-                com.google.android.material.R.attr.materialButtonOutlinedStyle
-            ).apply {
-                text = "تست اعلان پایان کار (الان)"
-                setOnClickListener {
-                    NotifHelper.show(
-                        ctx,
-                        notifTitleEdit.text?.toString() ?: "یادآوری",
-                        notifBodyEdit.text?.toString() ?: "تست"
-                    )
-                }
-            })
-        content.addView(
-            MaterialButton(
-                ctx,
-                null,
-                com.google.android.material.R.attr.materialButtonOutlinedStyle
-            ).apply {
-                text = "بررسی موقعیت محل کار (الان)"
-                setOnClickListener { GeoHelper.requestAndCheck(ctx) }
-            })
-
-        // Biometric
-        content.addView(title("امنیت"))
-        bioSwitch = Switch(ctx).apply { text = "قفل بیومتریک (اثرانگشت / چهره)" }
-        content.addView(bioSwitch)
-        if (!BiometricHelper.canAuthenticate(requireActivity())) {
-            bioSwitch.isEnabled = false
-            content.addView(TextView(ctx).apply {
-                text = "بیومتریک روی این دستگاه در دسترس نیست"; textSize = 12f
-            })
+        // سرویس‌ها
+        body.addView(sectionTitle("سرویس‌ها"))
+        val svcCard = groupCard()
+        val svcCol = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(FigmaUi.dp(ctx, 14), FigmaUi.dp(ctx, 12), FigmaUi.dp(ctx, 14), FigmaUi.dp(ctx, 12))
         }
-
-        // Location
-        content.addView(title("موقعیت محل کار"))
-        locationInfo = TextView(ctx).apply { textSize = 13f }
-        content.addView(locationInfo)
-        content.addView(MaterialButton(ctx).apply {
-            text = "ذخیره موقعیت فعلی به‌عنوان محل کار"
-            ThemeHelper.applyButton(this, primary(), true)
-            setOnClickListener { requestAndSaveLocation() }
-        })
-        geoAlertSwitch = Switch(ctx).apply { text = "هشدار ورود/خروج ثبت‌نشده" }
-        geoAutoSwitch = Switch(ctx).apply { text = "ورود خودکار هنگام رسیدن به محل کار" }
-        geoAutoOutSwitch = Switch(ctx).apply { text = "خروج خودکار هنگام ترک محل کار" }
-        content.addView(geoAlertSwitch); content.addView(geoAutoSwitch); content.addView(geoAutoOutSwitch)
-        val (radiusL, radiusE) = til("شعاع تشخیص محل کار (متر)"); radiusEdit = radiusE
-        radiusEdit.inputType = android.text.InputType.TYPE_CLASS_NUMBER
-        content.addView(radiusL)
-
-        content.addView(MaterialButton(ctx).apply {
-            text = "ذخیره تنظیمات"
-            ThemeHelper.applyButton(this, primary(), true)
-            setOnClickListener { save() }
-        })
-
-        // Auto Backup
-        content.addView(title("پشتیبان‌گیری خودکار"))
-        autoBackupSwitch = Switch(ctx).apply { text = "پشتیبان‌گیری خودکار فعال باشد" }
-        content.addView(autoBackupSwitch)
-        val (abiL, abiE) = til("فاصله زمانی (ساعت) — پیش‌فرض: ۲۴"); autoBackupIntervalEdit = abiE
-        autoBackupIntervalEdit.inputType = android.text.InputType.TYPE_CLASS_NUMBER
-        content.addView(abiL)
-        content.addView(TextView(ctx).apply {
-            text = "پشتیبان در پوشه PTT_Backups در حافظه خارجی ذخیره می‌شود. حداقل فاصله ۱ ساعت است."
-            textSize = 11.5f
-            setTextColor(ThemeHelper.textSecondary(dark()))
-            setPadding(4, 4, 4, 8)
-        })
-
-        val (bakDirL, bakDirE) = til("مسیر پوشه پشتیبان خودکار (خالی = پیش‌فرض)"); backupDirEdit = bakDirE
-        backupDirEdit.hint = "برای انتخاب پوشه ضربه بزنید"
-        backupDirEdit.isFocusable = false
-        backupDirEdit.isClickable = true
-        backupDirEdit.setOnClickListener {
-            folderPickerLauncher.launch(null)
+        jiraEnabledSwitch = Switch(ctx).apply {
+            text = "فعال‌سازی همگام‌سازی Jira"
+            setTextColor(FigmaUi.text(isDark))
         }
-        val pickFolderBtn = MaterialButton(ctx).apply { text = "📁 انتخاب پوشه پشتیبان" }
-        ThemeHelper.applyButton(pickFolderBtn, primary(), false)
-        pickFolderBtn.setOnClickListener { folderPickerLauncher.launch(null) }
-        content.addView(pickFolderBtn)
-        content.addView(bakDirL)
-        content.addView(TextView(ctx).apply {
-            text = "اگر خالی باشد از پوشه PTT_Backups داخل حافظه اختصاصی اپ استفاده می‌شود."
-            textSize = 11.5f
-            setTextColor(ThemeHelper.textSecondary(dark()))
-            setPadding(4, 4, 4, 8)
-        })
-
-        // ---------- Jira ----------
-        content.addView(ThemeHelper.sectionTitle(ctx, "اتصال به جیرا", dark(), primary()))
-        jiraEnabledSwitch = Switch(ctx).apply { text = "فعال‌سازی همگام‌سازی جیرا" }
-        content.addView(jiraEnabledSwitch)
-        val (jiraUrlL, jiraUrlE) = til("آدرس سرور جیرا"); jiraUrlEdit = jiraUrlE
-        jiraUrlEdit.hint = "https://jira.demisco.com"
-        content.addView(jiraUrlL)
-        val (jiraUserL, jiraUserE) = til("نام کاربری جیرا"); jiraUsernameEdit = jiraUserE
-        content.addView(jiraUserL)
-        val (jiraPassL, jiraPassE) = til("رمز عبور جیرا"); jiraPasswordEdit = jiraPassE
-        jiraPasswordEdit.inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
-        content.addView(jiraPassL)
-        content.addView(TextView(ctx).apply {
-            text = "با نام کاربری و رمز عبور وارد شوید (همان صفحه لاگین شرکت). توکن اختیاری است."
-            textSize = 11.5f
-            setTextColor(ThemeHelper.textSecondary(dark()))
-            setPadding(4, 4, 4, 8)
-        })
-        val (jiraTokL, jiraTokE) = til("Personal Access Token (اختیاری)"); jiraTokenEdit = jiraTokE
-        jiraTokenEdit.inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
-        content.addView(jiraTokL)
-        jiraTestBtn = MaterialButton(ctx).apply { text = "تست اتصال" }
-        ThemeHelper.applyButton(jiraTestBtn, primary(), false)
-        jiraTestBtn.setOnClickListener { testJiraConnection() }
-        content.addView(jiraTestBtn)
+        svcCol.addView(jiraEnabledSwitch)
+        authTokenSwitch = Switch(ctx).apply {
+            text = "احراز با Token (به‌جای رمز)"
+            setTextColor(FigmaUi.text(isDark))
+        }
+        svcCol.addView(authTokenSwitch)
+        jiraUrlEdit = field("آدرس سرور Jira")
+        jiraUserEdit = field("نام کاربری / ایمیل")
+        jiraPassEdit = field("رمز عبور", password = true)
+        jiraTokenEdit = field("API Token / PAT", password = true)
+        listOf(jiraUrlEdit, jiraUserEdit, jiraPassEdit, jiraTokenEdit).forEach {
+            svcCol.addView(it, LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { topMargin = FigmaUi.dp(ctx, 8) })
+        }
+        fun refreshAuthFields() {
+            val tokenMode = authTokenSwitch.isChecked
+            jiraPassEdit.visibility = if (tokenMode) android.view.View.GONE else android.view.View.VISIBLE
+            jiraTokenEdit.visibility = if (tokenMode) android.view.View.VISIBLE else android.view.View.GONE
+            jiraUserEdit.hint = if (tokenMode) "ایمیل / نام کاربری (برای Basic+Token)" else "نام کاربری"
+        }
+        authTokenSwitch.setOnCheckedChangeListener { _, _ -> refreshAuthFields() }
+        refreshAuthFields()
         jiraStatusTv = TextView(ctx).apply {
-            textSize = 12.5f
-            setTextColor(ThemeHelper.textSecondary(dark()))
-            setPadding(4, 8, 4, 8)
+            textSize = 12f
+            setTextColor(FigmaUi.muted(isDark))
+            gravity = Gravity.END
+            setPadding(0, FigmaUi.dp(ctx, 8), 0, 0)
         }
-        content.addView(jiraStatusTv)
-        content.addView(TextView(ctx).apply {
-            text = "با فعال‌کردن، تسک‌ها از جیرای شرکت همگام می‌شوند و لاگ‌ها به‌صورت Worklog ارسال می‌گردند."
-            textSize = 11.5f
-            setTextColor(ThemeHelper.textSecondary(dark()))
-            setPadding(4, 4, 4, 8)
-        })
-        content.addView(ThemeHelper.sectionTitle(ctx, "وضعیت‌های فیلتر تسک‌ها", dark(), primary()))
-        content.addView(TextView(ctx).apply {
-            text = "فقط وضعیت‌هایی که اینجا انتخاب کنید در فیلتر صفحه تسک‌ها در دسترسند. خالی = همه وضعیت‌ها."
-            textSize = 11.5f
-            setTextColor(ThemeHelper.textSecondary(dark()))
-            setPadding(4, 0, 4, 6)
-        })
-        jiraStatusesBtn = MaterialButton(ctx).apply { text = "انتخاب وضعیت‌ها از جیرا" }
-        ThemeHelper.applyButton(jiraStatusesBtn, primary(), false)
-        jiraStatusesBtn.setOnClickListener { openJiraStatusPicker() }
-        content.addView(jiraStatusesBtn)
-        jiraStatusesSummary = TextView(ctx).apply {
-            textSize = 12.5f
-            setTextColor(ThemeHelper.textSecondary(dark()))
-            setPadding(4, 8, 4, 12)
-            text = "هنوز انتخاب نشده (همه وضعیت‌ها)"
+        svcCol.addView(jiraStatusTv)
+        val testBtn = MaterialButton(ctx).apply {
+            text = "تست اتصال"
+            setBackgroundColor(primary())
+            setTextColor(0xFFFFFFFF.toInt())
+            cornerRadius = FigmaUi.dp(ctx, 12)
+            setOnClickListener { testJira() }
         }
-        content.addView(jiraStatusesSummary)
-        content.addView(MaterialButton(ctx, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
-            text = "اعمال زمانبندی پشتیبان‌گیری"
-            ThemeHelper.applyButton(this, primary(), false)
-            setOnClickListener {
-                val enabled = autoBackupSwitch.isChecked
-                val interval = autoBackupIntervalEdit.text?.toString()?.toIntOrNull() ?: 24
-                AutoBackupWorker.schedule(requireContext(), enabled, interval)
-                Toast.makeText(ctx,
-                    if (enabled) "پشتیبان‌گیری خودکار هر ${interval} ساعت فعال شد"
-                    else "پشتیبان‌گیری خودکار غیرفعال شد",
-                    Toast.LENGTH_SHORT).show()
-            }
-        })
+        svcCol.addView(testBtn, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        ).apply { topMargin = FigmaUi.dp(ctx, 8) })
+        svcCard.addView(svcCol)
+        body.addView(svcCard, FigmaUi.matchParent(bottom = FigmaUi.dp(ctx, 8)))
 
-        // Backup
-        content.addView(title("پشتیبان و داده"))
-        content.addView(MaterialButton(ctx).apply {
-            text = "تهیه پشتیبان JSON"
-            ThemeHelper.applyButton(this, primary(), true)
-            setOnClickListener {
-                lifecycleScope.launch {
-                    val f = BackupHelper.exportJson(requireContext())
-                    BackupHelper.shareFile(requireContext(), f)
-                }
-            }
-        })
-        content.addView(
-            MaterialButton(
-                ctx,
-                null,
-                com.google.android.material.R.attr.materialButtonOutlinedStyle
-            ).apply {
-                text = "بازیابی از پشتیبان"
-                ThemeHelper.applyButton(this, primary(), false)
-                setOnClickListener {
-                    AlertDialog.Builder(ctx).setTitle("بازیابی")
-                        .setMessage("داده‌های فعلی جایگزین می‌شوند")
-                        .setPositiveButton("ادامه") { _, _ -> pickBackup.launch("application/json") }
-                        .setNegativeButton("انصراف", null).show()
-                }
+        if (RemoteConfig.canSupport(ctx)) {
+            val supportCard = groupCard()
+            supportCard.addView(FigmaUi.settingsRow(ctx, "پشتیبانی", "گفت‌وگو با پشتیبانی سازمان", "💬") {
+                parentFragmentManager.beginTransaction()
+                    .replace(com.personal.timetracker.R.id.fragmentContainer, SupportFragment())
+                    .addToBackStack("support")
+                    .commit()
             })
-        content.addView(
-            MaterialButton(
-                ctx,
-                null,
-                com.google.android.material.R.attr.materialButtonOutlinedStyle
-            ).apply {
-                text = "خالی کردن داده‌ها"
-                ThemeHelper.applyButton(this, primary(), false)
-                setOnClickListener {
-                    AlertDialog.Builder(ctx).setTitle("حذف")
-                        .setPositiveButton("فقط داده‌ها") { _, _ ->
-                            lifecycleScope.launch {
-                                BackupHelper.clearAll(requireContext(), false)
-                                Toast.makeText(ctx, "پاک شد", Toast.LENGTH_SHORT).show()
-                            }
-                        }
-                        .setNeutralButton("همه + تنظیمات") { _, _ ->
-                            lifecycleScope.launch {
-                                BackupHelper.clearAll(requireContext(), true)
-                                load()
-                            }
-                        }
-                        .setNegativeButton("انصراف", null).show()
-                }
-            })
+            body.addView(supportCard, FigmaUi.matchParent(bottom = FigmaUi.dp(ctx, 8)))
+        }
 
-        startBtn.setOnClickListener { pickTime(true) }
-        endBtn.setOnClickListener { pickTime(false) }
-        // dark applied on save to recreate activity cleanly
+        // موقعیت و ورود/خروج خودکار
+        body.addView(sectionTitle("موقعیت محل کار"))
+        val geoCard = groupCard()
+        val geoCol = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(FigmaUi.dp(ctx, 14), FigmaUi.dp(ctx, 12), FigmaUi.dp(ctx, 14), FigmaUi.dp(ctx, 12))
+        }
+        locationInfo = TextView(ctx).apply {
+            textSize = 12f
+            setTextColor(FigmaUi.muted(isDark))
+            gravity = Gravity.END
+        }
+        geoCol.addView(locationInfo)
+        val saveLocBtn = MaterialButton(ctx).apply {
+            text = "ذخیره موقعیت فعلی به‌عنوان محل کار"
+            setBackgroundColor(primary())
+            setTextColor(0xFFFFFFFF.toInt())
+            cornerRadius = FigmaUi.dp(ctx, 12)
+            setOnClickListener { saveCurrentLocation() }
+        }
+        geoCol.addView(saveLocBtn, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+        ).apply { topMargin = FigmaUi.dp(ctx, 8) })
+        radiusEdit = field("شعاع (متر) — پیش‌فرض ۱۵۰")
+        geoCol.addView(radiusEdit, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+        ).apply { topMargin = FigmaUi.dp(ctx, 8) })
+        geoAutoInSwitch = Switch(ctx).apply {
+            text = "ورود خودکار با رسیدن به محل کار"
+            setTextColor(FigmaUi.text(isDark))
+        }
+        geoAutoOutSwitch = Switch(ctx).apply {
+            text = "خروج خودکار با ترک محل کار"
+            setTextColor(FigmaUi.text(isDark))
+        }
+        geoAlertSwitch = Switch(ctx).apply {
+            text = "فقط هشدار (بدون ثبت خودکار)"
+            setTextColor(FigmaUi.text(isDark))
+        }
+        geoCol.addView(geoAutoInSwitch)
+        geoCol.addView(geoAutoOutSwitch)
+        geoCol.addView(geoAlertSwitch)
+        geoCard.addView(geoCol)
+        body.addView(geoCard, FigmaUi.matchParent(bottom = FigmaUi.dp(ctx, 8)))
+
+        // شیفت فقط‌خواندنی
+        body.addView(sectionTitle("اطلاعات شیفت"))
+        val shiftCard = groupCard()
+        shiftInfo = TextView(ctx).apply {
+            textSize = 13f
+            setTextColor(FigmaUi.text(isDark))
+            gravity = Gravity.END
+            setPadding(FigmaUi.dp(ctx, 14), FigmaUi.dp(ctx, 14), FigmaUi.dp(ctx, 14), FigmaUi.dp(ctx, 14))
+        }
+        shiftCard.addView(shiftInfo)
+        body.addView(shiftCard, FigmaUi.matchParent(bottom = FigmaUi.dp(ctx, 16)))
+
+        val saveBtn = MaterialButton(ctx).apply {
+            text = "ذخیره تنظیمات"
+            setBackgroundColor(primary())
+            setTextColor(0xFFFFFFFF.toInt())
+            cornerRadius = FigmaUi.dp(ctx, 14)
+            setOnClickListener { save() }
+        }
+        body.addView(saveBtn, FigmaUi.matchParent())
+
+        content.addView(body)
+        scroll.addView(content)
+        root.addView(scroll, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
 
         load()
-        loadHolidays()
-        return scroll
+        return root
     }
 
-    private fun refreshChips() {
-        if (!::chipGroup.isInitialized) return
-        chipGroup.removeAllViews()
-        // پروژه‌های محلی دیگر در تنظیمات مدیریت نمی‌شوند
-    }
-
-    private fun loadHolidays() {
-        lifecycleScope.launch {
-            val repo = (requireActivity().application as App).repository
-            val list = repo.getHolidaysOnce()
-            val ctx = requireContext()
-            holidayListBox.removeAllViews()
-            if (list.isEmpty()) {
-                holidayListBox.addView(TextView(ctx).apply {
-                    text = "تعطیلی‌ای ثبت نشده"
-                    textSize = 12f
-                    setTextColor(ThemeHelper.textSecondary(dark()))
-                    setPadding(4, 6, 4, 6)
-                })
-            } else {
-                list.forEach { h ->
-                    val row = LinearLayout(ctx).apply {
-                        orientation = LinearLayout.HORIZONTAL
-                        gravity = Gravity.CENTER_VERTICAL
-                        setPadding(0, 6, 0, 6)
-                    }
-                    row.addView(TextView(ctx).apply {
-                        text = buildString {
-                            append(TimeUtils.toJalaliDisplay(h.date))
-                            if (h.title.isNotBlank()) { append(" — "); append(h.title) }
-                        }
-                        textSize = 12.5f
-                        setTextColor(ThemeHelper.textPrimary(dark()))
-                        layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-                    })
-                    // دکمه ویرایش
-                    row.addView(ThemeHelper.iconButton(ctx, "✎", primary(), dark(), "ویرایش تعطیلی") {
-                        showEditHolidayDialog(h)
-                    })
-                    // دکمه حذف
-                    row.addView(ThemeHelper.iconButton(ctx, "🗑", ThemeHelper.deleteColor, dark(), "حذف تعطیلی") {
-                        lifecycleScope.launch {
-                            repo.deleteHoliday(h)
-                            loadHolidays()
-                        }
-                    })
-                    holidayListBox.addView(row)
-                }
+    private fun rowWithSwitch(
+        ctx: android.content.Context,
+        title: String,
+        sub: String,
+        emoji: String,
+        sw: Switch
+    ): LinearLayout {
+        return LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(FigmaUi.dp(ctx, 14), FigmaUi.dp(ctx, 12), FigmaUi.dp(ctx, 14), FigmaUi.dp(ctx, 12))
+            addView(sw)
+            val texts = LinearLayout(ctx).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.END
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
             }
+            texts.addView(TextView(ctx).apply {
+                text = title
+                textSize = 14f
+                setTextColor(FigmaUi.text((activity as? MainActivity)?.isDark == true))
+                gravity = Gravity.END
+            })
+            texts.addView(TextView(ctx).apply {
+                text = sub
+                textSize = 11f
+                setTextColor(FigmaUi.muted((activity as? MainActivity)?.isDark == true))
+                gravity = Gravity.END
+            })
+            addView(texts)
+            addView(TextView(ctx).apply {
+                text = emoji
+                textSize = 16f
+                gravity = Gravity.CENTER
+                background = FigmaUi.oval(0xFFE3F2FD.toInt())
+                layoutParams = LinearLayout.LayoutParams(FigmaUi.dp(ctx, 40), FigmaUi.dp(ctx, 40)).apply {
+                    marginStart = FigmaUi.dp(ctx, 10)
+                }
+            })
         }
     }
 
-    private fun showEditHolidayDialog(existing: com.personal.timetracker.data.entity.HolidayEntity) {
-        val ctx = requireContext()
-        val repo = (requireActivity().application as App).repository
-        val primary = primary()
-        val dark = dark()
-
-        val layout = android.widget.LinearLayout(ctx).apply {
-            orientation = android.widget.LinearLayout.VERTICAL
-            setPadding(
-                com.personal.timetracker.util.DialogHelper.dp(ctx, 24), 0,
-                com.personal.timetracker.util.DialogHelper.dp(ctx, 24), 0
-            )
+    private fun divider(ctx: android.content.Context) = View(ctx).apply {
+        setBackgroundColor(0xFFE5E7EB.toInt())
+        layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, FigmaUi.dp(ctx, 1)
+        ).apply {
+            marginStart = FigmaUi.dp(ctx, 14)
+            marginEnd = FigmaUi.dp(ctx, 14)
         }
-
-        // انتخاب تاریخ با دیت‌پیکر شمسی
-        val selectedDate = arrayOf(existing.date)
-        val dateBtn = com.google.android.material.button.MaterialButton(ctx, null,
-            com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
-            text = "📅 ${TimeUtils.toJalaliShort(TimeUtils.parseDate(existing.date))}"
-            ThemeHelper.applyButton(this, primary, false)
-            setOnClickListener {
-                com.personal.timetracker.util.JalaliDatePickerDialog.show(
-                    ctx = ctx, primary = primary, dark = dark,
-                    initialGregorianDate = selectedDate[0]
-                ) { gregStr, jalDisplay ->
-                    selectedDate[0] = gregStr
-                    text = "📅 $jalDisplay"
-                }
-            }
-        }
-
-        val (titleLayout, titleEdit) = com.personal.timetracker.util.DialogHelper.inputField(
-            ctx, "عنوان تعطیلی", existing.title, primary
-        )
-        titleLayout.layoutParams = android.widget.LinearLayout.LayoutParams(
-            android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
-            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
-        ).apply { topMargin = com.personal.timetracker.util.DialogHelper.dp(ctx, 12) }
-
-        layout.addView(dateBtn)
-        layout.addView(titleLayout)
-
-        androidx.appcompat.app.AlertDialog.Builder(ctx)
-            .setTitle("ویرایش تعطیلی")
-            .setView(layout)
-            .setPositiveButton("ذخیره") { _, _ ->
-                val newDate = selectedDate[0]
-                val newTitle = titleEdit.text?.toString()?.trim().orEmpty().ifBlank { "تعطیل رسمی" }
-                lifecycleScope.launch {
-                    // اگر تاریخ عوض شد، رکورد قدیمی را حذف کن
-                    if (newDate != existing.date) {
-                        repo.deleteHoliday(existing)
-                    }
-                    repo.addHoliday(newDate, newTitle)
-                    loadHolidays()
-                }
-            }
-            .setNegativeButton("انصراف", null)
-            .show()
-    }
-
-    private fun pickTime(isStart: Boolean) {
-        val cur = if (isStart) settings.startWorkTime else settings.endWorkTime
-        val p = cur.split(":").map { it.toIntOrNull() ?: 0 }
-        TimePickerDialog(requireContext(), { _, h, m ->
-            val t = "%02d:%02d".format(h, m)
-            if (isStart) {
-                settings = settings.copy(startWorkTime = t); startBtn.text = buildString {
-                    append("شروع کار: ")
-                    append(t)
-                }
-            } else {
-                settings = settings.copy(endWorkTime = t); endBtn.text = buildString {
-                    append("پایان کار: ")
-                    append(t)
-                }
-            }
-        }, p.getOrElse(0) { 9 }, p.getOrElse(1) { 0 }, true).show()
-    }
-
-    private fun requestAndSaveLocation() {
-        val ctx = requireContext()
-        if (GeoHelper.hasLocationPermission(ctx)) saveCurrentLocation()
-        else locPermission.launch(
-            arrayOf(
-                Manifest.permission.ACCESS_FINE_LOCATION,
-                Manifest.permission.ACCESS_COARSE_LOCATION
-            )
-        )
-    }
-
-    private fun saveCurrentLocation() {
-        val loc = GeoHelper.lastLocation(requireContext())
-        if (loc == null) {
-            Toast.makeText(
-                requireContext(),
-                "موقعیت در دسترس نیست. GPS را روشن کنید",
-                Toast.LENGTH_LONG
-            ).show()
-            return
-        }
-        settings = settings.copy(workLat = loc.latitude, workLng = loc.longitude)
-        locationInfo.text =
-            buildString {
-                append("محل کار: ")
-                append("%.5f".format(loc.latitude))
-                append(", ")
-                append("%.5f".format(loc.longitude))
-            }
-        Toast.makeText(
-            requireContext(),
-            "موقعیت ذخیره شد — دکمه ذخیره تنظیمات را بزنید",
-            Toast.LENGTH_SHORT
-        ).show()
     }
 
     private fun load() {
         lifecycleScope.launch {
+            val ctx = requireContext()
             settings = (requireActivity().application as App).repository.getSettings()
-            startBtn.text = buildString {
-                append("شروع کار: ")
-                append(settings.startWorkTime)
-            }
-            endBtn.text = buildString {
-                append("پایان کار: ")
-                append(settings.endWorkTime)
-            }
-            flexEdit.setText(settings.flexibleMinutes.toString())
-            minHoursEdit.setText((settings.minimumWorkMinutes / 60).toString())
-            minMinsEdit.setText((settings.minimumWorkMinutes % 60).toString())
-            weeklyHoursEdit.setText((settings.weeklyRequiredMinutes / 60).toString())
-            weeklyMinsEdit.setText((settings.weeklyRequiredMinutes % 60).toString())
-            thursdaySwitch.isChecked = settings.thursdayWorking
-            thursdayHoursEdit.setText((settings.thursdayMinutes / 60).toString())
-            thursdayMinsEdit.setText((settings.thursdayMinutes % 60).toString())
-            projects.clear()
-            projects.addAll(settings.projects.split(",").map { it.trim() }
-                .filter { it.isNotEmpty() })
-            refreshChips()
             darkSwitch.isChecked = settings.isDarkMode
-            themeColor = settings.themeColor
             notifSwitch.isChecked = settings.notifEnabled
-            notifBeforeEdit.setText(settings.notifMinutesBefore.toString())
-            notifTitleEdit.setText(settings.notifTitle)
-            notifBodyEdit.setText(settings.notifBody)
             bioSwitch.isChecked = settings.biometricEnabled
-            geoAutoSwitch.isChecked = settings.geoAutoCheckIn
+            jiraEnabledSwitch.isChecked = settings.jiraEnabled
+            jiraUrlEdit.setText(settings.jiraBaseUrl)
+            jiraUserEdit.setText(settings.jiraUsername)
+            jiraPassEdit.setText(settings.jiraPassword)
+            jiraTokenEdit.setText(settings.jiraToken)
+            authTokenSwitch.isChecked = settings.jiraToken.isNotBlank() && settings.jiraPassword.isBlank()
+            jiraPassEdit.visibility = if (authTokenSwitch.isChecked) android.view.View.GONE else android.view.View.VISIBLE
+            jiraTokenEdit.visibility = if (authTokenSwitch.isChecked) android.view.View.VISIBLE else android.view.View.GONE
+            jiraStatusTv.text = if (settings.jiraEnabled &&
+                (settings.jiraUsername.isNotBlank() || settings.jiraToken.isNotBlank())
+            ) "پیکربندی شده" else "هنوز پیکربندی نشده"
+            geoAutoInSwitch.isChecked = settings.geoAutoCheckIn
             geoAutoOutSwitch.isChecked = settings.geoAutoCheckOut
             geoAlertSwitch.isChecked = settings.geoAlertOnly
             radiusEdit.setText(settings.workRadiusMeters.toInt().toString())
             locationInfo.text = if (settings.workLat != 0.0 || settings.workLng != 0.0)
-                "محل کار: ${"%.5f".format(settings.workLat)}, ${"%.5f".format(settings.workLng)} (شعاع ${settings.workRadiusMeters.toInt()} متر)"
-            else "محل کار تنظیم نشده"
-            autoBackupSwitch.isChecked = settings.autoBackupEnabled
-            autoBackupIntervalEdit.setText(settings.autoBackupIntervalHours.toString())
-            jiraEnabledSwitch.isChecked = settings.jiraEnabled
-            jiraUrlEdit.setText(settings.jiraBaseUrl)
-            jiraTokenEdit.setText(settings.jiraToken)
-            if (::jiraUsernameEdit.isInitialized) jiraUsernameEdit.setText(settings.jiraUsername)
-            if (::jiraPasswordEdit.isInitialized) jiraPasswordEdit.setText(settings.jiraPassword)
-            jiraStatusTv.text = if (settings.jiraEnabled && (settings.jiraToken.isNotBlank() || (settings.jiraUsername.isNotBlank() && settings.jiraPassword.isNotBlank())))
-                "جیرا پیکربندی شده است"
-            else
-                "جیرا هنوز پیکربندی نشده"
-            selectedJiraStatuses.clear()
-            settings.jiraFilterStatuses.split(",")
-                .map { it.trim() }
-                .filter { it.isNotEmpty() }
-                .forEach { selectedJiraStatuses.add(it) }
-            updateJiraStatusesSummary()
-            selectedJiraProjects.clear()
-            settings.jiraFilterProjects.split(",")
-                .map { it.trim() }
-                .filter { it.isNotEmpty() }
-                .forEach { selectedJiraProjects.add(it) }
-            updateJiraProjectsSummary()
-            if (::backupDirEdit.isInitialized) {
-                backupDirEdit.setText(settings.autoBackupDir)
+                "محل کار: %.5f, %.5f".format(settings.workLat, settings.workLng)
+            else "محل کار هنوز ذخیره نشده"
+
+            shiftInfo.text = buildString {
+                append("شروع: ${RemoteConfig.startWork(ctx)}   پایان: ${RemoteConfig.endWork(ctx)}\n")
+                append("شناوری: ${RemoteConfig.flexible(ctx)} دقیقه\n")
+                append("حداقل روزانه: ${RemoteConfig.minDaily(ctx)} دقیقه\n")
+                append("حداقل هفتگی: ${RemoteConfig.weekly(ctx)} دقیقه\n")
+                append(
+                    if (RemoteConfig.thuWorking(ctx))
+                        "پنج‌شنبه کاری (${RemoteConfig.thuMinutes(ctx)} دقیقه)"
+                    else "پنج‌شنبه تعطیل"
+                )
+                append("\n\nاین مقادیر فقط از پنل مدیر تغییر می‌کنند.")
             }
         }
     }
 
     private fun buildSettings(): SettingsEntity {
-        val hours = minHoursEdit.text?.toString()?.toIntOrNull() ?: 8
-        val mins = minMinsEdit.text?.toString()?.toIntOrNull() ?: 0
-        val weeklyH = weeklyHoursEdit.text?.toString()?.toIntOrNull() ?: 46
-        val weeklyM = weeklyMinsEdit.text?.toString()?.toIntOrNull() ?: 15
-        val thuH = thursdayHoursEdit.text?.toString()?.toIntOrNull() ?: 5
-        val thuM = thursdayMinsEdit.text?.toString()?.toIntOrNull() ?: 0
+        val ctx = requireContext()
         return settings.copy(
-            flexibleMinutes = flexEdit.text?.toString()?.toIntOrNull() ?: 30,
-            minimumWorkMinutes = hours * 60 + mins,
-            weeklyRequiredMinutes = weeklyH * 60 + weeklyM,
-            thursdayWorking = thursdaySwitch.isChecked,
-            thursdayMinutes = thuH * 60 + thuM,
+            startWorkTime = RemoteConfig.startWork(ctx),
+            endWorkTime = RemoteConfig.endWork(ctx),
+            flexibleMinutes = RemoteConfig.flexible(ctx),
+            minimumWorkMinutes = RemoteConfig.minDaily(ctx),
+            weeklyRequiredMinutes = RemoteConfig.weekly(ctx),
+            thursdayWorking = RemoteConfig.thuWorking(ctx),
+            thursdayMinutes = RemoteConfig.thuMinutes(ctx),
             isDarkMode = darkSwitch.isChecked,
-            themeColor = themeColor,
-            projects = projects.joinToString(","),
             notifEnabled = notifSwitch.isChecked,
-            notifMinutesBefore = notifBeforeEdit.text?.toString()?.toIntOrNull() ?: 30,
-            notifTitle = notifTitleEdit.text?.toString()?.ifBlank { "یادآوری پایان کار" }
-                ?: "یادآوری پایان کار",
-            notifBody = notifBodyEdit.text?.toString()?.ifBlank { "زمان پایان کار نزدیک است" }
-                ?: "زمان پایان کار نزدیک است",
             biometricEnabled = bioSwitch.isChecked,
-            geoAutoCheckIn = geoAutoSwitch.isChecked,
+            jiraEnabled = jiraEnabledSwitch.isChecked,
+            jiraBaseUrl = jiraUrlEdit.text?.toString()?.trim().orEmpty(),
+            jiraUsername = jiraUserEdit.text?.toString()?.trim().orEmpty(),
+            jiraPassword = if (authTokenSwitch.isChecked) "" else (jiraPassEdit.text?.toString() ?: ""),
+            jiraToken = if (authTokenSwitch.isChecked) (jiraTokenEdit.text?.toString()?.trim() ?: "")
+                else (jiraTokenEdit.text?.toString()?.trim()?.takeIf { it.isNotBlank() } ?: settings.jiraToken),
+            geoAutoCheckIn = geoAutoInSwitch.isChecked,
             geoAutoCheckOut = geoAutoOutSwitch.isChecked,
             geoAlertOnly = geoAlertSwitch.isChecked,
-            workRadiusMeters = (radiusEdit.text?.toString()?.toFloatOrNull() ?: settings.workRadiusMeters).coerceAtLeast(20f),
-            autoBackupEnabled = autoBackupSwitch.isChecked,
-            autoBackupIntervalHours = (autoBackupIntervalEdit.text?.toString()?.toIntOrNull() ?: 24).coerceAtLeast(1),
-            jiraEnabled = jiraEnabledSwitch.isChecked,
-            jiraBaseUrl = jiraUrlEdit.text?.toString()?.trim()?.trimEnd('/') ?: "",
-            jiraToken = jiraTokenEdit.text?.toString()?.trim() ?: "",
-            jiraUsername = if (::jiraUsernameEdit.isInitialized) jiraUsernameEdit.text?.toString()?.trim() ?: "" else settings.jiraUsername,
-            jiraPassword = if (::jiraPasswordEdit.isInitialized) jiraPasswordEdit.text?.toString() ?: "" else settings.jiraPassword,
-            jiraFilterStatuses = selectedJiraStatuses.joinToString(","),
-            jiraFilterProjects = selectedJiraProjects.joinToString(","),
-            autoBackupDir = if (::backupDirEdit.isInitialized)
-                backupDirEdit.text?.toString()?.trim().orEmpty() else settings.autoBackupDir
+            workRadiusMeters = radiusEdit.text?.toString()?.toFloatOrNull() ?: settings.workRadiusMeters
         )
-    }
-
-
-
-    private fun updateJiraProjectsSummary() {
-        // حذف‌شده از UI تنظیمات
-    }
-
-    private fun openJiraProjectPicker() {
-        // حذف‌شده از UI تنظیمات
-    }
-
-    private fun updateJiraStatusesSummary() {
-        if (!::jiraStatusesSummary.isInitialized) return
-        jiraStatusesSummary.text = when {
-            selectedJiraStatuses.isEmpty() -> "همه وضعیت‌ها (فیلتری محدود نشده)"
-            else -> "${selectedJiraStatuses.size} وضعیت: " + selectedJiraStatuses.take(6).joinToString("، ") +
-                if (selectedJiraStatuses.size > 6) "…" else ""
-        }
-    }
-
-    private fun openJiraStatusPicker() {
-        val ctx = requireContext()
-        lifecycleScope.launch {
-            val repo = (requireActivity().application as App).repository
-            if (repo.getJiraStatuses().isEmpty()) {
-                jiraStatusesSummary.text = "در حال دریافت وضعیت‌ها از جیرا…"
-                repo.refreshJiraStatuses()
-            }
-            val all = repo.getJiraStatuses()
-            if (all.isEmpty()) {
-                Toast.makeText(ctx, "وضعیتی دریافت نشد — اتصال جیرا را بررسی کنید", Toast.LENGTH_LONG).show()
-                return@launch
-            }
-            val names = all.map { it.name }.distinct().sorted()
-            val checked = BooleanArray(names.size) { names[it] in selectedJiraStatuses }
-            androidx.appcompat.app.AlertDialog.Builder(ctx)
-                .setTitle("وضعیت‌های فیلتر")
-                .setMultiChoiceItems(names.toTypedArray(), checked) { _, which, isChecked ->
-                    if (isChecked) selectedJiraStatuses.add(names[which])
-                    else selectedJiraStatuses.remove(names[which])
-                }
-                .setPositiveButton("تأیید") { _, _ -> updateJiraStatusesSummary() }
-                .setNeutralButton("پاک کردن") { _, _ ->
-                    selectedJiraStatuses.clear()
-                    updateJiraStatusesSummary()
-                }
-                .setNegativeButton("انصراف", null)
-                .show()
-        }
-    }
-
-    private fun testJiraConnection() {
-        val url = jiraUrlEdit.text?.toString()?.trim()?.trimEnd('/').orEmpty()
-        val token = jiraTokenEdit.text?.toString()?.trim().orEmpty()
-        val user = if (::jiraUsernameEdit.isInitialized) jiraUsernameEdit.text?.toString()?.trim().orEmpty() else ""
-        val pass = if (::jiraPasswordEdit.isInitialized) jiraPasswordEdit.text?.toString().orEmpty() else ""
-        if (url.isBlank() || (token.isBlank() && (user.isBlank() || pass.isBlank()))) {
-            Toast.makeText(requireContext(), "آدرس و (نام‌کاربری+رمز یا توکن) را وارد کنید", Toast.LENGTH_SHORT).show()
-            return
-        }
-        // فعال‌سازی خودکار هنگام تست
-        if (::jiraEnabledSwitch.isInitialized) jiraEnabledSwitch.isChecked = true
-        jiraTestBtn.isEnabled = false
-        jiraStatusTv.text = "در حال اتصال و ذخیره…"
-        lifecycleScope.launch {
-            try {
-                // اول ذخیره تا بقیهٔ اپ از همین credential استفاده کنند
-                val updated = buildSettings().copy(
-                    jiraEnabled = true,
-                    jiraBaseUrl = url,
-                    jiraToken = token,
-                    jiraUsername = user,
-                    jiraPassword = pass
-                )
-                (requireActivity().application as App).repository.saveSettings(updated)
-                settings = updated
-
-                val service = com.personal.timetracker.jira.JiraService(
-                    url,
-                    if (user.isNotBlank() && pass.isNotBlank()) "" else token,
-                    user,
-                    pass
-                )
-                val meResult = service.testConnection()
-                if (meResult.isFailure) {
-                    val msg = meResult.exceptionOrNull()?.message ?: "نامشخص"
-                    jiraStatusTv.text = "✗ myself: $msg"
-                    Toast.makeText(requireContext(), "اتصال ناموفق", Toast.LENGTH_SHORT).show()
-                    return@launch
-                }
-                val me = meResult.getOrNull()
-                // تست واقعی search / status
-                val searchResult = service.fetchAssigned(openOnly = true, maxResults = 5)
-                val statusResult = service.fetchStatuses()
-                val issueCount = searchResult.getOrNull()?.size ?: -1
-                val statusCount = statusResult.getOrNull()?.size ?: -1
-                val searchErr = searchResult.exceptionOrNull()?.message
-                val statusErr = statusResult.exceptionOrNull()?.message
-
-                val lines = buildString {
-                    append("✓ متصل: ${me?.displayName ?: me?.name ?: "OK"}")
-                    append("\n")
-                    if (issueCount >= 0) append("Issueهای اساین: $issueCount")
-                    else append("Issue: خطا — ${searchErr ?: "?"}")
-                    append("\n")
-                    if (statusCount >= 0) append("وضعیت‌ها: $statusCount")
-                    else append("وضعیت: خطا — ${statusErr ?: "?"}")
-                }
-                jiraStatusTv.text = lines
-                if (issueCount < 0 && statusCount < 0) {
-                    Toast.makeText(requireContext(), "لاگین OK ولی دریافت لیست ناموفق", Toast.LENGTH_LONG).show()
-                } else {
-                    Toast.makeText(requireContext(), "اتصال و ذخیره موفق", Toast.LENGTH_SHORT).show()
-                    // کش وضعیت‌ها
-                    if (statusCount > 0) {
-                        (requireActivity().application as App).repository.refreshJiraStatuses()
-                    }
-                }
-            } catch (e: Exception) {
-                jiraStatusTv.text = "✗ ${e.message}"
-                Toast.makeText(requireContext(), e.message, Toast.LENGTH_LONG).show()
-            } finally {
-                jiraTestBtn.isEnabled = true
-            }
-        }
     }
 
     private fun save() {
@@ -992,10 +387,61 @@ class SettingsFragment : Fragment() {
             (requireActivity().application as App).repository.saveSettings(updated)
             settings = updated
             (activity as? MainActivity)?.applyThemeMode(updated.isDarkMode)
-            (activity as? MainActivity)?.applyThemeColor(updated.themeColor)
-            // اعمال پشتیبان‌گیری خودکار
-            AutoBackupWorker.schedule(requireContext(), updated.autoBackupEnabled, updated.autoBackupIntervalHours)
+            try {
+                AutoBackupWorker.schedule(
+                    requireContext(),
+                    updated.autoBackupEnabled,
+                    updated.autoBackupIntervalHours
+                )
+            } catch (_: Exception) {
+            }
             Toast.makeText(requireContext(), "ذخیره شد", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun saveCurrentLocation() {
+        val act = activity ?: return
+        lifecycleScope.launch {
+            try {
+                val loc = com.personal.timetracker.util.GeoHelper.lastLocation(act)
+                if (loc == null) {
+                    Toast.makeText(requireContext(), "موقعیت در دسترس نیست — مجوز را بررسی کنید", Toast.LENGTH_LONG).show()
+                    return@launch
+                }
+                settings = settings.copy(workLat = loc.latitude, workLng = loc.longitude)
+                locationInfo.text = "محل کار: %.5f, %.5f".format(loc.latitude, loc.longitude)
+                Toast.makeText(requireContext(), "موقعیت گرفته شد — ذخیره تنظیمات را بزنید", Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                Toast.makeText(requireContext(), e.message, Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    private fun testJira() {
+
+        lifecycleScope.launch {
+            try {
+                val updated = buildSettings().copy(jiraEnabled = true)
+                (requireActivity().application as App).repository.saveSettings(updated)
+                settings = updated
+                jiraEnabledSwitch.isChecked = true
+                val service = JiraService.fromSettings(updated)
+                    ?: run {
+                        jiraStatusTv.text = "آدرس یا نام کاربری ناقص است"
+                        return@launch
+                    }
+                val me = service.myself().getOrElse {
+                    jiraStatusTv.text = "✗ ${it.message}"
+                    return@launch
+                }
+                val issues = service.fetchAssigned(openOnly = true, maxResults = 5)
+                val n = issues.getOrNull()?.size ?: -1
+                jiraStatusTv.text = "✓ متصل: ${me.displayName ?: me.name} · Issue: $n"
+                Toast.makeText(requireContext(), "اتصال موفق", Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                jiraStatusTv.text = "✗ ${e.message}"
+                Toast.makeText(requireContext(), e.message, Toast.LENGTH_LONG).show()
+            }
         }
     }
 }

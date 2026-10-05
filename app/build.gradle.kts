@@ -63,8 +63,9 @@ android {
             isDebuggable = true
         }
         release {
-            isMinifyEnabled = true
-            isShrinkResources = true
+            // موقت خاموش تا کرش ناشی از R8/ProGuard رفع شود؛ بعداً با قوانین کامل روشن شود
+            isMinifyEnabled = false
+            isShrinkResources = false
             isDebuggable = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),

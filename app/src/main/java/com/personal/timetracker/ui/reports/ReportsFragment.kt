@@ -32,6 +32,7 @@ import com.personal.timetracker.util.DonutItem
 import com.personal.timetracker.util.JalaliDatePickerDialog
 import com.personal.timetracker.util.TaskLogEditor
 import com.personal.timetracker.util.ThemeHelper
+import com.personal.timetracker.util.FigmaUi
 import com.personal.timetracker.util.TimeUtils
 import kotlinx.coroutines.launch
 
@@ -60,10 +61,20 @@ class ReportsFragment : Fragment() {
         val ctx = requireContext()
         val root = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(ThemeHelper.surface(dark()))
-            setPadding(16)
+            setBackgroundColor(FigmaUi.bg((activity as? MainActivity)?.isDark == true))
         }
-        root.addView(ThemeHelper.pageTitle(ctx, "گزارش‌ها", dark()))
+        root.addView(FigmaUi.screenHeader(ctx, "گزارش‌ها", "تحلیل کارکرد و فعالیت‌ها", "☁️"))
+        // فاصله افقی برای کنترل‌ها
+        fun padWrap(v: android.view.View) {
+            val lp = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+            lp.marginStart = FigmaUi.dp(ctx, 16)
+            lp.marginEnd = FigmaUi.dp(ctx, 16)
+            lp.topMargin = FigmaUi.dp(ctx, 8)
+            v.layoutParams = lp
+        }
         val group = MaterialButtonToggleGroup(ctx).apply {
             isSingleSelection = true
             isSelectionRequired = true
@@ -98,6 +109,7 @@ class ReportsFragment : Fragment() {
             refreshPeriodChrome()
             load()
         }
+        padWrap(group)
         root.addView(group)
 
         navRow = LinearLayout(ctx).apply {
@@ -127,6 +139,7 @@ class ReportsFragment : Fragment() {
         navRow.addView(btnPrev)
         navRow.addView(periodLabel)
         navRow.addView(btnNext)
+        padWrap(navRow)
         root.addView(navRow)
 
         customRow = LinearLayout(ctx).apply {
@@ -165,6 +178,7 @@ class ReportsFragment : Fragment() {
         }
         customRow.addView(btnCustomStart)
         customRow.addView(btnCustomEnd)
+        padWrap(customRow)
         root.addView(customRow)
         refreshPeriodChrome()
         content = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL }

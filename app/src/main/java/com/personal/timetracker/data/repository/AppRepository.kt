@@ -111,7 +111,39 @@ class AppRepository(context: Context) {
      *
      * Falls back to holidayapi.ir (day-by-day) if GitHub is unreachable.
      */
+    suspend fun syncHolidaysFromLicenseServer(): Int = withContext(Dispatchers.IO) {
+        try {
+            val base = com.personal.timetracker.license.LicenseStore.baseUrl(appContext).trimEnd('/')
+            val client = okhttp3.OkHttpClient()
+            val req = okhttp3.Request.Builder().url("$base/api/v1/holidays").get().build()
+            val body = client.newCall(req).execute().use { it.body?.string().orEmpty() }
+            val json = org.json.JSONObject(body)
+            if (!json.optBoolean("ok")) return@withContext -1
+            val arr = json.optJSONArray("holidays") ?: return@withContext 0
+            var added = 0
+            for (i in 0 until arr.length()) {
+                val h = arr.getJSONObject(i)
+                val dateRaw = h.optString("date")
+                val title = h.optString("title", "تعطیل رسمی")
+                // اگر جلالی است تبدیل کن
+                val greg = if (dateRaw.matches(Regex("""14\d{2}-\d{2}-\d{2}"""))) {
+                    val p = dateRaw.split("-").map { it.toInt() }
+                    TimeUtils.formatDate(TimeUtils.fromJalali(p[0], p[1], p[2]))
+                } else dateRaw
+                if (holidayDao.countForDate(greg) == 0) {
+                    holidayDao.insert(HolidayEntity(greg, title))
+                    added++
+                }
+            }
+            added
+        } catch (e: Exception) {
+            android.util.Log.w("PTT", "license holidays", e)
+            -1
+        }
+    }
+
     suspend fun fetchHolidaysFromInternet(jalaliYear: Int): Int = withContext(Dispatchers.IO) {
+
         val added = tryFetchFromGitHub(jalaliYear)
         if (added >= 0) return@withContext added
         // fallback: holidayapi.ir month-by-month

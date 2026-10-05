@@ -1,9 +1,7 @@
 package com.personal.timetracker.ui.dashboard
 
 /**
- * توضیح فایل: داشبورد خلاصه وضعیت امروز.
- * بسته: com.personal.timetracker.ui.dashboard
- * زبان توضیحات: فارسی — برای توسعه‌دهنده جاواکار.
+ * داشبورد مطابق پروتوتایپ Figma — خلاصه روزانه.
  */
 
 import android.graphics.Typeface
@@ -13,19 +11,15 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
-import androidx.core.view.setPadding
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
 import com.personal.timetracker.App
 import com.personal.timetracker.ui.MainActivity
-import com.personal.timetracker.util.AttendanceEditor
-import com.personal.timetracker.util.BarChartView
-import com.personal.timetracker.util.BarItem
-import com.personal.timetracker.util.DialogHelper
-import com.personal.timetracker.util.ThemeHelper
+import com.personal.timetracker.util.FigmaUi
 import com.personal.timetracker.util.TimeCalc
 import com.personal.timetracker.util.TimeUtils
 import kotlinx.coroutines.Job
@@ -33,206 +27,352 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
-/**
- * داشبورد خلاصه وضعیت امروز.
- */
 class DashboardFragment : Fragment() {
+    private lateinit var greetTitle: TextView
+    private lateinit var greetSub: TextView
+    private lateinit var chipWorked: TextView
+    private lateinit var chipRequired: TextView
+    private lateinit var chipLeave: TextView
+    private lateinit var chipOt: TextView
+    private val chipBars = mutableListOf<android.widget.ProgressBar>()
     private lateinit var statusTitle: TextView
     private lateinit var statusSub: TextView
-    private lateinit var statusIcon: TextView
-    private lateinit var pulseDot: View
     private lateinit var suggestedText: TextView
-    private lateinit var summaryRow: LinearLayout
-    private lateinit var listBox: LinearLayout
-    private lateinit var chartBox: LinearLayout
+    private lateinit var attBox: LinearLayout
+    private lateinit var logBox: LinearLayout
     private lateinit var runningText: TextView
-    private lateinit var runningCard: MaterialCardView
     private lateinit var btnIn: MaterialButton
     private lateinit var btnOut: MaterialButton
-    private lateinit var btnCal: MaterialButton
-    private lateinit var rootBg: LinearLayout
-    private var pulseAnimator: android.animation.ObjectAnimator? = null
     private var tickerJob: Job? = null
 
-    private fun primary() = (activity as? MainActivity)?.primaryColor ?: 0xFF1565C0.toInt()
-    private fun dark() = (activity as? MainActivity)?.isDark ?: false
+    private fun primary() = (activity as? MainActivity)?.primaryColor ?: FigmaUi.PRIMARY
 
-    /**
-     * ساخت و برگرداندن View ریشه این Fragment.
-     */
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         val ctx = requireContext()
-        val dark = dark()
-        val primary = primary()
-
-        rootBg = LinearLayout(ctx).apply {
-            orientation = LinearLayout.VERTICAL
-            setBackgroundColor(ThemeHelper.surface(dark))
-            setPadding(20)
-        }
-        val scroll = android.widget.ScrollView(ctx)
+        val d = FigmaUi.dp(ctx, 1)
+        val isDark = (activity as? MainActivity)?.isDark == true
         val root = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(4, 8, 4, 24)
+            setBackgroundColor(FigmaUi.bg(isDark))
         }
-        scroll.addView(root)
-        rootBg.addView(scroll, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT))
-
-        root.addView(ThemeHelper.pageTitle(ctx, "داشبورد", dark))
-
-        // Status hero card
-        val statusCard = MaterialCardView(ctx).apply {
-            radius = 28f
-            cardElevation = if (dark) 2f else 6f
-            strokeWidth = 0
-            setCardBackgroundColor(android.graphics.Color.TRANSPARENT)
-        }
-        val heroBg = LinearLayout(ctx).apply {
-            background = ThemeHelper.gradient(primary, dark, 28f)
-        }
-        val statusInner = LinearLayout(ctx).apply {
+        val scroll = ScrollView(ctx)
+        val content = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(32, 34, 32, 34)
-            gravity = Gravity.CENTER
+            setPadding(0, 0, 0, FigmaUi.dp(ctx, 24))
         }
-        val topRow = LinearLayout(ctx).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-        }
-        statusIcon = TextView(ctx).apply {
-            text = "■"
-            textSize = 20f
-            gravity = Gravity.CENTER
-            setTextColor(ThemeHelper.onColor(primary))
-            background = ThemeHelper.glossy(
-                androidx.core.graphics.ColorUtils.blendARGB(primary, android.graphics.Color.WHITE, 0.22f),
-                dark, oval = true
-            )
-            elevation = DialogHelper.dp(ctx, 4).toFloat()
-            layoutParams = LinearLayout.LayoutParams(DialogHelper.dp(ctx, 52), DialogHelper.dp(ctx, 52)).apply {
-                marginEnd = DialogHelper.dp(ctx, 14)
-            }
-        }
-        val titleCol = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL }
-        val titleRow = LinearLayout(ctx).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-        }
-        statusTitle = TextView(ctx).apply {
-            textSize = 20f
-            setTextColor(ThemeHelper.onColor(primary))
-            setTypeface(null, Typeface.BOLD)
-        }
-        pulseDot = View(ctx).apply {
+
+        // —— هدر آبی
+        val header = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
             background = android.graphics.drawable.GradientDrawable().apply {
-                shape = android.graphics.drawable.GradientDrawable.OVAL
-                setColor(android.graphics.Color.WHITE)
+                setColor(primary())
+                val r = FigmaUi.dp(ctx, 20).toFloat()
+                cornerRadii = floatArrayOf(0f, 0f, 0f, 0f, r, r, r, r)
             }
-            layoutParams = LinearLayout.LayoutParams(DialogHelper.dp(ctx, 9), DialogHelper.dp(ctx, 9)).apply {
-                marginStart = DialogHelper.dp(ctx, 8)
-            }
-            visibility = View.GONE
+            setPadding(FigmaUi.dp(ctx, 16), FigmaUi.dp(ctx, 14), FigmaUi.dp(ctx, 16), FigmaUi.dp(ctx, 18))
+            minimumHeight = FigmaUi.dp(ctx, 72)
         }
-        titleRow.addView(statusTitle)
-        titleRow.addView(pulseDot)
-        statusSub = TextView(ctx).apply {
-            textSize = 13f
-            setTextColor(ThemeHelper.onColor(primary))
-            alpha = 0.9f
-            setPadding(0, 6, 0, 0)
+        val headRow = LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            layoutDirection = android.view.View.LAYOUT_DIRECTION_LTR
         }
-        titleCol.addView(titleRow)
-        titleCol.addView(statusSub)
-        topRow.addView(statusIcon)
-        topRow.addView(titleCol)
-        statusInner.addView(topRow)
-        heroBg.addView(statusInner)
-        statusCard.addView(heroBg)
-        root.addView(statusCard, lp(bottom = 16))
-
-        suggestedText = TextView(ctx).apply {
-            textSize = 13f
-            setTextColor(ThemeHelper.textSecondary(dark))
-            setPadding(8, 0, 8, 12)
-        }
-        root.addView(suggestedText)
-
-        // Buttons
-        val row = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL }
-        btnIn = MaterialButton(ctx).apply {
-            text = "ورود الان"
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { marginEnd = 10 }
-        }
-        btnOut = MaterialButton(ctx, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
-            text = "خروج الان"
+        headRow.addView(FigmaUi.circleIcon(ctx, "🔔"), LinearLayout.LayoutParams(FigmaUi.dp(ctx, 40), FigmaUi.dp(ctx, 40)).apply {
+            marginEnd = FigmaUi.dp(ctx, 12)
+        })
+        val greetCol = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.END
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
-        ThemeHelper.applyButton(btnIn, primary, true)
-        ThemeHelper.applyButton(btnOut, primary, false)
-        row.addView(btnIn); row.addView(btnOut)
-        root.addView(row)
-
-        btnCal = MaterialButton(ctx, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
-            text = "📅 تاریخچه و تقویم"
-            setPadding(0, 8, 0, 0)
+        greetTitle = TextView(ctx).apply {
+            text = "سلام"
+            textSize = 18f
+            setTypeface(null, Typeface.BOLD)
+            setTextColor(0xFFFFFFFF.toInt())
+            gravity = Gravity.END
         }
-        ThemeHelper.applyButton(btnCal, primary, false)
-        root.addView(btnCal, lp(top = 10, bottom = 8))
+        greetSub = TextView(ctx).apply {
+            textSize = 12f
+            setTextColor(0xCCFFFFFF.toInt())
+            gravity = Gravity.END
+            setPadding(0, FigmaUi.dp(ctx, 4), 0, 0)
+        }
+        greetCol.addView(greetTitle)
+        greetCol.addView(greetSub)
+        headRow.addView(greetCol)
+        header.addView(headRow)
 
-        // Running task
-        runningCard = MaterialCardView(ctx)
-        ThemeHelper.applyCard(runningCard, dark)
-        runningText = TextView(ctx).apply {
+        // چیپ‌های آمار روی هدر
+        val chips = LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+        }
+        fun chipSlot(): Pair<MaterialCardView, TextView> {
+            val card = FigmaUi.whiteCard(ctx, isDark).apply {
+                radius = FigmaUi.dp(ctx, 16).toFloat()
+                cardElevation = 2f * d
+            }
+            val box = LinearLayout(ctx).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER
+                setPadding(FigmaUi.dp(ctx, 4), FigmaUi.dp(ctx, 10), FigmaUi.dp(ctx, 4), FigmaUi.dp(ctx, 8))
+            }
+            val bar = android.widget.ProgressBar(ctx, null, android.R.attr.progressBarStyleHorizontal).apply {
+                max = 100
+                progress = 0
+                // ارتفاع نازک شبیه نوار پیشرفت
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, FigmaUi.dp(ctx, 6)
+                ).apply {
+                    marginStart = FigmaUi.dp(ctx, 8)
+                    marginEnd = FigmaUi.dp(ctx, 8)
+                }
+                progressDrawable?.setColorFilter(primary(), android.graphics.PorterDuff.Mode.SRC_IN)
+            }
+            chipBars.add(bar)
+            box.addView(bar)
+            val v = TextView(ctx).apply {
+                text = "—"
+                textSize = 12f
+                setTypeface(null, Typeface.BOLD)
+                setTextColor(primary())
+                gravity = Gravity.CENTER
+                setPadding(0, FigmaUi.dp(ctx, 6), 0, 0)
+            }
+            box.addView(v)
+            card.addView(box)
+            return card to v
+        }
+        val labels = listOf("اضافه‌کار", "مرخصی", "موظفی", "امروز کار کرده")
+        val values = mutableListOf<TextView>()
+        labels.forEachIndexed { i, lab ->
+            val (card, v) = chipSlot()
+            values.add(v)
+            val inner = (card.getChildAt(0) as LinearLayout)
+            inner.addView(TextView(ctx).apply {
+                text = lab
+                textSize = 9f
+                setTextColor(FigmaUi.muted(isDark))
+                gravity = Gravity.CENTER
+                setPadding(0, FigmaUi.dp(ctx, 2), 0, 0)
+            })
+            chips.addView(card, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                if (i < labels.lastIndex) marginEnd = FigmaUi.dp(ctx, 6)
+            })
+        }
+        chipOt = values[0]
+        chipLeave = values[1]
+        chipRequired = values[2]
+        chipWorked = values[3]
+        // رنگ‌های معنادار
+        val chipColors = intArrayOf(
+            0xFF2E7D32.toInt(), // اضافه‌کار سبز
+            0xFFEF6C00.toInt(), // مرخصی نارنجی
+            0xFF1565C0.toInt(), // موظفی آبی
+            0xFF00897B.toInt()  // کارکرد تیل
+        )
+        listOf(chipOt, chipLeave, chipRequired, chipWorked).forEachIndexed { i, tv ->
+            tv.setTextColor(chipColors[i])
+        }
+        chipBars.forEachIndexed { i, bar ->
+            if (i < chipColors.size) {
+                bar.progressDrawable?.setColorFilter(chipColors[i], android.graphics.PorterDuff.Mode.SRC_IN)
+            }
+        }
+        content.addView(header)
+
+        // بدنه — آمار زیر هدر (نه داخل هدر)
+        val body = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(FigmaUi.dp(ctx, 12), FigmaUi.dp(ctx, 10), FigmaUi.dp(ctx, 12), 0)
+        }
+        body.addView(chips, FigmaUi.matchParent(bottom = FigmaUi.dp(ctx, 8)))
+
+        // کارت وضعیت
+        val statusCard = FigmaUi.whiteCard(ctx, isDark)
+        val statusInner = LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(FigmaUi.dp(ctx, 16), FigmaUi.dp(ctx, 16), FigmaUi.dp(ctx, 16), FigmaUi.dp(ctx, 16))
+        }
+        val leftCol = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.START
+        }
+        leftCol.addView(TextView(ctx).apply {
+            text = "خروج پیشنهادی"
+            textSize = 11f
+            setTextColor(FigmaUi.muted(isDark))
+            gravity = Gravity.START
+        })
+        suggestedText = TextView(ctx).apply {
+            text = "—"
+            textSize = 22f
+            setTypeface(null, Typeface.BOLD)
+            setTextColor(FigmaUi.text(isDark))
+            gravity = Gravity.START
+            setPadding(0, FigmaUi.dp(ctx, 2), 0, 0)
+        }
+        leftCol.addView(suggestedText)
+        statusInner.addView(leftCol, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        val rightCol = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.END
+        }
+        val statusBadge = LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            background = FigmaUi.rounded(FigmaUi.successBg(isDark), 20f, ctx)
+            setPadding(FigmaUi.dp(ctx, 10), FigmaUi.dp(ctx, 6), FigmaUi.dp(ctx, 10), FigmaUi.dp(ctx, 6))
+        }
+        statusBadge.addView(TextView(ctx).apply {
+            text = "✓"
+            setTextColor(FigmaUi.PRIMARY)
             textSize = 14f
-            setTextColor(ThemeHelper.textPrimary(dark))
-            setPadding(28, 24, 28, 24)
+            setPadding(0, 0, FigmaUi.dp(ctx, 6), 0)
+        })
+        statusTitle = TextView(ctx).apply {
+            text = "وضعیت فعلی"
+            textSize = 13f
+            setTypeface(null, Typeface.BOLD)
+            setTextColor(FigmaUi.PRIMARY)
         }
-        runningCard.addView(runningText)
-        root.addView(ThemeHelper.sectionTitle(ctx, "تسک فعال", dark, primary))
-        root.addView(runningCard, lp(bottom = 8))
+        statusBadge.addView(statusTitle)
+        rightCol.addView(statusBadge)
+        statusSub = TextView(ctx).apply {
+            textSize = 11f
+            setTextColor(FigmaUi.muted(isDark))
+            gravity = Gravity.END
+            setPadding(0, FigmaUi.dp(ctx, 6), 0, 0)
+        }
+        rightCol.addView(statusSub)
+        statusInner.addView(rightCol)
+        val statusV = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL }
+        statusV.addView(statusInner)
+        statusV.addView(View(ctx).apply {
+            setBackgroundColor(FigmaUi.PRIMARY)
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, FigmaUi.dp(ctx, 3))
+        })
+        statusCard.addView(statusV)
+        body.addView(statusCard, FigmaUi.matchParent(bottom = FigmaUi.dp(ctx, 12), top = 0))
 
-        // Summary chips row
-        root.addView(ThemeHelper.sectionTitle(ctx, "خلاصه امروز", dark, primary))
-        summaryRow = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL }
-        root.addView(summaryRow, lp(bottom = 8))
+        // دکمه‌های ورود/خروج
+        val btnRow = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL }
+        btnIn = MaterialButton(ctx).apply {
+            text = "ورود"
+            setBackgroundColor(primary())
+            setTextColor(0xFFFFFFFF.toInt())
+            cornerRadius = FigmaUi.dp(ctx, 14)
+        }
+        btnOut = MaterialButton(ctx).apply {
+            text = "خروج"
+            setBackgroundColor(0xFFE53935.toInt())
+            setTextColor(0xFFFFFFFF.toInt())
+            cornerRadius = FigmaUi.dp(ctx, 14)
+        }
+        btnRow.addView(btnOut, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+            marginEnd = FigmaUi.dp(ctx, 8)
+        })
+        btnRow.addView(btnIn, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        body.addView(btnRow, FigmaUi.matchParent(bottom = FigmaUi.dp(ctx, 12)))
 
-        root.addView(ThemeHelper.sectionTitle(ctx, "نمودار امروز", dark, primary))
-        chartBox = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL }
-        root.addView(chartBox, lp(bottom = 8))
+        // ترددهای امروز
+        body.addView(FigmaUi.sectionLabel(ctx, "ترددهای امروز", "مشاهده همه", {
+            (activity as? MainActivity)?.openCalendar()
+        }, isDark))
+        val attCard = FigmaUi.whiteCard(ctx, isDark)
+        attBox = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(FigmaUi.dp(ctx, 12), FigmaUi.dp(ctx, 4), FigmaUi.dp(ctx, 12), FigmaUi.dp(ctx, 4))
+        }
+        attCard.addView(attBox)
+        body.addView(attCard, FigmaUi.matchParent(bottom = FigmaUi.dp(ctx, 12)))
 
-        root.addView(ThemeHelper.sectionTitle(ctx, "ترددهای امروز", dark, primary))
-        listBox = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL }
-        root.addView(listBox)
+        // لاگ‌های Jira امروز
+        body.addView(FigmaUi.sectionLabel(ctx, "لاگ‌های امروز Jira", "ثبت لاگ", dark = isDark))
+        val logCard = FigmaUi.whiteCard(ctx, isDark)
+        logBox = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(FigmaUi.dp(ctx, 12), FigmaUi.dp(ctx, 4), FigmaUi.dp(ctx, 12), FigmaUi.dp(ctx, 4))
+        }
+        logCard.addView(logBox)
+        body.addView(logCard, FigmaUi.matchParent(bottom = FigmaUi.dp(ctx, 12)))
+
+        // تسک فعال
+        val runCard = FigmaUi.whiteCard(ctx, isDark)
+        val runInner = LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(FigmaUi.dp(ctx, 14), FigmaUi.dp(ctx, 12), FigmaUi.dp(ctx, 14), FigmaUi.dp(ctx, 12))
+        }
+        runInner.addView(MaterialButton(ctx, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
+            text = "توقف"
+            setTextColor(primary())
+            cornerRadius = FigmaUi.dp(ctx, 20)
+            isEnabled = false
+        })
+        runningText = TextView(ctx).apply {
+            text = "تسک فعالی نیست"
+            textSize = 13f
+            setTextColor(FigmaUi.text(isDark))
+            gravity = Gravity.END
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        }
+        runInner.addView(runningText)
+        runCard.addView(runInner)
+        body.addView(runCard, FigmaUi.matchParent())
+
+        content.addView(body)
+        scroll.addView(content)
+        root.addView(scroll, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
 
         val repo = (requireActivity().application as App).repository
         btnIn.setOnClickListener { lifecycleScope.launch { repo.checkIn() } }
         btnOut.setOnClickListener { lifecycleScope.launch { repo.checkOut() } }
-        btnCal.setOnClickListener { (activity as? MainActivity)?.openCalendar() }
+
+        // تاریخ هدر
+        greetSub.text = try {
+            val j = TimeUtils.toJalali(java.util.Date())
+            val weekDays = listOf("شنبه", "یکشنبه", "دوشنبه", "سه‌شنبه", "چهارشنبه", "پنجشنبه", "جمعه")
+            val months = listOf("", "فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور", "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند")
+            val cal = java.util.Calendar.getInstance()
+            // weekday: TimeUtils.weekdayOf returns 0=Sat
+            val wd = TimeUtils.weekdayOf(TimeUtils.today())
+            val dayName = weekDays.getOrElse(wd) { "" }
+            val monthName = months.getOrElse(j[1]) { "" }
+            "$dayName، ${TimeUtils.faNum(j[2])} $monthName ${TimeUtils.faNum(j[0])}"
+        } catch (_: Exception) {
+            TimeUtils.faNum(TimeUtils.today())
+        }
+
+        // نام کاربر از settings
+        viewLifecycleOwner.lifecycleScope.launch {
+            val s = repo.getSettings()
+            var name = s.jiraUsername.ifBlank { "همکار" }
+            try {
+                val service = com.personal.timetracker.jira.JiraService.fromSettings(s)
+                if (service != null) {
+                    service.myself().onSuccess { me ->
+                        val dn = me.displayName?.trim().orEmpty()
+                        if (dn.isNotBlank()) name = dn
+                    }
+                }
+            } catch (_: Exception) {}
+            greetTitle.text = "سلام، $name"
+        }
 
         viewLifecycleOwner.lifecycleScope.launch {
             repo.observeRunningTask().collectLatest { task ->
                 if (task == null) {
-                    runningText.text = "هیچ تسکی در حال اجرا نیست"
-                    runningText.setTextColor(ThemeHelper.textSecondary(dark()))
+                    runningText.text = "تسک فعالی نیست"
+                    runningText.setTextColor(FigmaUi.muted(isDark))
                 } else {
-                    runningText.setTextColor(ThemeHelper.textPrimary(dark()))
+                    runningText.setTextColor(FigmaUi.text(isDark))
                     runningText.text = buildString {
-                        append("▶  ")
+                        append("تسک فعال  ·  ")
+                        if (!task.jiraNumber.isNullOrBlank()) append(task.jiraNumber).append(" · ")
                         append(task.taskTitle)
-                        append('\n')
-                        append(task.projectName)
-                        if (!task.jiraNumber.isNullOrBlank()) {
-                            append("  ·  ")
-                            append(task.jiraNumber)
-                            if (!task.taskTitle.isNullOrBlank() && task.taskTitle != task.jiraNumber) {
-                                // jiraNumber already shown, title shown above
-                            }
-                        }
-                        append('\n')
-                        append("مدت ثبت‌شده: ")
-                        append(TimeUtils.formatDuration((task.requiredMinutes - task.remainingMinutes).coerceAtLeast(0)))
                     }
-                    runningCard.setCardBackgroundColor(ThemeHelper.container(primary(), dark()))
                 }
             }
         }
@@ -241,234 +381,127 @@ class DashboardFragment : Fragment() {
             try {
                 repo.observeToday().collectLatest { list ->
                     val settings = repo.getSettings()
-                    val isWorking = list.any { it.status == "active" && it.exitTime == null }
-                    statusTitle.text = if (isWorking) "در حال کار" else "خارج از کار"
-                    statusIcon.text = if (isWorking) "▶" else "■"
-                    btnIn.isEnabled = !isWorking
-                    btnOut.isEnabled = isWorking
-                    btnIn.alpha = if (isWorking) 0.45f else 1f
-                    btnOut.alpha = if (!isWorking) 0.45f else 1f
-
-                    val activeRec = list.find { it.status == "active" && it.exitTime == null }
-                    if (isWorking && activeRec != null) {
-                        pulseDot.visibility = View.VISIBLE
-                        if (pulseAnimator == null) {
-                            pulseAnimator = android.animation.ObjectAnimator.ofFloat(pulseDot, "alpha", 1f, 0.2f).apply {
-                                duration = 750
-                                repeatMode = android.animation.ValueAnimator.REVERSE
-                                repeatCount = android.animation.ValueAnimator.INFINITE
-                                start()
-                            }
-                        }
-                        val required = repo.requiredMinutesFor(activeRec.date, settings)
-                        val end = TimeCalc.applyFlex(
-                            activeRec.entryTime, settings.startWorkTime, settings.flexibleMinutes, required
-                        ).suggestedEnd
-                        startTicker(activeRec.entryTime, end)
-                        suggestedText.text = "پایان پیشنهادی کار: ${TimeUtils.faNum(end)}"
-                    } else {
-                        pulseDot.visibility = View.GONE
-                        pulseAnimator?.cancel(); pulseAnimator = null
-                        stopTicker()
-                        statusSub.text = TimeUtils.toJalaliShort()
-                        suggestedText.text = ""
-                    }
-
-                    val worked = list.sumOf { it.duration }
-                    val leave = list.sumOf { it.leaveDuration }
-                    summaryRow.removeAllViews()
-                    summaryRow.addView(statCard("ساعت کار", TimeUtils.formatDuration(worked), primary()))
-                    summaryRow.addView(statCard("مرخصی", TimeUtils.formatDuration(leave), primary()))
-                    summaryRow.addView(statCard("تردد", "${list.size}", primary()))
-
-                    // chart
-                    chartBox.removeAllViews()
-                    val settingsMin = settings.minimumWorkMinutes.coerceAtLeast(1)
-                    val localTaskLogs = try {
-                        (requireActivity().application as App).repository.getLogsByDate(TimeUtils.today())
-                    } catch (_: Exception) { emptyList() }
-
-                    val barItems = mutableListOf(
-                        BarItem("حداقل کار — ${TimeUtils.formatDuration(settingsMin)}", settingsMin, primary()),
-                        BarItem("کار انجام‌شده — ${TimeUtils.formatDuration(worked)}", worked, primary()),
-                        BarItem("مرخصی — ${TimeUtils.formatDuration(leave)}", leave, 0xFFF9A825.toInt())
-                    )
-                    if (localTaskLogs.isNotEmpty()) {
-                        val byTask = localTaskLogs.groupBy { it.taskId }
-                        byTask.forEach { (tid, logs) ->
-                            val sum = logs.sumOf { it.duration }
-                            barItems.add(BarItem("لاگ تسک #$tid — ${TimeUtils.formatDuration(sum)}", sum, 0xFF00897B.toInt()))
-                        }
-                    }
-                    val chartCard = MaterialCardView(ctx)
-                    ThemeHelper.applyCard(chartCard, dark())
-                    val chart = BarChartView(ctx).apply {
-                        items = barItems
-                        trackColor = ThemeHelper.outline(dark())
-                        labelColor = ThemeHelper.textPrimary(dark())
-                    }
-                    chartCard.setContentPadding(24, 20, 24, 20)
-                    chartCard.addView(chart)
-                    chartBox.addView(chartCard)
-
-                    listBox.removeAllViews()
+                    val today = TimeUtils.today()
+                    val required = repo.requiredMinutesFor(today, settings)
+                    var worked = 0
+                    var leave = 0
+                    var ot = 0
+                    attBox.removeAllViews()
                     if (list.isEmpty()) {
-                        listBox.addView(TextView(ctx).apply {
-                            text = "هنوز ترددی ثبت نشده"
-                            setTextColor(ThemeHelper.textSecondary(dark()))
-                            setPadding(8, 8, 8, 8)
+                        attBox.addView(TextView(ctx).apply {
+                            text = "ترددی ثبت نشده"
+                            textSize = 12f
+                            setTextColor(FigmaUi.muted(isDark))
+                            gravity = Gravity.CENTER
+                            setPadding(0, FigmaUi.dp(ctx, 16), 0, FigmaUi.dp(ctx, 16))
                         })
-                    } else {
-                        list.forEach { r ->
-                            val card = MaterialCardView(ctx)
-                            ThemeHelper.applyCard(card, dark())
-                            val box = LinearLayout(ctx).apply {
-                                orientation = LinearLayout.VERTICAL
-                                setPadding(24, 18, 24, 18)
-                            }
-                            val headRow = LinearLayout(ctx).apply {
-                                orientation = LinearLayout.HORIZONTAL
-                                gravity = Gravity.CENTER_VERTICAL
-                            }
-                            headRow.addView(TextView(ctx).apply {
-                                setTextColor(ThemeHelper.textPrimary(dark()))
-                                textSize = 14f
-                                setTypeface(null, Typeface.BOLD)
-                                text = if (r.exitTime != null) "${r.entryTime}  →  ${r.exitTime}" else r.entryTime
-                                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-                            })
-                            if (r.exitTime == null) {
-                                headRow.addView(ThemeHelper.pill(ctx, "فعال", primary(), ThemeHelper.onColor(primary())))
-                            }
-                            box.addView(headRow)
-
-                            // نمودار دایره‌ای حتی برای رکوردهای فعال (بدون خروج) نشان داده می‌شود
-                            val displayDuration = if (r.exitTime != null) r.duration
-                                else TimeUtils.minutesBetween(r.entryTime, TimeUtils.nowTime()).coerceAtLeast(0)
-                            val isActive = r.exitTime == null
-
-                            val infoRow = LinearLayout(ctx).apply {
-                                orientation = LinearLayout.HORIZONTAL
-                                gravity = Gravity.CENTER_VERTICAL
-                                setPadding(0, 6, 0, 0)
-                            }
-                            infoRow.addView(TextView(ctx).apply {
-                                setTextColor(ThemeHelper.textSecondary(dark()))
-                                textSize = 12.5f
-                                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-                                text = buildString {
-                                    append(TimeUtils.formatDuration(displayDuration))
-                                    if (isActive) append("  (در حال کار)")
-                                    if (r.leaveDuration > 0) {
-                                        append("   ·   مرخصی "); append(TimeUtils.formatDuration(r.leaveDuration))
-                                    }
-                                    if (r.overtimeDuration > 0) {
-                                        append("   ·   اضافه‌کار "); append(TimeUtils.formatDuration(r.overtimeDuration))
-                                    }
-                                }
-                            })
-                            infoRow.addView(com.personal.timetracker.util.ChartHelper.attendanceDonut(
-                                ctx, displayDuration, r.overtimeDuration, r.leaveDuration,
-                                dark(), primary(), sizeDp = 40, isActive = isActive
-                            ))
-                            box.addView(infoRow)
-                            val rActions = LinearLayout(ctx).apply {
-                                orientation = LinearLayout.HORIZONTAL
-                                setPadding(0, 10, 0, 0)
-                            }
-                            rActions.addView(ThemeHelper.iconButton(ctx, "✎", primary(), dark(), "ویرایش تردد") {
-                                AttendanceEditor.open(ctx, r, repo, lifecycleScope, primary(), dark())
-                            })
-                            rActions.addView(ThemeHelper.iconButton(ctx, "🗑", ThemeHelper.deleteColor, dark(), "حذف تردد") {
-                                AttendanceEditor.confirmDelete(ctx, r, repo, lifecycleScope, primary(), dark())
-                            })
-                            box.addView(rActions)
-                            card.addView(box)
-                            listBox.addView(card, lp(bottom = 10))
+                    }
+                    list.forEach { rec ->
+                        val done = rec.exitTime != null
+                        val dur = if (done) rec.duration else {
+                            TimeUtils.minutesBetween(rec.entryTime, TimeUtils.nowTime()).coerceAtLeast(0)
                         }
+                        worked += dur
+                        val title = if (done) "خروج" else "ورود به محل کار"
+                        val sub = if (done) "${TimeUtils.faNum(rec.entryTime)} – ${TimeUtils.faNum(rec.exitTime!!)}"
+                        else "از ${TimeUtils.faNum(rec.entryTime)}"
+                        val trail = if (done) TimeUtils.formatDuration(dur) else TimeUtils.faNum(rec.entryTime)
+                        attBox.addView(
+                            FigmaUi.listRow(
+                                ctx, title, sub, trail,
+                                if (done) FigmaUi.WARNING else FigmaUi.PRIMARY,
+                                isDark
+                            )
+                        )
+                    }
+                    // اضافه‌کار / مرخصی بر اساس جمع کارکرد در برابر موظفی روز
+                    ot = (worked - required).coerceAtLeast(0)
+                    leave = (required - worked).coerceAtLeast(0)
+                    chipWorked.text = TimeUtils.formatDuration(worked)
+                    chipRequired.text = TimeUtils.formatDuration(required)
+                    chipLeave.text = TimeUtils.formatDuration(leave)
+                    chipOt.text = TimeUtils.formatDuration(ot)
+                    // نمودار پیشرفت: کار کرده نسبت به موظفی، مرخصی، اضافه‌کار
+                    if (chipBars.size >= 4 && required > 0) {
+                        val pctWork = ((worked * 100) / required).coerceIn(0, 100)
+                        val pctReq = 100
+                        val pctLeave = ((leave * 100) / required).coerceIn(0, 100)
+                        val pctOt = ((ot * 100) / required).coerceIn(0, 100)
+                        // ترتیب labels: اضافه، مرخصی، موظفی، امروز
+                        chipBars[0].progress = pctOt
+                        chipBars[1].progress = pctLeave
+                        chipBars[2].progress = pctReq
+                        chipBars[3].progress = pctWork
                     }
 
-                    // --- لاگ‌های امروز جیرا ---
-                    listBox.addView(TextView(ctx).apply {
-                        text = "لاگ‌های امروز"
-                        textSize = 15f
-                        setTypeface(null, android.graphics.Typeface.BOLD)
-                        setTextColor(primary())
-                        setPadding(4, 20, 4, 8)
-                    })
-                    try { repo.syncWorklogsForDate(TimeUtils.today()) } catch (_: Exception) {}
-                    val jiraWorklogsToday = repo.getJiraWorklogsForDate(TimeUtils.today())
-                    if (jiraWorklogsToday.isEmpty()) {
-                        listBox.addView(TextView(ctx).apply {
-                            text = "لاگ جیرایی برای امروز نیست"
-                            setTextColor(ThemeHelper.textSecondary(dark()))
-                            setPadding(8, 4, 8, 8)
-                        })
+                    val active = list.firstOrNull { it.exitTime == null && it.status == "active" }
+                    stopTicker()
+                    if (active != null) {
+                        statusTitle.text = "در محل کار"
+                        statusTitle.setTextColor(FigmaUi.PRIMARY)
+                        statusSub.text = "ورود در ساعت ${TimeUtils.faNum(active.entryTime)}"
+                        val flex = TimeCalc.applyFlex(
+                            active.entryTime,
+                            settings.startWorkTime,
+                            settings.flexibleMinutes,
+                            required
+                        )
+                        suggestedText.text = TimeUtils.faNum(flex.suggestedEnd)
+                        startTicker(active.entryTime, flex.suggestedEnd)
                     } else {
-                        jiraWorklogsToday.take(15).forEach { wl ->
-                            val card = MaterialCardView(ctx)
-                            ThemeHelper.applyCard(card, dark())
-                            card.setContentPadding(20, 14, 20, 14)
-                            card.addView(TextView(ctx).apply {
-                                setTextColor(ThemeHelper.textPrimary(dark()))
-                                textSize = 13f
-                                text = buildString {
-                                    append(wl.issueKey)
-                                    append("  ·  ")
-                                    append(TimeUtils.formatDuration(wl.durationMinutes))
-                                    if (!wl.comment.isNullOrBlank()) {
-                                        append("\n")
-                                        append(wl.comment.take(80))
-                                    }
-                                }
-                            })
-                            listBox.addView(card, lp(bottom = 8))
-                        }
-                    }
-
-                    // --- تسک/Issue فعال ---
-                    listBox.addView(TextView(ctx).apply {
-                        text = "Issue فعال (در حال کار)"
-                        textSize = 15f
-                        setTypeface(null, android.graphics.Typeface.BOLD)
-                        setTextColor(primary())
-                        setPadding(4, 20, 4, 8)
-                    })
-                    // Issueهای باز assign‌شده با وضعیت در حال انجام
-                    val openIssues = try {
-                        repo.jiraServiceOrNull()?.fetchAssigned(openOnly = true)?.getOrNull().orEmpty()
-                    } catch (_: Exception) { emptyList() }
-                    val inProgress = openIssues.filter {
-                        it.statusCategory == "indeterminate" ||
-                            it.statusName.contains("progress", true) ||
-                            it.statusName.contains("در حال", true)
-                    }
-                    if (inProgress.isEmpty()) {
-                        listBox.addView(TextView(ctx).apply {
-                            text = "Issue در حال اجرایی یافت نشد"
-                            setTextColor(ThemeHelper.textSecondary(dark()))
-                            setPadding(8, 4, 8, 8)
-                        })
-                    } else {
-                        inProgress.take(5).forEach { it ->
-                            val card = MaterialCardView(ctx)
-                            ThemeHelper.applyCard(card, dark())
-                            card.setContentPadding(20, 14, 20, 14)
-                            card.addView(TextView(ctx).apply {
-                                setTextColor(ThemeHelper.textPrimary(dark()))
-                                textSize = 13f
-                                text = "${it.key} — ${it.summary}\nوضعیت: ${it.statusName}"
-                            })
-                            listBox.addView(card, lp(bottom = 8))
-                        }
+                        statusTitle.text = "خارج از شیفت"
+                        statusTitle.setTextColor(FigmaUi.muted(isDark))
+                        statusSub.text = if (list.isEmpty()) "هنوز ورود ثبت نشده" else "آخرین خروج انجام شد"
+                        suggestedText.text = "—"
                     }
                 }
-            } catch (e: Exception) {
-                statusTitle.text = "خطا"
-                statusSub.text = e.message
+            } catch (_: Exception) {
             }
         }
-        return rootBg
+
+        // لاگ‌های امروز
+        viewLifecycleOwner.lifecycleScope.launch {
+            try {
+                val today = TimeUtils.today()
+                val logs = repo.getJiraWorklogsForDate(today)
+                logBox.removeAllViews()
+                if (logs.isNullOrEmpty()) {
+                    logBox.addView(TextView(ctx).apply {
+                        text = "لاگی برای امروز نیست"
+                        textSize = 12f
+                        setTextColor(FigmaUi.muted(isDark))
+                        gravity = Gravity.CENTER
+                        setPadding(0, FigmaUi.dp(ctx, 16), 0, FigmaUi.dp(ctx, 16))
+                    })
+                } else {
+                    logs.take(8).forEach { w ->
+                        val key = w.issueKey ?: "—"
+                        val title = w.comment ?: key
+                        logBox.addView(
+                            FigmaUi.listRow(
+                                ctx,
+                                key,
+                                title,
+                                TimeUtils.formatDuration(w.durationMinutes),
+                                primary(),
+                                isDark
+                            )
+                        )
+                    }
+                }
+            } catch (_: Exception) {
+                logBox.removeAllViews()
+                logBox.addView(TextView(ctx).apply {
+                    text = "لاگ در دسترس نیست"
+                    textSize = 12f
+                    setTextColor(FigmaUi.muted(isDark))
+                    gravity = Gravity.CENTER
+                    setPadding(0, FigmaUi.dp(ctx, 12), 0, FigmaUi.dp(ctx, 12))
+                })
+            }
+        }
+
+        return root
     }
 
     private fun startTicker(entryTime: String, targetEnd: String) {
@@ -476,13 +509,13 @@ class DashboardFragment : Fragment() {
         tickerJob = viewLifecycleOwner.lifecycleScope.launch {
             while (true) {
                 val elapsed = TimeUtils.minutesBetween(entryTime, TimeUtils.nowTime()).coerceAtLeast(0)
-                val (_, liveOvertime) = TimeCalc.exitOutcome(TimeUtils.nowTime(), targetEnd)
+                val (leave, liveOt) = TimeCalc.exitOutcome(TimeUtils.nowTime(), targetEnd)
                 statusSub.text = buildString {
                     append("از ساعت "); append(TimeUtils.faNum(entryTime))
                     append("  ·  "); append(TimeUtils.formatDuration(elapsed))
-                    if (liveOvertime > 0) {
+                    if (liveOt > 0) {
                         append("  ·  اضافه‌کار ")
-                        append(TimeUtils.formatDuration(liveOvertime))
+                        append(TimeUtils.formatDuration(liveOt))
                     }
                 }
                 delay(30_000)
@@ -496,56 +529,7 @@ class DashboardFragment : Fragment() {
     }
 
     override fun onDestroyView() {
-        pulseAnimator?.cancel()
-        pulseAnimator = null
         stopTicker()
         super.onDestroyView()
-    }
-
-    private fun statCard(label: String, value: String, primary: Int): View {
-        val ctx = requireContext()
-        val card = MaterialCardView(ctx)
-        ThemeHelper.applyCard(card, dark())
-        card.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
-            marginEnd = 8
-        }
-        val box = LinearLayout(ctx).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(16, 20, 16, 20)
-            gravity = Gravity.CENTER
-        }
-        val dot = View(ctx).apply {
-            val density = ctx.resources.displayMetrics.density
-            background = ThemeHelper.glossy(primary, dark(), oval = true)
-            elevation = 2f * ctx.resources.displayMetrics.density
-            layoutParams = LinearLayout.LayoutParams((8 * density).toInt(), (8 * density).toInt()).apply {
-                bottomMargin = (6 * density).toInt()
-            }
-        }
-        box.addView(dot)
-        box.addView(TextView(ctx).apply {
-            text = value
-            textSize = 15f
-            setTypeface(null, Typeface.BOLD)
-            setTextColor(primary)
-            gravity = Gravity.CENTER
-        })
-        box.addView(TextView(ctx).apply {
-            text = label
-            textSize = 11f
-            setTextColor(ThemeHelper.textSecondary(dark()))
-            gravity = Gravity.CENTER
-            setPadding(0, 6, 0, 0)
-        })
-        card.addView(box)
-        return card
-    }
-
-    private fun lp(top: Int = 0, bottom: Int = 0) = LinearLayout.LayoutParams(
-        LinearLayout.LayoutParams.MATCH_PARENT,
-        LinearLayout.LayoutParams.WRAP_CONTENT
-    ).apply {
-        topMargin = top
-        bottomMargin = bottom
     }
 }

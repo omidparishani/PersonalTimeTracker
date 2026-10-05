@@ -37,10 +37,10 @@ object ThemeHelper {
         ColorUtils.blendARGB(primary, if (dark) Color.BLACK else Color.WHITE, if (dark) 0.65f else 0.82f)
 
     fun surface(dark: Boolean): Int =
-        if (dark) Color.parseColor("#121212") else Color.parseColor("#F7F9FC")
+        if (dark) Color.parseColor("#0D1B2A") else Color.parseColor("#EEF2F7")
 
     fun surfaceCard(dark: Boolean): Int =
-        if (dark) Color.parseColor("#1E1E1E") else Color.WHITE
+        if (dark) Color.parseColor("#1B2838") else Color.WHITE
 
     fun textPrimary(dark: Boolean): Int =
         if (dark) Color.parseColor("#E8EAED") else Color.parseColor("#1C1B1F")
@@ -70,29 +70,27 @@ object ThemeHelper {
     }
 
     fun applyBottomNav(nav: BottomNavigationView, primary: Int, dark: Boolean) {
+        val p = 0xFF1565C0.toInt() // همیشه آبی قالب
         val muted = textSecondary(dark)
         val states = arrayOf(
             intArrayOf(android.R.attr.state_checked),
             intArrayOf(-android.R.attr.state_checked)
         )
-        val colors = intArrayOf(primary, muted)
+        val colors = intArrayOf(p, muted)
         val csl = ColorStateList(states, colors)
         nav.itemIconTintList = csl
         nav.itemTextColor = csl
-        nav.setBackgroundColor(surfaceCard(dark))
-        // subtle top divider feel
-        nav.elevation = 12f
+        nav.setBackgroundColor(if (dark) 0xFF1B2838.toInt() else Color.WHITE)
+        nav.elevation = 16f
     }
 
     fun applyCard(card: MaterialCardView, dark: Boolean, accent: Int? = null) {
-        card.setCardBackgroundColor(surfaceCard(dark))
-        card.radius = 22f
-        card.cardElevation = if (dark) 3f else 7f
+        card.setCardBackgroundColor(if (dark) 0xFF1B2838.toInt() else Color.WHITE)
+        card.radius = 16f * card.resources.displayMetrics.density
+        card.cardElevation = if (dark) 1f else 2f
         card.strokeWidth = if (dark) 1 else 0
         card.strokeColor = outline(dark)
-        if (accent != null) {
-            // left accent via content - handled by caller
-        }
+        card.useCompatPadding = false
     }
 
     fun sectionTitle(ctx: Context, text: String, dark: Boolean, primary: Int): TextView {
@@ -109,10 +107,16 @@ object ThemeHelper {
     fun pageTitle(ctx: Context, text: String, dark: Boolean): TextView {
         return TextView(ctx).apply {
             this.text = text
-            textSize = 24f
-            setTextColor(textPrimary(dark))
-            setTypeface(typeface, android.graphics.Typeface.BOLD)
-            setPadding(4, 8, 4, 16)
+            textSize = 20f
+            setTypeface(null, android.graphics.Typeface.BOLD)
+            setTextColor(android.graphics.Color.WHITE)
+            setBackgroundColor(0xFF1565C0.toInt())
+            val d = ctx.resources.displayMetrics.density
+            setPadding((20*d).toInt(), (28*d).toInt(), (20*d).toInt(), (22*d).toInt())
+            layoutParams = android.view.ViewGroup.LayoutParams(
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+            )
         }
     }
 

@@ -13,7 +13,7 @@ object LicenseStore {
     private const val KEY_ACTIVATED = "activated"
 
     /** آدرس سرور مدیریت لایسنس — بعد از دیپلوی Vercel عوض کنید */
-    const val DEFAULT_BASE_URL = "https://personal-time-tracker-license.vercel.app"
+    const val DEFAULT_BASE_URL = "https://YOUR-PROJECT.vercel.app"
 
     fun prefs(ctx: Context) = ctx.getSharedPreferences(PREF, Context.MODE_PRIVATE)
 

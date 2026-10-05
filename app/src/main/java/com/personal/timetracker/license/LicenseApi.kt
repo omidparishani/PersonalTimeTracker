@@ -91,6 +91,9 @@ object LicenseApi {
                     return@withContext ValidateResult(true, active = true, reason = "offline")
                 }
                 val active = json.optBoolean("active", false)
+                if (active) {
+                    RemoteConfig.saveFromValidate(ctx, json.optJSONObject("config"))
+                }
                 ValidateResult(
                     ok = json.optBoolean("ok", false),
                     active = active,

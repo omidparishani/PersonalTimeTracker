@@ -28,6 +28,8 @@ import com.personal.timetracker.ui.calendar.CalendarFragment
 import com.personal.timetracker.ui.dashboard.DashboardFragment
 import com.personal.timetracker.ui.reports.ReportsFragment
 import com.personal.timetracker.ui.settings.SettingsFragment
+import com.personal.timetracker.ui.support.SupportFragment
+import com.personal.timetracker.license.RemoteConfig
 import com.personal.timetracker.ui.tasks.TasksFragment
 import com.personal.timetracker.util.BiometricHelper
 import com.personal.timetracker.util.GeoHelper
@@ -116,8 +118,8 @@ class MainActivity : AppCompatActivity() {
                     try { NotifHelper.scheduleGeoBackgroundCheck(this@MainActivity) } catch (_: Exception) {}
                     try { com.personal.timetracker.util.DynamicAppIcon.sync(this@MainActivity) } catch (_: Exception) {}
                     // سینک خودکار Worklog هفته جاری هنگام ورود به اپ
+                    val repo = (application as App).repository
                     try {
-                        val repo = (application as App).repository
                         val today = com.personal.timetracker.util.TimeUtils.today()
                         val weekStart = com.personal.timetracker.util.TimeUtils.startOfWeek(
                             com.personal.timetracker.util.TimeUtils.parseDate(today)
@@ -129,6 +131,14 @@ class MainActivity : AppCompatActivity() {
                     withContext(Dispatchers.Main) {
                         binding.root.visibility = View.INVISIBLE
                     }
+                    try { applyRemoteWorkSettings(repo) } catch (_: Exception) {}
+                    try { checkJiraNotifications(repo) } catch (_: Exception) {}
+                    try { checkChatNotifications() } catch (_: Exception) {}
+                    try {
+                        val y = com.personal.timetracker.util.TimeUtils.toJalali()[0]
+                        repo.syncHolidaysFromLicenseServer()
+                        repo.fetchHolidaysFromInternet(y)
+                    } catch (_: Exception) {}
                     ActivationGate.ensure(
                         activity = this@MainActivity,
                         owner = this@MainActivity,
@@ -148,8 +158,10 @@ class MainActivity : AppCompatActivity() {
                                             binding.root.visibility = View.VISIBLE
                                         },
                                         onFail = {
-                                            Toast.makeText(this@MainActivity, "احراز هویت ناموفق", Toast.LENGTH_SHORT).show()
-                                            finish()
+                                            Toast.makeText(this@MainActivity, "احراز هویت ناموفق — دوباره تلاش کنید", Toast.LENGTH_SHORT).show()
+                                            // بسته نشود؛ کاربر بتواند دوباره تلاش کند
+                                            binding.root.visibility = View.VISIBLE
+                                            unlocked = true
                                         }
                                     )
                                 } else {
@@ -173,10 +185,13 @@ class MainActivity : AppCompatActivity() {
                 }
             }
 
+            if (binding.bottomNav.menu.size() == 0) {
+                binding.bottomNav.inflateMenu(R.menu.bottom_nav)
+            }
             binding.bottomNav.setOnItemSelectedListener { item ->
                 when (item.itemId) {
                     R.id.nav_dashboard -> open(DashboardFragment())
-                    R.id.nav_attendance -> open(AttendanceFragment())
+                    R.id.nav_attendance -> open(com.personal.timetracker.ui.calendar.CalendarFragment())
                     R.id.nav_tasks -> open(TasksFragment())
                     R.id.nav_reports -> open(ReportsFragment())
                     R.id.nav_settings -> open(SettingsFragment())
@@ -201,12 +216,20 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun applyChrome(primary: Int, dark: Boolean) {
-        primaryColor = primary
+        // رنگ قالب Figma — آبی ثابت
+        primaryColor = 0xFF1565C0.toInt()
         isDark = dark
-        window.statusBarColor = if (dark) Color.parseColor("#121212") else primary
+        // نوار وضعیت همیشه آبی قالب (نه سبز/تیره جدا)
+        window.statusBarColor = 0xFF1565C0.toInt()
+        try {
+            window.decorView.systemUiVisibility =
+                (window.decorView.systemUiVisibility or android.view.View.SYSTEM_UI_FLAG_LAYOUT_STABLE)
+        } catch (_: Exception) {}
         window.navigationBarColor = ThemeHelper.surfaceCard(dark)
         binding.root.setBackgroundColor(ThemeHelper.surface(dark))
         ThemeHelper.applyBottomNav(binding.bottomNav, primary, dark)
+        binding.bottomNav.visibility = View.VISIBLE
+        binding.root.visibility = View.VISIBLE
         // Refresh the currently visible fragment in place if it supports it, so theme/color
         // changes made from Settings apply immediately without needing to switch tabs.
         val current = supportFragmentManager.findFragmentById(R.id.fragmentContainer)
@@ -279,4 +302,112 @@ class MainActivity : AppCompatActivity() {
             .replace(R.id.fragmentContainer, fragment)
             .commitAllowingStateLoss()
     }
+
+    /** اعمال تنظیمات شیفت/دسترسی از سرور لایسنس روی Settings محلی */
+    private suspend fun applyRemoteWorkSettings(repo: com.personal.timetracker.data.repository.AppRepository) {
+        val ctx = applicationContext
+        val s = repo.getSettings()
+        val updated = s.copy(
+            startWorkTime = RemoteConfig.startWork(ctx),
+            endWorkTime = RemoteConfig.endWork(ctx),
+            flexibleMinutes = RemoteConfig.flexible(ctx),
+            minimumWorkMinutes = RemoteConfig.minDaily(ctx),
+            weeklyRequiredMinutes = RemoteConfig.weekly(ctx),
+            thursdayWorking = RemoteConfig.thuWorking(ctx),
+            thursdayMinutes = RemoteConfig.thuMinutes(ctx)
+        )
+        repo.saveSettings(updated)
+        // مخفی کردن تب‌ها
+        runOnUiThread {
+            try {
+                // همه میانبرها نمایش داده می‌شوند اگر دسترسی مربوطه باشد
+                binding.bottomNav.menu.findItem(R.id.nav_tasks)?.isVisible = RemoteConfig.canJira(ctx)
+                binding.bottomNav.menu.findItem(R.id.nav_attendance)?.isVisible = RemoteConfig.canAttendance(ctx)
+                binding.bottomNav.menu.findItem(R.id.nav_reports)?.isVisible = RemoteConfig.canReports(ctx)
+                binding.bottomNav.menu.findItem(R.id.nav_dashboard)?.isVisible = true
+                binding.bottomNav.menu.findItem(R.id.nav_settings)?.isVisible = true
+            } catch (_: Exception) {}
+        }
+    }
+
+    /** بررسی اعلان‌های جira برای issueهای اساین‌شده / گزارش‌شده */
+    private fun checkJiraNotifications(repo: com.personal.timetracker.data.repository.AppRepository) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val s = repo.getSettings()
+                if (!s.jiraEnabled) return@launch
+                val service = com.personal.timetracker.jira.JiraService.fromSettings(s) ?: return@launch
+                // آخرین issueهای assigned — اگر updated اخیر داشته باشند نوتیف
+                val prefs = getSharedPreferences("ptt_jira_notif", MODE_PRIVATE)
+                val lastCheck = prefs.getLong("last_check", 0L)
+                val now = System.currentTimeMillis()
+                if (now - lastCheck < 15 * 60 * 1000) return@launch // هر ۱۵ دقیقه
+                prefs.edit().putLong("last_check", now).apply()
+                service.fetchAssigned(openOnly = true, maxResults = 20).onSuccess { issues ->
+                    val seen = prefs.getStringSet("seen_keys", emptySet())?.toMutableSet() ?: mutableSetOf()
+                    var newCount = 0
+                    for (iss in issues) {
+                        val k = iss.key
+                        if (k.isBlank()) continue
+                        if (k !in seen) {
+                            newCount++
+                            seen.add(k)
+                        }
+                    }
+                    if (seen.size > 80) {
+                        val trimmed = seen.toList().takeLast(40).toSet()
+                        prefs.edit().putStringSet("seen_keys", trimmed).apply()
+                    } else {
+                        prefs.edit().putStringSet("seen_keys", seen).apply()
+                    }
+                    if (newCount > 0) {
+                        withContext(Dispatchers.Main) {
+                            NotifHelper.show(
+                                this@MainActivity,
+                                "Jira",
+                                "$newCount تسک جدید/به‌روز برای شما",
+                                7201
+                            )
+                        }
+                    }
+                }
+            } catch (_: Exception) {}
+        }
+    }
+
+
+    private fun checkChatNotifications() {
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val ctx = applicationContext
+                val key = com.personal.timetracker.license.LicenseStore.licenseKey(ctx) ?: return@launch
+                val deviceId = com.personal.timetracker.license.LicenseStore.deviceId(ctx)
+                val base = com.personal.timetracker.license.LicenseStore.baseUrl(ctx).trimEnd('/')
+                val client = okhttp3.OkHttpClient()
+                val req = okhttp3.Request.Builder()
+                    .url("$base/api/v1/chat?licenseKey=$key&deviceId=$deviceId&mode=conversations")
+                    .get().build()
+                val body = client.newCall(req).execute().use { it.body?.string().orEmpty() }
+                val json = org.json.JSONObject(body)
+                if (!json.optBoolean("ok")) return@launch
+                val arr = json.optJSONArray("conversations") ?: return@launch
+                var unread = 0
+                for (i in 0 until arr.length()) unread += arr.getJSONObject(i).optInt("unread")
+                val prefs = getSharedPreferences("ptt_chat_notif", MODE_PRIVATE)
+                val prev = prefs.getInt("unread", 0)
+                if (unread > prev) {
+                    withContext(Dispatchers.Main) {
+                        NotifHelper.show(
+                            this@MainActivity,
+                            "پیام جدید",
+                            "شما $unread پیام خوانده‌نشده دارید",
+                            7103
+                        )
+                    }
+                }
+                prefs.edit().putInt("unread", unread).apply()
+            } catch (_: Exception) {}
+        }
+    }
+
 }

@@ -27,6 +27,7 @@ import com.personal.timetracker.util.AttendanceEditor
 import com.personal.timetracker.util.DialogHelper
 import com.personal.timetracker.util.JalaliDatePickerDialog
 import com.personal.timetracker.util.ThemeHelper
+import com.personal.timetracker.util.FigmaUi
 import com.personal.timetracker.util.TimeUtils
 import com.personal.timetracker.ui.MainActivity
 import kotlinx.coroutines.flow.collectLatest
@@ -57,9 +58,13 @@ class AttendanceFragment : Fragment() {
         }
 
         root.addView(TextView(ctx).apply {
-            text = "حضور و غیاب"
-            textSize = 22f
-            setPadding(0, 0, 0, 16)
+            text = "تردد و تقویم"
+            textSize = 20f
+            setTypeface(null, android.graphics.Typeface.BOLD)
+            setTextColor(android.graphics.Color.WHITE)
+            setBackgroundColor(FigmaUi.PRIMARY)
+            setPadding(32, 48, 32, 36)
+            gravity = android.view.Gravity.END
         })
 
         val repo = (requireActivity().application as App).repository
@@ -117,7 +122,7 @@ class AttendanceFragment : Fragment() {
 
         ThemeHelper.applyButton(btnIn, primary, true)
         ThemeHelper.applyButton(btnOut, primary, false)
-        root.setBackgroundColor(ThemeHelper.surface((activity as? MainActivity)?.isDark == true))
+        root.setBackgroundColor(FigmaUi.BG)
 
         titleText = TextView(ctx).apply {
             textSize = 16f

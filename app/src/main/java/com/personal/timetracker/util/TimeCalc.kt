@@ -77,9 +77,17 @@ object TimeCalc {
         // How much of the (allowed) lateness should shift the end time: clamp entry into
         // [start, flexWindowEnd] — arriving early doesn't grant an earlier end, and arriving
         // beyond the flex window doesn't keep shifting the end further.
-        val effectiveAbs = entryAbs.coerceIn(startAbs, flexEndAbs)
-        val suggestedEnd = TimeUtils.addMinutes(startWorkTime, (effectiveAbs - startAbs) + requiredDurationMinutes)
-
+        // ورود زودتر از شروع: خروج پیشنهادی = ورود + موظفی (مثلاً 08:28 + 9:15 → 17:43)
+        // ورود داخل پنجره شناوری: پایان به اندازه تأخیر جابه‌جا می‌شود
+        // ورود بعد از پنجره: مرخصی تأخیر + پایان روی سقف شناوری
+        val suggestedEnd = when {
+            entryAbs <= startAbs ->
+                TimeUtils.addMinutes(entryTime, requiredDurationMinutes)
+            entryAbs <= flexEndAbs ->
+                TimeUtils.addMinutes(entryTime, requiredDurationMinutes)
+            else ->
+                TimeUtils.addMinutes(startWorkTime, flexibleMinutes + requiredDurationMinutes)
+        }
         val entryLeave = (entryAbs - flexEndAbs).coerceAtLeast(0)
         return FlexOutcome(suggestedEnd, entryLeave)
     }
