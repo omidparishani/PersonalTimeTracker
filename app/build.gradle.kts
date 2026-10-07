@@ -40,8 +40,13 @@ android {
         applicationId = "com.personal.timetracker"
         minSdk = 26
         targetSdk = 34
-        versionCode = (System.getenv("VERSION_CODE")?.toIntOrNull() ?: 3).coerceAtLeast(3)
-        versionName = System.getenv("VERSION_NAME") ?: "1.2.0"
+        // بازار: هر آپلود جدید باید versionCode بزرگ‌تر از نسخه قبلی همان معماری باشد
+        versionCode = (System.getenv("VERSION_CODE")?.toIntOrNull() ?: 4).coerceAtLeast(4)
+        versionName = System.getenv("VERSION_NAME") ?: "1.2.1"
+        // فقط معماری موبایل‌های واقعی — برای بازار کافی است
+        ndk {
+            abiFilters += listOf("armeabi-v7a", "arm64-v8a")
+        }
     }
 
     signingConfigs {
