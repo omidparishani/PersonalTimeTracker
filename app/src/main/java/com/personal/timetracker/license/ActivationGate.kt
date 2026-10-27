@@ -30,22 +30,26 @@ object ActivationGate {
         onReady: () -> Unit
     ) {
         val ctx = activity.applicationContext
+        // بدون لایسنس → صفحه فعال‌سازی
+        if (!LicenseStore.isActivated(ctx)) {
+            owner.lifecycleScope.launch {
+                showActivationScreen(activity, owner, appVersion, username, onReady)
+            }
+            return
+        }
+        // لایسنس محلی هست → فوراً وارد شو (بدون انتظار شبکه)
+        onReady()
+        // اعتبارسنجی پس‌زمینه حداکثر هر ۲۴ ساعت
+        if (!LicenseStore.needsRevalidate(ctx)) return
         owner.lifecycleScope.launch {
             try {
-            if (!LicenseStore.isActivated(ctx)) {
-                showActivationScreen(activity, owner, appVersion, username, onReady)
-                return@launch
-            }
-            val result = try {
-                LicenseApi.validate(ctx, username, appVersion)
-            } catch (e: Exception) {
-                // آفلاین / خطای شبکه → اجازه ورود
-                onReady()
-                return@launch
-            }
-            if (result.active) {
-                onReady()
-            } else {
+                val result = LicenseApi.validate(ctx, username, appVersion)
+                if (result.active) {
+                    LicenseStore.markValidated(ctx)
+                    return@launch
+                }
+                // فقط در صورت قطع قطعی توسط سرور
+                if (result.reason == "offline") return@launch
                 val msg = result.message
                     ?: when (result.reason) {
                         "disabled" -> "دسترسی شما توسط مدیر غیرفعال شده است"
@@ -53,19 +57,19 @@ object ActivationGate {
                         else -> "لایسنس نامعتبر است — دوباره فعال‌سازی کنید"
                     }
                 LicenseStore.clear(ctx)
-                AlertDialog.Builder(activity)
-                    .setTitle("دسترسی قطع شد")
-                    .setMessage(msg)
-                    .setCancelable(false)
-                    .setPositiveButton("فعال‌سازی مجدد") { _, _ ->
-                        showActivationScreen(activity, owner, appVersion, username, onReady)
-                    }
-                    .setNegativeButton("خروج") { _, _ -> activity.finish() }
-                    .show()
-            }
-            } catch (t: Throwable) {
-                // هر خطای غیرمنتظره → حداقل UI اصلی را نشان بده
-                try { onReady() } catch (_: Exception) {}
+                if (!activity.isFinishing) {
+                    AlertDialog.Builder(activity)
+                        .setTitle("دسترسی قطع شد")
+                        .setMessage(msg)
+                        .setCancelable(false)
+                        .setPositiveButton("فعال‌سازی مجدد") { _, _ ->
+                            showActivationScreen(activity, owner, appVersion, username, onReady)
+                        }
+                        .setNegativeButton("خروج") { _, _ -> activity.finish() }
+                        .show()
+                }
+            } catch (_: Exception) {
+                // شبکه قطع — با کش محلی ادامه
             }
         }
     }

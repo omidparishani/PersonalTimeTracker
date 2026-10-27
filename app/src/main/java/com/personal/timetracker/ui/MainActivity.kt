@@ -134,6 +134,7 @@ class MainActivity : AppCompatActivity() {
                     try { applyRemoteWorkSettings(repo) } catch (_: Exception) {}
                     try { checkJiraNotifications(repo) } catch (_: Exception) {}
                     try { checkChatNotifications() } catch (_: Exception) {}
+                    try { repo.recalculateDay(com.personal.timetracker.util.TimeUtils.today()) } catch (_: Exception) {}
                     try {
                         val y = com.personal.timetracker.util.TimeUtils.toJalali()[0]
                         repo.syncHolidaysFromLicenseServer()

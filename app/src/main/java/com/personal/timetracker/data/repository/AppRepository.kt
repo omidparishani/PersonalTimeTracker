@@ -17,6 +17,7 @@ import com.personal.timetracker.data.entity.SettingsEntity
 import com.personal.timetracker.data.entity.TaskEntity
 import com.personal.timetracker.data.entity.TaskLogEntity
 import com.personal.timetracker.util.NotifHelper
+import com.personal.timetracker.util.PresenceSegment
 import com.personal.timetracker.util.TimeCalc
 import com.personal.timetracker.util.TimeUtils
 import com.personal.timetracker.util.DynamicAppIcon
@@ -258,6 +259,7 @@ class AppRepository(context: Context) {
         val active = attendanceDao.getActive()
         if (active != null && active.date == date) return
         attendanceDao.insert(AttendanceEntity(date = date, entryTime = entryTime, status = "active"))
+        recalculateDay(date)
         val settings = getSettings()
         if (settings.notifEnabled && date == TimeUtils.today()) {
             val required = requiredMinutesFor(date, settings)
@@ -273,117 +275,109 @@ class AppRepository(context: Context) {
     }
 
     /**
-     * ثبت خروج و محاسبه مدت.
+     * ثبت خروج و سپس محاسبهٔ کل روز (چند ورود/خروج).
      */
     suspend fun checkOut(exitTime: String = TimeUtils.nowTime()) {
         val active = attendanceDao.getActive() ?: return
-        val settings = getSettings()
         val duration = TimeUtils.minutesBetween(active.entryTime, exitTime)
-
-        val required = requiredMinutesFor(active.date, settings)
-        val flex = TimeCalc.applyFlex(
-            active.entryTime, settings.startWorkTime, settings.flexibleMinutes, required
-        )
-        val (exitLeave, exitOvertime) = TimeCalc.exitOutcome(exitTime, flex.suggestedEnd)
-
-        var mid = 0
-        val dayRecords = attendanceDao.getByDateOnce(active.date)
-        val prev = dayRecords.filter { it.id != active.id && it.exitTime != null }.lastOrNull()
-        if (prev?.exitTime != null) {
-            mid = TimeCalc.midDayLeave(prev.exitTime!!, active.entryTime)
-        }
         attendanceDao.update(
             active.copy(
                 exitTime = exitTime,
                 duration = duration,
-                leaveDuration = flex.entryLeaveMinutes + exitLeave + mid,
-                overtimeDuration = exitOvertime,
                 status = "completed"
             )
         )
+        recalculateDay(active.date)
         NotifHelper.cancel(appContext)
         try { DynamicAppIcon.syncNow(appContext) } catch (_: Exception) {}
     }
 
     suspend fun addAttendance(date: String, entry: String, exit: String?) {
-        val settings = getSettings()
         if (exit == null) {
             attendanceDao.insert(AttendanceEntity(date = date, entryTime = entry, status = "active"))
         } else {
             val dur = TimeUtils.minutesBetween(entry, exit)
-            val required = requiredMinutesFor(date, settings)
-            val flex = TimeCalc.applyFlex(entry, settings.startWorkTime, settings.flexibleMinutes, required)
-            val (exitLeave, exitOvertime) = TimeCalc.exitOutcome(exit, flex.suggestedEnd)
             attendanceDao.insert(
                 AttendanceEntity(
                     date = date, entryTime = entry, exitTime = exit,
                     duration = dur,
-                    leaveDuration = flex.entryLeaveMinutes + exitLeave,
-                    overtimeDuration = exitOvertime,
                     status = "completed"
                 )
             )
         }
+        recalculateDay(date)
         try { DynamicAppIcon.syncNow(appContext) } catch (_: Exception) {}
     }
 
     suspend fun updateAttendance(item: AttendanceEntity) {
-        val settings = getSettings()
         val updated = if (item.exitTime != null) {
-            val dur = TimeUtils.minutesBetween(item.entryTime, item.exitTime)
-            val required = requiredMinutesFor(item.date, settings)
-            val flex = TimeCalc.applyFlex(item.entryTime, settings.startWorkTime, settings.flexibleMinutes, required)
-            val (exitLeave, exitOvertime) = TimeCalc.exitOutcome(item.exitTime, flex.suggestedEnd)
             item.copy(
-                duration = dur,
-                leaveDuration = flex.entryLeaveMinutes + exitLeave,
-                overtimeDuration = exitOvertime,
+                duration = TimeUtils.minutesBetween(item.entryTime, item.exitTime),
                 status = "completed"
             )
-        } else item.copy(status = "active")
+        } else item.copy(status = "active", duration = 0, leaveDuration = 0, overtimeDuration = 0)
         attendanceDao.update(updated)
+        recalculateDay(item.date)
         try { DynamicAppIcon.syncNow(appContext) } catch (_: Exception) {}
     }
 
     suspend fun deleteAttendance(item: AttendanceEntity) {
         attendanceDao.delete(item)
+        recalculateDay(item.date)
         try { DynamicAppIcon.syncNow(appContext) } catch (_: Exception) {}
     }
 
     /**
-     * Re-applies the current flex/schedule/holiday rules to every stored attendance record
-     * that has an exit time. Useful after changing shift settings, or after upgrading from
-     * an older version whose leave/overtime numbers were computed differently. Returns how
-     * many records were updated.
+     * محاسبهٔ یک روز کامل:
+     * - اولین ورود → شناوری و خروج پیشنهادی
+     * - جمع بازه‌ها → کارکرد
+     * - فاصله‌ها قبل از خروج پیشنهادی → مرخصی
+     * - حضور بعد از خروج پیشنهادی → اضافه‌کار
+     * مقادیر مرخصی/اضافه‌کار روی آخرین رکورد بسته‌شده ذخیره می‌شود تا در جمع‌زدن دوبل نشود.
+     */
+    suspend fun recalculateDay(date: String) {
+        val settings = getSettings()
+        val required = requiredMinutesFor(date, settings)
+        val recs = attendanceDao.getByDateOnce(date).sortedBy { it.entryTime }
+        if (recs.isEmpty()) return
+
+        val segments = recs.map {
+            com.personal.timetracker.util.PresenceSegment(it.entryTime, it.exitTime)
+        }
+        val totals = TimeCalc.computeDayTotals(
+            segments = segments,
+            startWorkTime = settings.startWorkTime,
+            flexibleMinutes = settings.flexibleMinutes,
+            requiredMinutes = required,
+            nowTime = if (date == TimeUtils.today()) TimeUtils.nowTime() else "23:59"
+        )
+
+        // هر رکورد فقط duration خودش؛ leave/OT فقط روی آخرین completed
+        val lastClosedId = recs.lastOrNull { it.exitTime != null }?.id
+        for (r in recs) {
+            val dur = if (r.exitTime != null) {
+                TimeUtils.minutesBetween(r.entryTime, r.exitTime)
+            } else 0
+            val isLast = r.id == lastClosedId
+            attendanceDao.update(
+                r.copy(
+                    duration = dur,
+                    leaveDuration = if (isLast) totals.leaveMinutes else 0,
+                    overtimeDuration = if (isLast) totals.overtimeMinutes else 0
+                )
+            )
+        }
+    }
+
+    /**
+     * اعمال مجدد قوانین شیفت روی همهٔ روزها.
      */
     suspend fun recalculateAllAttendance(): Int {
-        val settings = getSettings()
         val all = attendanceDao.getByRange("0000-01-01", "9999-12-31")
-        var count = 0
-        val byDate = all.groupBy { it.date }
-        byDate.forEach { (date, recs) ->
-            val required = requiredMinutesFor(date, settings)
-            var prevExit: String? = null
-            recs.sortedBy { it.entryTime }.forEach { r ->
-                if (r.exitTime != null) {
-                    val dur = TimeUtils.minutesBetween(r.entryTime, r.exitTime)
-                    val flex = TimeCalc.applyFlex(r.entryTime, settings.startWorkTime, settings.flexibleMinutes, required)
-                    val (exitLeave, exitOvertime) = TimeCalc.exitOutcome(r.exitTime, flex.suggestedEnd)
-                    val mid = if (prevExit != null) TimeCalc.midDayLeave(prevExit!!, r.entryTime) else 0
-                    attendanceDao.update(
-                        r.copy(
-                            duration = dur,
-                            leaveDuration = flex.entryLeaveMinutes + exitLeave + mid,
-                            overtimeDuration = exitOvertime
-                        )
-                    )
-                    count++
-                    prevExit = r.exitTime
-                }
-            }
-        }
+        val dates = all.map { it.date }.distinct()
+        for (d in dates) recalculateDay(d)
         try { DynamicAppIcon.syncNow(appContext) } catch (_: Exception) {}
-        return count
+        return dates.size
     }
 
     // ---- Tasks ----
@@ -726,6 +720,26 @@ class AppRepository(context: Context) {
         if (pageResult.isFailure) return@withContext Result.failure(pageResult.exceptionOrNull()!!)
         val page = pageResult.getOrNull()!!
 
+        // ---- پاکسازی کش قدیمی هنگام reset (صفحه اول) ----
+        // اگر startAt == 0 و append == false یعنی شروع تازه:
+        //   - ردیف‌هایی که علاقه‌مندی نیستند و در نتایج سرور نیستند باید حذف شوند
+        //   - پرچم isAssignedToMe همه ردیف‌ها ریست شود تا فقط نتایج جدید مقدار صحیح بگیرند
+        val fetchedKeys = page.items.map { it.key.uppercase() }.toSet()
+        if (startAt == 0 && !append) {
+            // ریست پرچم اساین همه ردیف‌ها — فقط نتایج تازه مقدار صحیح می‌گیرند
+            val allCached = jiraIssueDao.getAllOnce()
+            for (cached in allCached) {
+                val key = cached.issueKey.uppercase()
+                if (key !in fetchedKeys && key !in favKeys && !cached.isFavorite) {
+                    // Issue دیگر در نتایج سرور نیست و علاقه‌مندی هم نیست → حذف
+                    jiraIssueDao.deleteByKey(key)
+                } else if (key !in fetchedKeys) {
+                    // علاقه‌مندی است ولی در نتایج نیست → فقط اساین را ریست کن
+                    jiraIssueDao.upsert(cached.copy(isAssignedToMe = false, cachedAt = now))
+                }
+            }
+        }
+
         val entities = page.items.map { issue ->
             val key = issue.key.uppercase()
             val prev = jiraIssueDao.getByKey(key)
@@ -754,13 +768,14 @@ class AppRepository(context: Context) {
         }
         jiraIssueDao.upsertAll(entities)
 
-        // favorites not in page
+        // favorites not in page — واکشی تازه از سرور و به‌روزرسانی کش
         if (startAt == 0) {
             for (fav in jiraFavoriteDao.getAllOnce()) {
                 val key = fav.issueKey.uppercase()
-                if (jiraIssueDao.getByKey(key) != null) continue
+                // حتی اگر در کش هست، اطلاعات را از سرور تازه بگیر
                 val remote = service.getIssue(key).getOrNull()
                 if (remote != null) {
+                    val prev = jiraIssueDao.getByKey(key)
                     jiraIssueDao.upsert(
                         JiraIssueCacheEntity(
                             issueKey = key,
@@ -778,7 +793,8 @@ class AppRepository(context: Context) {
                             remainingMinutes = remote.remainingMinutes,
                             timeSpentMinutes = remote.timeSpentMinutes,
                             isFavorite = true,
-                            isAssignedToMe = false,
+                            isAssignedToMe = prev?.isAssignedToMe == true ||
+                                (remote.assigneeName?.lowercase()?.let { it in myNames } == true),
                             cachedAt = now
                         )
                     )
@@ -1119,19 +1135,17 @@ class AppRepository(context: Context) {
         // Days with actual attendance records: leave/overtime come straight from the
         // flex-aware per-record fields computed at check-in/out time.
         byDate.forEach { (date, recs) ->
-            var dayWork = 0
-            recs.forEach { r ->
-                if (r.exitTime != null) {
-                    dayWork += r.duration
-                    leave += r.leaveDuration
-                    overtime += r.overtimeDuration
-                } else if (r.status == "active") {
-                    dayWork += TimeUtils.minutesBetween(
-                        r.entryTime, TimeUtils.nowTime()
-                    ).coerceAtLeast(0)
-                }
-            }
-            worked += dayWork
+            val required = requiredMinutesFor(date, settings)
+            val totals = TimeCalc.computeDayTotals(
+                segments = recs.map { PresenceSegment(it.entryTime, it.exitTime) },
+                startWorkTime = settings.startWorkTime,
+                flexibleMinutes = settings.flexibleMinutes,
+                requiredMinutes = required,
+                nowTime = if (date == TimeUtils.today()) TimeUtils.nowTime() else "23:59"
+            )
+            worked += totals.workedMinutes
+            leave += totals.leaveMinutes
+            overtime += totals.overtimeMinutes
         }
 
         // Days within range that required work but have no attendance record at all count
@@ -1256,16 +1270,28 @@ class AppRepository(context: Context) {
             .toSet()
 
         val jql = """worklogAuthor = currentUser() AND worklogDate >= "$start" AND worklogDate <= "$end" ORDER BY updated DESC"""
-        val page = service.search(jql, maxResults = 50).getOrElse {
-            // fallback بدون worklogDate (بعضی نسخه‌ها)
-            val jql2 = "worklogAuthor = currentUser() ORDER BY updated DESC"
-            service.search(jql2, maxResults = 50).getOrElse { e ->
-                return@withContext Result.failure(e)
+        // واکشی تا ۲۰۰ issue (صفحه‌بندی خودکار) تا worklogها از دست نروند
+        val allIssues = mutableListOf<JiraService.IssueItem>()
+        var searchStartAt = 0
+        val searchPageSize = 50
+        repeat(4) { _ ->
+            val searchResult = service.search(jql, maxResults = searchPageSize).let { result ->
+                if (result.isFailure && searchStartAt == 0) {
+                    val jql2 = "worklogAuthor = currentUser() ORDER BY updated DESC"
+                    service.search(jql2, maxResults = searchPageSize)
+                } else result
             }
+            val page = searchResult.getOrElse { e ->
+                if (searchStartAt == 0) return@withContext Result.failure(e)
+                return@repeat
+            }
+            allIssues.addAll(page.items)
+            searchStartAt += page.items.size
+            if (!page.hasMore || page.items.isEmpty()) return@repeat
         }
         var count = 0
         val now = TimeUtils.nowDateTime()
-        for (issue in page.items) {
+        for (issue in allIssues) {
             val key = issue.key.uppercase()
             val remoteList = service.getWorklogs(key).getOrElse { emptyList() }
             for (wl in remoteList) {

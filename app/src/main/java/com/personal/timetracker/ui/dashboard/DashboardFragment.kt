@@ -383,9 +383,19 @@ class DashboardFragment : Fragment() {
                     val settings = repo.getSettings()
                     val today = TimeUtils.today()
                     val required = repo.requiredMinutesFor(today, settings)
-                    var worked = 0
-                    var leave = 0
-                    var ot = 0
+                    val segments = list.map {
+                        com.personal.timetracker.util.PresenceSegment(it.entryTime, it.exitTime)
+                    }
+                    val totals = TimeCalc.computeDayTotals(
+                        segments = segments,
+                        startWorkTime = settings.startWorkTime,
+                        flexibleMinutes = settings.flexibleMinutes,
+                        requiredMinutes = required,
+                        nowTime = TimeUtils.nowTime()
+                    )
+                    val worked = totals.workedMinutes
+                    val leave = totals.leaveMinutes
+                    val ot = totals.overtimeMinutes
                     attBox.removeAllViews()
                     if (list.isEmpty()) {
                         attBox.addView(TextView(ctx).apply {
@@ -398,10 +408,11 @@ class DashboardFragment : Fragment() {
                     }
                     list.forEach { rec ->
                         val done = rec.exitTime != null
-                        val dur = if (done) rec.duration else {
+                        val dur = if (done) {
+                            TimeUtils.minutesBetween(rec.entryTime, rec.exitTime!!).coerceAtLeast(0)
+                        } else {
                             TimeUtils.minutesBetween(rec.entryTime, TimeUtils.nowTime()).coerceAtLeast(0)
                         }
-                        worked += dur
                         val title = if (done) "خروج" else "ورود به محل کار"
                         val sub = if (done) "${TimeUtils.faNum(rec.entryTime)} – ${TimeUtils.faNum(rec.exitTime!!)}"
                         else "از ${TimeUtils.faNum(rec.entryTime)}"
@@ -414,20 +425,15 @@ class DashboardFragment : Fragment() {
                             )
                         )
                     }
-                    // اضافه‌کار / مرخصی بر اساس جمع کارکرد در برابر موظفی روز
-                    ot = (worked - required).coerceAtLeast(0)
-                    leave = (required - worked).coerceAtLeast(0)
                     chipWorked.text = TimeUtils.formatDuration(worked)
                     chipRequired.text = TimeUtils.formatDuration(required)
                     chipLeave.text = TimeUtils.formatDuration(leave)
                     chipOt.text = TimeUtils.formatDuration(ot)
-                    // نمودار پیشرفت: کار کرده نسبت به موظفی، مرخصی، اضافه‌کار
                     if (chipBars.size >= 4 && required > 0) {
                         val pctWork = ((worked * 100) / required).coerceIn(0, 100)
                         val pctReq = 100
                         val pctLeave = ((leave * 100) / required).coerceIn(0, 100)
                         val pctOt = ((ot * 100) / required).coerceIn(0, 100)
-                        // ترتیب labels: اضافه، مرخصی، موظفی، امروز
                         chipBars[0].progress = pctOt
                         chipBars[1].progress = pctLeave
                         chipBars[2].progress = pctReq
@@ -440,19 +446,14 @@ class DashboardFragment : Fragment() {
                         statusTitle.text = "در محل کار"
                         statusTitle.setTextColor(FigmaUi.PRIMARY)
                         statusSub.text = "ورود در ساعت ${TimeUtils.faNum(active.entryTime)}"
-                        val flex = TimeCalc.applyFlex(
-                            active.entryTime,
-                            settings.startWorkTime,
-                            settings.flexibleMinutes,
-                            required
-                        )
-                        suggestedText.text = TimeUtils.faNum(flex.suggestedEnd)
-                        startTicker(active.entryTime, flex.suggestedEnd)
+                        // خروج پیشنهادی بر اساس اولین ورود روز (totals)
+                        suggestedText.text = TimeUtils.faNum(totals.suggestedEnd)
+                        startTicker(active.entryTime, totals.suggestedEnd)
                     } else {
                         statusTitle.text = "خارج از شیفت"
                         statusTitle.setTextColor(FigmaUi.muted(isDark))
                         statusSub.text = if (list.isEmpty()) "هنوز ورود ثبت نشده" else "آخرین خروج انجام شد"
-                        suggestedText.text = "—"
+                        suggestedText.text = if (list.isEmpty()) "—" else TimeUtils.faNum(totals.suggestedEnd)
                     }
                 }
             } catch (_: Exception) {

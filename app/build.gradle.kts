@@ -40,11 +40,12 @@ android {
         applicationId = "com.personal.timetracker"
         minSdk = 26
         targetSdk = 34
-        // بازار: هر آپلود جدید باید versionCode بزرگ‌تر از نسخه قبلی همان معماری باشد
-        versionCode = (System.getenv("VERSION_CODE")?.toIntOrNull() ?: 4).coerceAtLeast(4)
-        versionName = System.getenv("VERSION_NAME") ?: "1.2.1"
-        // فقط معماری موبایل‌های واقعی — برای بازار کافی است
+        // نسخه ۲ — بازار: versionCode باید از نسخه قبلی بیشتر باشد
+        // معماری: فقط ARM (قوانین بازار: ALL / armeabi-v7a / arm64-v8a)
+        versionCode = (System.getenv("VERSION_CODE")?.toIntOrNull() ?: 7).coerceAtLeast(7)
+        versionName = System.getenv("VERSION_NAME") ?: "2.0.2"
         ndk {
+            // فقط پردازنده‌های موبایل — بدون x86 (بازار)
             abiFilters += listOf("armeabi-v7a", "arm64-v8a")
         }
     }

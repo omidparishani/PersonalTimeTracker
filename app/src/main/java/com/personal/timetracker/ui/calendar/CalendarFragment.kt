@@ -27,6 +27,8 @@ import com.personal.timetracker.util.AttendanceEditor
 import com.personal.timetracker.util.DialogHelper
 import com.personal.timetracker.util.ThemeHelper
 import com.personal.timetracker.util.FigmaUi
+import com.personal.timetracker.util.PresenceSegment
+import com.personal.timetracker.util.TimeCalc
 import com.personal.timetracker.util.TimeUtils
 import com.personal.timetracker.util.WorklogTimeFields
 import com.personal.timetracker.util.JalaliDatePickerDialog
@@ -312,21 +314,22 @@ class CalendarFragment : Fragment() {
             try {
                 repo.syncWorklogsForDate(d)
             } catch (_: Exception) { }
+            try { repo.recalculateDay(d) } catch (_: Exception) {}
             val att = repo.getByDateOnce(d)
             val logs = repo.getJiraWorklogsForDate(d)
             val tasks = repo.getTasksByDateOnce(d)
-
-            // Summary card
-            val worked = att.sumOf {
-                if (it.exitTime != null) it.duration
-                else if (it.status == "active") TimeUtils.minutesBetween(
-                    it.entryTime,
-                    TimeUtils.nowTime()
-                )
-                else 0
-            }
-            val leave = att.sumOf { it.leaveDuration }
-            val ot = att.sumOf { it.overtimeDuration }
+            val settings = repo.getSettings()
+            val required = repo.requiredMinutesFor(d, settings)
+            val totals = TimeCalc.computeDayTotals(
+                segments = att.map { PresenceSegment(it.entryTime, it.exitTime) },
+                startWorkTime = settings.startWorkTime,
+                flexibleMinutes = settings.flexibleMinutes,
+                requiredMinutes = required,
+                nowTime = if (d == TimeUtils.today()) TimeUtils.nowTime() else "23:59"
+            )
+            val worked = totals.workedMinutes
+            val leave = totals.leaveMinutes
+            val ot = totals.overtimeMinutes
 
             val sumCard = MaterialCardView(ctx)
             ThemeHelper.applyCard(sumCard, dark)

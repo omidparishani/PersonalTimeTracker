@@ -93,6 +93,7 @@ object LicenseApi {
                 val active = json.optBoolean("active", false)
                 if (active) {
                     RemoteConfig.saveFromValidate(ctx, json.optJSONObject("config"))
+                    LicenseStore.markValidated(ctx)
                 }
                 ValidateResult(
                     ok = json.optBoolean("ok", false),
